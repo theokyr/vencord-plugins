@@ -308,6 +308,15 @@ function DmKeycapDecorator({ channel }: { channel: any; }) {
 let guildObserver: MutationObserver | null = null;
 let guildUpdateTimer: ReturnType<typeof setTimeout> | null = null;
 
+function applyEntranceAnim() {
+    if (!hintsJustAppeared) return;
+    hintsJustAppeared = false;
+    document.querySelectorAll(".vc-hotkeyNav-keycap").forEach(el => {
+        el.classList.add("vc-hotkeyNav-keycap-entering");
+        el.addEventListener("animationend", () => el.classList.remove("vc-hotkeyNav-keycap-entering"), { once: true });
+    });
+}
+
 function updateGuildHints() {
     const guildNav = document.querySelector('[aria-label="Servers sidebar"]') ?? document.querySelector("nav ul");
     if (!guildNav) return;
@@ -404,6 +413,8 @@ function updateGuildHints() {
             }
         }
     }
+
+    applyEntranceAnim();
 }
 
 function scheduleGuildUpdate() {
@@ -599,6 +610,8 @@ function updateChannelHints() {
             containerEl.appendChild(hint);
         }
     }
+
+    applyEntranceAnim();
 }
 
 function scheduleChannelUpdate() {
@@ -798,6 +811,7 @@ export function unregisterAction(id: string): void {
 // Tracks which layers should show hints due to modifier hold
 let heldLayers: Set<string> = new Set(); // "notification" | "dm" | "server" | "channel"
 let currentHeldMods: { ctrl: boolean; alt: boolean; shift: boolean; meta: boolean; } = { ctrl: false, alt: false, shift: false, meta: false };
+let hintsJustAppeared = false; // true when layers changed — entrance animation plays once
 
 function getHeldModifiers(e: KeyboardEvent): { ctrl: boolean; alt: boolean; shift: boolean; meta: boolean; } {
     return { ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey };
@@ -828,7 +842,9 @@ function updateHeldLayers(held: ReturnType<typeof getHeldModifiers>) {
     // Only update if changed
     const changed = newLayers.size !== heldLayers.size || [...newLayers].some(l => !heldLayers.has(l));
     if (changed) {
+        const grew = newLayers.size > heldLayers.size;
         heldLayers = newLayers;
+        hintsJustAppeared = grew; // entrance anim only when layers are added
         // Trigger hint re-render
         NotificationTracker._listeners.forEach(fn => fn()); // DM decorator re-renders
         scheduleGuildUpdate();

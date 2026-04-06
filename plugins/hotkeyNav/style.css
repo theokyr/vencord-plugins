@@ -78,7 +78,7 @@
 
 /* ─── Animated keycap appear/disappear ───────────────────── */
 
-.vc-hotkeyNav-keycap {
+.vc-hotkeyNav-keycap-entering {
     animation: vc-pop var(--vc-anim-speed, 150ms) var(--vc-anim-ease-spring, ease-out) both;
 }
 
