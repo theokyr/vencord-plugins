@@ -1,0 +1,36 @@
+name: Release Plugin Index
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Validate plugins.json
+        run: npx @kamaras/venpm validate plugins.json
+
+      - name: Create/update latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Plugin Index
+          body: |
+            Latest `plugins.json` — add this repo to venpm:
+            ```
+            venpm repo add https://github.com/theokyr/vencord-plugins/releases/latest/download/plugins.json
+            ```
+          files: plugins.json
+          make_latest: true
