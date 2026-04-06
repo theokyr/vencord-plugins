@@ -1,0 +1,120 @@
+/* _animationKit/animations.css — shared animation CSS vars, keyframes, and utility classes */
+
+:root {
+    --vc-anim-speed-fast: 100ms;
+    --vc-anim-speed: 150ms;
+    --vc-anim-speed-slow: 250ms;
+    --vc-anim-ease: ease;
+    --vc-anim-ease-out: ease-out;
+    --vc-anim-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --vc-anim-stagger: 40ms;
+}
+
+body.vc-anim-minimal {
+    --vc-anim-speed-fast: 0ms;
+    --vc-anim-speed: 80ms;
+    --vc-anim-speed-slow: 100ms;
+    --vc-anim-ease-spring: ease-out;
+    --vc-anim-stagger: 0ms;
+}
+
+body.vc-anim-smooth {
+    --vc-anim-speed-fast: 100ms;
+    --vc-anim-speed: 150ms;
+    --vc-anim-speed-slow: 250ms;
+    --vc-anim-ease: ease;
+    --vc-anim-ease-out: ease-out;
+    --vc-anim-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --vc-anim-stagger: 40ms;
+}
+
+body.vc-anim-expressive {
+    --vc-anim-speed: 200ms;
+    --vc-anim-speed-slow: 350ms;
+}
+
+body.vc-anim-off * {
+    animation-duration: 0s !important;
+    transition-duration: 0s !important;
+}
+
+/* Keyframes */
+
+@keyframes vc-fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes vc-fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes vc-slideUp {
+    from {
+        transform: translateY(8px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes vc-slideDown {
+    from {
+        transform: translateY(-8px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes vc-pop {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    60% {
+        transform: scale(1.1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes vc-pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Utility classes */
+
+.vc-anim-fadeIn {
+    animation: vc-fadeIn var(--vc-anim-speed) var(--vc-anim-ease-out) both;
+}
+
+.vc-anim-fadeOut {
+    animation: vc-fadeOut var(--vc-anim-speed) var(--vc-anim-ease-out) both;
+}
+
+.vc-anim-slideUp {
+    animation: vc-slideUp var(--vc-anim-speed) var(--vc-anim-ease-spring) both;
+}
+
+.vc-anim-slideDown {
+    animation: vc-slideDown var(--vc-anim-speed) var(--vc-anim-ease-spring) both;
+}
+
+.vc-anim-pop {
+    animation: vc-pop var(--vc-anim-speed) var(--vc-anim-ease-spring) both;
+}
+
+.vc-anim-pulse {
+    animation: vc-pulse var(--vc-anim-speed-slow) var(--vc-anim-ease) infinite;
+}

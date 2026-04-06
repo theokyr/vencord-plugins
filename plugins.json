@@ -1,0 +1,95 @@
+{
+  "$schema": "https://venpm.dev/schemas/v1/plugins.json",
+  "name": "kamaras-plugins",
+  "description": "Custom Vencord userplugins by kamaras",
+  "plugins": {
+    "bsNoMore": {
+      "version": "0.1.0",
+      "description": "Remove upsell clutter — compacts DM nav, hides clan tags, avatar decorations, quest popups, and store UI",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "MIT",
+      "optionalDependencies": ["settingsHub"],
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/bsNoMore"
+      }
+    },
+    "channelTabs": {
+      "version": "0.1.0",
+      "description": "Quick-access tab bar for channels and DMs",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "MIT",
+      "optionalDependencies": ["settingsHub"],
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/channelTabs"
+      }
+    },
+    "discordMcp": {
+      "version": "0.1.0",
+      "description": "MCP bridge — expose Discord to AI agents via the Model Context Protocol",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "MIT",
+      "optionalDependencies": ["settingsHub"],
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/discordMcp"
+      }
+    },
+    "hotkeyNav": {
+      "version": "0.1.0",
+      "description": "Keyboard-driven navigation to notifications, DMs, and servers with inline keycap hints",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "MIT",
+      "optionalDependencies": ["settingsHub"],
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/hotkeyNav"
+      }
+    },
+    "messageHeaderAvatar": {
+      "version": "0.1.0",
+      "description": "Displays user avatars inline in message headers next to the username",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "MIT",
+      "optionalDependencies": ["settingsHub"],
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/messageHeaderAvatar"
+      }
+    },
+    "minimalCallBar": {
+      "version": "0.1.0",
+      "description": "Replaces the large DM/Group DM call overlay with a compact 32px bar",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "MIT",
+      "optionalDependencies": ["settingsHub", "channelTabs"],
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/minimalCallBar"
+      }
+    },
+    "settingsHub": {
+      "version": "0.1.0",
+      "description": "Unified settings page for custom plugins",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "MIT",
+      "optionalDependencies": ["channelTabs"],
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/settingsHub"
+      }
+    },
+    "venpmGui": {
+      "version": "0.1.0",
+      "description": "Manage Vencord plugins from inside Discord — browse, install, update, and configure without the terminal",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "MIT",
+      "optionalDependencies": ["settingsHub"],
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/venpmGui"
+      }
+    }
+  }
+}

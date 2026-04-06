@@ -1,0 +1,109 @@
+/* ── Body class toggles (animated) ─────────────────────────────── */
+
+/* Clan tags — inline spans, use width collapse */
+body.vc-bsNoMore-hideClanTags [class*="clanTagChiplet"] {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+    pointer-events: none;
+    transition: opacity var(--vc-anim-speed, 150ms), width var(--vc-anim-speed, 150ms);
+}
+
+/* Avatar decorations — positioned overlays, just fade */
+body.vc-bsNoMore-hideProfileDecorations [class*="avatarDecorationContainer"],
+body.vc-bsNoMore-hideProfileDecorations img[src*="avatar-decoration"] {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--vc-anim-speed, 150ms);
+}
+
+/* Store UI — block elements, collapse height */
+body.vc-bsNoMore-hideStoreTabs [class*="nitroUpsell"],
+body.vc-bsNoMore-hideStoreTabs [class*="premiumFeatureBorder"],
+body.vc-bsNoMore-hideStoreTabs [class*="premiumPromo"] {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    pointer-events: none;
+    transition: opacity var(--vc-anim-speed, 150ms), max-height var(--vc-anim-speed, 150ms);
+}
+
+/* Server banners — absolutely positioned overlays, fade */
+body.vc-bsNoMore-hideServerBanners [class*="animatedContainer_"],
+body.vc-bsNoMore-hideServerBanners [class*="headerEllipseBackdrop_"],
+body.vc-bsNoMore-hideServerBanners [class*="headerEllipseForeground_"],
+body.vc-bsNoMore-hideServerBanners [class*="headerGlass_"] {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--vc-anim-speed, 150ms);
+}
+
+body.vc-bsNoMore-hideServerBanners [class*="hasBanner_"][class*="bannerVisible_"] {
+    background: transparent !important;
+}
+
+/* Banner spacer — animate height collapse */
+body.vc-bsNoMore-hideServerBanners [class*="content_d125d2"] > div[aria-hidden="true"][style*="height"] {
+    height: 0px !important;
+    transition: height var(--vc-anim-speed-slow, 250ms);
+}
+
+/* ── Button bar styles ──────────────────────────────────────── */
+
+.vc-bsNoMore-bar {
+    display: flex;
+    gap: 6px;
+    padding: var(--vc-bsNoMore-barPadding, 8px) 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.vc-bsNoMore-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 14px;
+    font-size: var(--vc-bsNoMore-textSize, 12px);
+    font-weight: 500;
+    color: #b5bac1;
+    background: rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+    transition: background var(--vc-anim-speed, 150ms), color var(--vc-anim-speed, 150ms);
+    border: none;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.vc-bsNoMore-pill:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #dbdee1;
+}
+
+.vc-bsNoMore-pill.vc-bsNoMore-active {
+    background: #5865f2;
+    color: #fff;
+}
+
+.vc-bsNoMore-pill.vc-bsNoMore-active:hover {
+    background: #4752c4;
+}
+
+.vc-bsNoMore-pill svg {
+    width: var(--vc-bsNoMore-iconSize, 16px);
+    height: var(--vc-bsNoMore-iconSize, 16px);
+    flex-shrink: 0;
+}
+
+/* Icon-only mode */
+.vc-bsNoMore-bar.vc-bsNoMore-iconOnly .vc-bsNoMore-pill {
+    width: var(--vc-bsNoMore-iconBtnSize, 32px);
+    height: var(--vc-bsNoMore-iconBtnSize, 32px);
+    padding: 0;
+    border-radius: 50%;
+    justify-content: center;
+}
+
+.vc-bsNoMore-bar.vc-bsNoMore-iconOnly .vc-bsNoMore-label {
+    display: none;
+}

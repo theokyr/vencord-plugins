@@ -1,0 +1,369 @@
+/* ─── Status Bar ──────────────────────────────────────────────────────── */
+.vc-venpmGui-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: rgba(88, 101, 242, 0.08);
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+.vc-venpmGui-status-bar .vc-venpmGui-separator {
+    opacity: 0.3;
+}
+
+.vc-venpmGui-status-bar .vc-venpmGui-update-count {
+    color: #faa61a;
+}
+
+.vc-venpmGui-status-bar .vc-venpmGui-update-all {
+    margin-left: auto;
+    color: var(--brand-experiment, #5865f2);
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.vc-venpmGui-status-bar .vc-venpmGui-update-all:hover {
+    text-decoration: underline;
+}
+
+/* ─── Tab Navigation ──────────────────────────────────────────────────── */
+.vc-venpmGui-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--background-secondary, rgba(255, 255, 255, 0.05));
+    border-radius: 6px;
+    padding: 2px;
+    margin-bottom: 16px;
+}
+
+.vc-venpmGui-tab {
+    padding: 6px 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+    user-select: none;
+}
+
+.vc-venpmGui-tab:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.vc-venpmGui-tab.vc-venpmGui-tab-active {
+    background: rgba(88, 101, 242, 0.25);
+    font-weight: 500;
+}
+
+/* ─── Plugin List ─────────────────────────────────────────────────────── */
+.vc-venpmGui-plugin-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.vc-venpmGui-plugin-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--background-secondary, rgba(255, 255, 255, 0.05));
+    border-radius: 6px;
+    gap: 12px;
+}
+
+.vc-venpmGui-plugin-row.vc-venpmGui-dimmed {
+    opacity: 0.5;
+}
+
+.vc-venpmGui-plugin-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.vc-venpmGui-plugin-name {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.vc-venpmGui-plugin-desc {
+    font-size: 11px;
+    opacity: 0.5;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vc-venpmGui-plugin-meta {
+    font-size: 10px;
+    opacity: 0.3;
+    margin-top: 4px;
+}
+
+.vc-venpmGui-plugin-version {
+    font-size: 11px;
+    opacity: 0.4;
+    flex-shrink: 0;
+}
+
+/* ─── Plugin Grid ─────────────────────────────────────────────────────── */
+.vc-venpmGui-plugin-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.vc-venpmGui-plugin-card {
+    background: var(--background-secondary, rgba(255, 255, 255, 0.05));
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.vc-venpmGui-plugin-card .vc-venpmGui-plugin-name {
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+
+.vc-venpmGui-plugin-card .vc-venpmGui-plugin-desc {
+    margin-bottom: 8px;
+}
+
+/* ─── Badges ──────────────────────────────────────────────────────────── */
+.vc-venpmGui-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.vc-venpmGui-badge-current {
+    background: rgba(61, 178, 73, 0.15);
+    color: #3db249;
+}
+
+.vc-venpmGui-badge-update {
+    background: rgba(250, 166, 26, 0.2);
+    color: #faa61a;
+    cursor: pointer;
+}
+
+.vc-venpmGui-badge-pinned {
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 0.6;
+}
+
+.vc-venpmGui-badge-installed {
+    background: rgba(61, 178, 73, 0.15);
+    color: #3db249;
+}
+
+/* ─── Buttons ─────────────────────────────────────────────────────────── */
+.vc-venpmGui-btn {
+    font-size: 12px;
+    padding: 4px 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: opacity 0.15s;
+}
+
+.vc-venpmGui-btn:hover {
+    opacity: 0.85;
+}
+
+.vc-venpmGui-btn-primary {
+    background: var(--brand-experiment, #5865f2);
+    color: white;
+}
+
+.vc-venpmGui-btn-danger {
+    background: var(--button-danger-background, #da373c);
+    color: white;
+}
+
+.vc-venpmGui-btn-secondary {
+    background: var(--background-secondary, rgba(255, 255, 255, 0.1));
+    color: var(--text-normal, #dcddde);
+}
+
+.vc-venpmGui-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ─── Search ──────────────────────────────────────────────────────────── */
+.vc-venpmGui-search {
+    background: rgba(0, 0, 0, 0.2);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 14px;
+    width: 100%;
+    font-size: 14px;
+    color: var(--text-normal, #dcddde);
+    margin-bottom: 12px;
+    outline: none;
+}
+
+.vc-venpmGui-search::placeholder {
+    opacity: 0.3;
+}
+
+/* ─── Repo Filter Pills ──────────────────────────────────────────────── */
+.vc-venpmGui-pills {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.vc-venpmGui-pill {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    cursor: pointer;
+    background: var(--background-secondary, rgba(255, 255, 255, 0.05));
+    transition: background 0.15s;
+}
+
+.vc-venpmGui-pill.vc-venpmGui-pill-active {
+    background: rgba(88, 101, 242, 0.3);
+}
+
+/* ─── System Health ───────────────────────────────────────────────────── */
+.vc-venpmGui-health {
+    border-top: 1px solid var(--background-modifier-accent, rgba(255, 255, 255, 0.06));
+    padding-top: 12px;
+    margin-top: 16px;
+}
+
+.vc-venpmGui-health-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 12px;
+}
+
+.vc-venpmGui-health-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.vc-venpmGui-health-dot.green { background: #3db249; }
+.vc-venpmGui-health-dot.yellow { background: #faa61a; }
+.vc-venpmGui-health-dot.red { background: #da373c; }
+
+.vc-venpmGui-health-hint {
+    font-size: 11px;
+    opacity: 0.5;
+    padding-left: 16px;
+    margin-top: 2px;
+}
+
+/* ─── Wizard ──────────────────────────────────────────────────────────── */
+.vc-venpmGui-wizard-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.vc-venpmGui-wizard {
+    background: var(--background-primary, #313338);
+    border-radius: 12px;
+    padding: 24px;
+    width: 480px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.vc-venpmGui-wizard h2 {
+    margin: 0 0 8px 0;
+    font-size: 20px;
+}
+
+.vc-venpmGui-wizard p {
+    opacity: 0.7;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.vc-venpmGui-wizard-checks {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 16px 0;
+}
+
+.vc-venpmGui-wizard-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.vc-venpmGui-wizard-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+/* ─── Advanced ────────────────────────────────────────────────────────── */
+.vc-venpmGui-section-header {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.5;
+    margin: 16px 0 8px 0;
+}
+
+.vc-venpmGui-repo-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: var(--background-secondary, rgba(255, 255, 255, 0.05));
+    border-radius: 6px;
+    margin-bottom: 4px;
+}
+
+.vc-venpmGui-repo-name {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.vc-venpmGui-repo-url {
+    font-size: 11px;
+    opacity: 0.4;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vc-venpmGui-inline-form {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.vc-venpmGui-input {
+    background: rgba(0, 0, 0, 0.2);
+    border: none;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--text-normal, #dcddde);
+    flex: 1;
+    outline: none;
+}

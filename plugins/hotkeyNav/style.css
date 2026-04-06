@@ -1,0 +1,114 @@
+.vc-hotkeyNav-keycap {
+    position: absolute;
+    z-index: 3;
+    background: #111;
+    color: #fff;
+    font-family: monospace;
+    font-weight: 700;
+    font-size: 10px;
+    line-height: 1;
+    border-radius: 3px;
+    padding: 1px 3px;
+    border: 1px solid #555;
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.vc-hotkeyNav-keycap-left {
+    bottom: -2px;
+    left: -2px;
+}
+
+.vc-hotkeyNav-keycap-right {
+    bottom: -2px;
+    right: -2px;
+}
+
+.vc-hotkeyNav-keycap-divider {
+    color: #555;
+    font-size: 9px;
+}
+
+.vc-hotkeyNav-keycap-dim {
+    color: #888;
+}
+
+/* Modifier key currently being held — bright accent */
+.vc-hotkeyNav-keycap-held {
+    color: #5865f2;
+    text-shadow: 0 0 4px rgba(88, 101, 242, 0.5);
+}
+
+/* DM sidebar decorator — position keycap over the avatar, shifted down 8px */
+.vc-hotkeyNav-dm-decorator {
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 32px;
+    height: 32px;
+    pointer-events: none;
+}
+
+/* Make the DM row's interactive element relative so our decorator can position */
+.vc-member-list-decorators-wrapper {
+    position: static !important;
+}
+
+/* Guild bar + DM bubble hints — break out of icon clipping */
+.vc-hotkeyNav-guild-hint {
+    overflow: visible !important;
+    white-space: nowrap;
+    z-index: 10;
+}
+
+
+/* Channel list active category highlight */
+.vc-hotkeyNav-cat-active {
+    border-left: 2px solid #5865f2 !important;
+    background: rgba(88, 101, 242, 0.08) !important;
+}
+
+/* Channel list dimmed (inactive categories in stateful mode) */
+.vc-hotkeyNav-cat-dimmed {
+    opacity: 0.35 !important;
+}
+
+/* ─── Animated keycap appear/disappear ───────────────────── */
+
+.vc-hotkeyNav-keycap {
+    animation: vc-pop var(--vc-anim-speed, 150ms) var(--vc-anim-ease-spring, ease-out) both;
+}
+
+.vc-hotkeyNav-keycap-exiting {
+    animation: vc-fadeOut var(--vc-anim-speed-fast, 100ms) var(--vc-anim-ease, ease) both;
+}
+
+/* ─── Category highlight transitions ────────────────────── */
+
+.vc-hotkeyNav-cat-active {
+    transition: border-color var(--vc-anim-speed, 150ms), background-color var(--vc-anim-speed, 150ms);
+}
+
+.vc-hotkeyNav-cat-dimmed {
+    transition: opacity var(--vc-anim-speed, 150ms);
+}
+
+/* ─── Keycap held glow (animated pulse) ──────────────────── */
+
+.vc-hotkeyNav-keycap-held {
+    animation: vc-pulse 2s ease-in-out infinite;
+}
+
+/* ─── Navigation flash ───────────────────────────────────── */
+
+@keyframes vc-hotkeyNav-flash {
+    0% { background: rgba(88, 101, 242, 0.2); }
+    100% { background: transparent; }
+}
+
+.vc-hotkeyNav-nav-flash {
+    animation: vc-hotkeyNav-flash 1.5s ease-out;
+}

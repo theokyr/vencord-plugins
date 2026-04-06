@@ -1,0 +1,104 @@
+.vc-msgHeaderAvatar-icon {
+    border-radius: 50%;
+    vertical-align: -0.2em;
+    margin-right: 4px;
+    object-fit: cover;
+}
+
+/* Slightly smaller in reply previews — width/height set inline by component via replyAvatarSize */
+.vc-msgHeaderAvatar-reply {
+    vertical-align: -0.15em;
+    margin-right: 2px;
+}
+
+/* Compact mode: sits between timestamp and username */
+[class*="compact-"] .vc-msgHeaderAvatar-icon {
+    margin-left: 4px;
+}
+
+/* Hide avatar on continuation (non-group-start) messages */
+body.vc-msgHeaderAvatar-hideConsecutive [class*="message_"]:not([class*="groupStart_"]) .vc-msgHeaderAvatar-icon:not(.vc-msgHeaderAvatar-reply) {
+    display: none;
+}
+
+/* Hide username on continuation (non-group-start) messages */
+body.vc-msgHeaderAvatar-hideConsecutiveNames [class*="message_"]:not([class*="groupStart_"]) [class*="username_"] {
+    display: none;
+}
+
+/* Hide clan tags / server identity badges */
+body.vc-msgHeaderAvatar-hideClanTags [class*="clanTagChiplet"] {
+    display: none;
+}
+
+/* Vertical line on consecutive messages from the same user */
+body.vc-msgHeaderAvatar-consecutiveLine [class*="message_"]:not([class*="groupStart_"]) {
+    position: relative;
+}
+
+/* Base line style — middle continuation messages (full height) */
+body.vc-msgHeaderAvatar-consecutiveLine [class*="message_"]:not([class*="groupStart_"])::before {
+    content: "";
+    position: absolute;
+    left: var(--vc-msgHeaderAvatar-line-offset, 52px);
+    top: 0;
+    bottom: 0;
+    width: var(--vc-msgHeaderAvatar-line-width, 2px);
+    background: var(--vc-msgHeaderAvatar-line-color, var(--text-muted));
+    opacity: var(--vc-msgHeaderAvatar-line-opacity, 0.4);
+    border-radius: 1px;
+}
+
+/* First continuation message — line starts at 50% */
+body.vc-msgHeaderAvatar-consecutiveLine li:has(> [class*="groupStart_"]) + li > [class*="message_"]:not([class*="groupStart_"])::before {
+    top: 50%;
+}
+
+/* Last continuation message — line ends at 50% */
+body.vc-msgHeaderAvatar-consecutiveLine li:has(> [class*="message_"]:not([class*="groupStart_"])):has(+ li > [class*="groupStart_"]) > [class*="message_"]:not([class*="groupStart_"])::before {
+    bottom: 50%;
+}
+
+/* Last continuation when it's the last message in the list */
+body.vc-msgHeaderAvatar-consecutiveLine li:last-child > [class*="message_"]:not([class*="groupStart_"])::before {
+    bottom: 50%;
+}
+
+/* Single continuation (both first and last) — just a dot centered */
+body.vc-msgHeaderAvatar-consecutiveLine li:has(> [class*="groupStart_"]) + li:has(+ li > [class*="groupStart_"]) > [class*="message_"]:not([class*="groupStart_"])::before {
+    top: 50%;
+    bottom: 50%;
+}
+
+body.vc-msgHeaderAvatar-consecutiveLine li:has(> [class*="groupStart_"]) + li:last-child > [class*="message_"]:not([class*="groupStart_"])::before {
+    top: 50%;
+    bottom: 50%;
+}
+
+/* ─── Avatar hover scale ─────────────────────────────────── */
+
+.vc-msgHeaderAvatar-icon {
+    transition: transform var(--vc-anim-speed-fast, 100ms) var(--vc-anim-ease, ease);
+}
+
+.vc-msgHeaderAvatar-icon:hover {
+    transform: scale(1.15);
+}
+
+/* ─── Avatar appear on new messages (Smooth/Expressive only) ── */
+
+body:not(.vc-anim-minimal):not(.vc-anim-off) [class*="groupStart_"] .vc-msgHeaderAvatar-icon {
+    animation: vc-fadeIn var(--vc-anim-speed, 150ms) var(--vc-anim-ease-out, ease-out) both;
+}
+
+/* Expressive gets scale too */
+body.vc-anim-expressive [class*="groupStart_"] .vc-msgHeaderAvatar-icon {
+    animation: vc-pop var(--vc-anim-speed, 200ms) var(--vc-anim-ease-spring) both;
+}
+
+/* ─── Consecutive line draw animation ────────────────────── */
+
+body:not(.vc-anim-off).vc-msgHeaderAvatar-consecutiveLine [class*="message_"]:not([class*="groupStart_"])::before {
+    transition: height var(--vc-anim-speed, 150ms) var(--vc-anim-ease-out, ease-out),
+                opacity var(--vc-anim-speed, 150ms) var(--vc-anim-ease-out, ease-out);
+}

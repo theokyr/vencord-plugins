@@ -1,0 +1,131 @@
+.vc-discordMcp-promptContainer {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 360px;
+    min-width: 280px;
+    pointer-events: auto;
+    font-family: var(--font-primary, "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif);
+}
+
+.vc-discordMcp-prompt {
+    background: var(--background-floating, #2b2d31);
+    border: 1px solid var(--background-modifier-accent, #3f4147);
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+    animation: vc-slideUp var(--vc-anim-speed-slow, 250ms) var(--vc-anim-ease-out, ease-out) both;
+    backdrop-filter: blur(8px);
+    position: relative;
+}
+
+.vc-discordMcp-promptTitle {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--header-primary, #f2f3f5);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.vc-discordMcp-promptTitle::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--status-warning, #faa61a);
+    flex-shrink: 0;
+}
+
+.vc-discordMcp-promptParams {
+    font-size: 12px;
+    color: var(--text-muted, #949ba4);
+    margin-bottom: 10px;
+    word-break: break-all;
+    max-height: 80px;
+    overflow-y: auto;
+    line-height: 1.4;
+    padding: 6px 8px;
+    background: var(--background-secondary, #232428);
+    border-radius: 4px;
+}
+
+.vc-discordMcp-promptButtons {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.vc-discordMcp-promptAllow,
+.vc-discordMcp-promptDeny {
+    border: none;
+    border-radius: 4px;
+    padding: 6px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--vc-anim-speed, 150ms) var(--vc-anim-ease, ease), transform var(--vc-anim-speed-fast, 100ms) var(--vc-anim-ease, ease);
+    font-family: inherit;
+}
+
+.vc-discordMcp-promptAllow:active,
+.vc-discordMcp-promptDeny:active {
+    transform: scale(0.97);
+}
+
+.vc-discordMcp-promptAllow {
+    background: var(--button-positive-background, #248046);
+    color: #fff;
+}
+
+.vc-discordMcp-promptAllow:hover {
+    background: var(--button-positive-background-hover, #1a6334);
+}
+
+.vc-discordMcp-promptDeny {
+    background: var(--button-danger-background, #da373c);
+    color: #fff;
+}
+
+.vc-discordMcp-promptDeny:hover {
+    background: var(--button-danger-background-hover, #a12d31);
+}
+
+/* ─── Prompt exit animation ──────────────────────────────── */
+
+.vc-discordMcp-prompt-exiting {
+    animation: vc-fadeOut var(--vc-anim-speed, 150ms) var(--vc-anim-ease, ease) both;
+    transform: translateY(8px);
+    pointer-events: none;
+}
+
+/* ─── Button feedback flash ──────────────────────────────── */
+
+.vc-discordMcp-flash-allow {
+    background: #23a55a !important;
+    transition: background 0ms !important;
+}
+
+.vc-discordMcp-flash-deny {
+    background: #f23f43 !important;
+    transition: background 0ms !important;
+}
+
+/* ─── Timeout progress bar ───────────────────────────────── */
+
+.vc-discordMcp-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: var(--brand-500, #5865f2);
+    border-radius: 0 0 8px 8px;
+    width: 100%;
+    transition: width linear;
+}

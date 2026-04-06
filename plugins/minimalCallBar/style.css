@@ -1,0 +1,426 @@
+/* ─── Mode A: Inline Strip (below tabs/title bar) ─── */
+.vc-minimalCallBar-strip {
+    height: 32px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+    background: rgba(35, 165, 90, 0.08);
+    border-bottom: 1px solid rgba(35, 165, 90, 0.2);
+    cursor: pointer;
+    flex-shrink: 0;
+    font-family: var(--font-primary);
+    font-size: 12px;
+    user-select: none;
+}
+
+/* ─── Mode F: Bottom Strip (above message input) ─── */
+.vc-minimalCallBar-bottom {
+    height: 32px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+    background: linear-gradient(90deg, rgba(35, 165, 90, 0.1) 0%, transparent 70%);
+    border-top: 1px solid rgba(35, 165, 90, 0.15);
+    cursor: pointer;
+    flex-shrink: 0;
+    font-family: var(--font-primary);
+    font-size: 12px;
+    user-select: none;
+}
+
+/* ─── Shared bar elements ─── */
+.vc-minimalCallBar-statusDot {
+    width: 8px;
+    height: 8px;
+    background: #23a55a;
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: vc-minimalCallBar-pulse 2s ease-in-out infinite;
+}
+
+@keyframes vc-minimalCallBar-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.vc-minimalCallBar-statusText {
+    color: #23a55a;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.vc-minimalCallBar-separator {
+    color: var(--text-muted, #949ba4);
+}
+
+.vc-minimalCallBar-timer {
+    color: var(--text-muted, #949ba4);
+    font-size: 12px;
+    font-family: var(--font-code);
+}
+
+/* ─── Avatar stack ─── */
+.vc-minimalCallBar-avatarStack {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.vc-minimalCallBar-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--background-primary, #313338);
+    object-fit: cover;
+}
+
+.vc-minimalCallBar-avatar + .vc-minimalCallBar-avatar {
+    margin-left: -6px;
+}
+
+.vc-minimalCallBar-avatarCount {
+    color: var(--text-muted, #949ba4);
+    font-size: 11px;
+    margin-left: 4px;
+}
+
+.vc-minimalCallBar-avatarWrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.vc-minimalCallBar-avatar.vc-minimalCallBar-speaking {
+    border-color: #23a55a;
+    box-shadow: 0 0 0 1px #23a55a;
+}
+
+.vc-minimalCallBar-avatarBadge {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    background: var(--background-primary, #313338);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ed4245;
+}
+
+.vc-minimalCallBar-avatarBadge svg {
+    width: 10px;
+    height: 10px;
+}
+
+/* ─── Channel name ─── */
+.vc-minimalCallBar-channelName {
+    color: var(--text-normal, #dbdee1);
+    font-size: 12px;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ─── Ping display ─── */
+.vc-minimalCallBar-ping {
+    color: var(--text-muted, #949ba4);
+    font-size: 11px;
+    font-family: var(--font-code);
+}
+
+/* ─── Disconnected state ─── */
+.vc-minimalCallBar-statusDot.vc-minimalCallBar-disconnected {
+    background: #949ba4;
+    animation: none;
+}
+
+/* ─── Controls ─── */
+.vc-minimalCallBar-controls {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.vc-minimalCallBar-controlBtn {
+    width: 24px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    color: var(--interactive-normal, #b5bac1);
+    padding: 0;
+    transition: background var(--vc-anim-speed, 150ms), color var(--vc-anim-speed, 150ms);
+}
+
+.vc-minimalCallBar-controlBtn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--interactive-hover, #dbdee1);
+}
+
+.vc-minimalCallBar-controlBtn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.vc-minimalCallBar-controlBtn.vc-minimalCallBar-muted {
+    color: #ed4245;
+}
+
+.vc-minimalCallBar-controlBtn.vc-minimalCallBar-hangup {
+    background: #ed4245;
+    border-radius: 50%;
+    color: #fff;
+}
+
+.vc-minimalCallBar-controlBtn.vc-minimalCallBar-hangup:hover {
+    background: #d83c3e;
+}
+
+.vc-minimalCallBar-controlBtn.vc-minimalCallBar-rejoin {
+    background: #23a55a;
+    border-radius: 50%;
+    color: #fff;
+}
+
+.vc-minimalCallBar-controlBtn.vc-minimalCallBar-rejoin:hover {
+    background: #1a7d43;
+}
+
+.vc-minimalCallBar-controlBtn.vc-minimalCallBar-minimize {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: var(--interactive-normal, #b5bac1);
+}
+
+.vc-minimalCallBar-controlBtn.vc-minimalCallBar-minimize:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--interactive-hover, #dbdee1);
+}
+
+/* ─── Overflow menu ─── */
+.vc-minimalCallBar-overflowMenu {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    margin-bottom: 4px;
+    background: var(--background-floating, #2b2d31);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 4px;
+    min-width: 140px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 1002;
+}
+
+.vc-minimalCallBar-overflowItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 4px 8px;
+    border: none;
+    background: none;
+    color: var(--text-normal, #dbdee1);
+    font-size: 12px;
+    font-family: var(--font-primary);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.vc-minimalCallBar-overflowItem:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* ─── Tooltip ─── */
+.vc-minimalCallBar-tooltip {
+    position: absolute;
+    background: var(--background-floating, #2b2d31);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 12px;
+    min-width: 200px;
+    max-width: 300px;
+    max-height: 240px;
+    overflow-y: auto;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24);
+    z-index: 1001;
+    font-family: var(--font-primary);
+}
+
+.vc-minimalCallBar-tooltipHeader {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--header-primary, #f2f3f5);
+    margin-bottom: 4px;
+}
+
+.vc-minimalCallBar-tooltipDuration {
+    font-size: 11px;
+    color: var(--text-muted, #949ba4);
+    font-family: var(--font-code);
+    margin-bottom: 8px;
+}
+
+.vc-minimalCallBar-tooltipUser {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.vc-minimalCallBar-tooltipUserAvatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.vc-minimalCallBar-tooltipUserName {
+    font-size: 13px;
+    color: var(--text-normal, #dbdee1);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vc-minimalCallBar-tooltipUserStatus {
+    font-size: 11px;
+    color: var(--text-muted, #949ba4);
+    flex-shrink: 0;
+}
+
+/* ─── Hidden call overlay ─── */
+/* wrapper_* is the actual visible overlay; callContainer_* disambiguates from sidebar wrapper */
+.vc-minimalCallBar-hideOverlay [class*="chat_"] > [class*="wrapper_"]:has([class*="callContainer_"]) {
+    display: none !important;
+}
+
+/* ─── Overlay minimize button ─── */
+.vc-minimalCallBar-overlayMinimize {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 50%;
+    color: var(--interactive-normal, #b5bac1);
+    cursor: pointer;
+    transition: background var(--vc-anim-speed, 150ms), color var(--vc-anim-speed, 150ms);
+    margin: 0 8px;
+}
+
+.vc-minimalCallBar-overlayMinimize:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--interactive-hover, #dbdee1);
+}
+
+/* ─── Mode B: Tab Integration ─── */
+.vc-channelTabs-tab-call .vc-minimalCallBar-tabControls {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    margin-left: 4px;
+}
+
+.vc-minimalCallBar-tabControlBtn {
+    width: 16px;
+    height: 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--interactive-normal, #b5bac1);
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+}
+
+.vc-minimalCallBar-tabControlBtn:hover {
+    color: var(--interactive-hover, #dbdee1);
+}
+
+.vc-minimalCallBar-tabControlBtn svg {
+    width: 12px;
+    height: 12px;
+}
+
+.vc-minimalCallBar-tabControlBtn.vc-minimalCallBar-muted {
+    color: #ed4245;
+}
+
+.vc-minimalCallBar-tabControlBtn.vc-minimalCallBar-hangup {
+    color: #ed4245;
+}
+
+.vc-minimalCallBar-tabAvatarStack {
+    display: flex;
+    align-items: center;
+    margin-left: 4px;
+}
+
+.vc-minimalCallBar-tabAvatar {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(35, 165, 90, 0.15);
+    object-fit: cover;
+}
+
+.vc-minimalCallBar-tabAvatar + .vc-minimalCallBar-tabAvatar {
+    margin-left: -5px;
+}
+
+.vc-minimalCallBar-tabTimer {
+    color: var(--text-muted, #949ba4);
+    font-size: 10px;
+    margin-left: 4px;
+}
+
+/* ─── Bar entrance/exit ──────────────────────────────────── */
+
+.vc-minimalCallBar-strip.vc-anim-entering,
+.vc-minimalCallBar-bottom.vc-anim-entering {
+    animation: vc-slideUp var(--vc-anim-speed-slow, 250ms) var(--vc-anim-ease-out, ease-out) both;
+}
+
+.vc-minimalCallBar-strip.vc-anim-exiting,
+.vc-minimalCallBar-bottom.vc-anim-exiting {
+    animation: vc-fadeOut var(--vc-anim-speed, 150ms) var(--vc-anim-ease, ease) both;
+    pointer-events: none;
+}
+
+/* ─── Avatar stack pop ───────────────────────────────────── */
+
+.vc-minimalCallBar-avatar.vc-anim-entering {
+    animation: vc-pop var(--vc-anim-speed, 150ms) var(--vc-anim-ease-spring, ease-out) both;
+}
+
+.vc-minimalCallBar-avatar.vc-anim-exiting {
+    animation: vc-fadeOut var(--vc-anim-speed-fast, 100ms) var(--vc-anim-ease, ease) both;
+}
+
+/* ─── Tooltip entrance ───────────────────────────────────── */
+
+.vc-minimalCallBar-tooltip {
+    animation: vc-fadeIn var(--vc-anim-speed-fast, 100ms) var(--vc-anim-ease-out, ease-out) both;
+}
+
+/* ─── Mute/deafen state pulse (Expressive only) ─────────── */
+
+body.vc-anim-expressive .vc-minimalCallBar-controlBtn-stateChange {
+    animation: vc-pop var(--vc-anim-speed-fast, 100ms) var(--vc-anim-ease-spring, ease-out);
+}

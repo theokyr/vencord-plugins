@@ -1,0 +1,703 @@
+/* channelTabs — quick-access tab bar */
+
+/* ─── Tab bar ──────────────────────────────────────────────────────── */
+
+.vc-channelTabs-tabBar {
+    display: flex;
+    align-items: center;
+    background: transparent;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    height: var(--vc-channelTabs-barHeight, 32px);
+    min-height: var(--vc-channelTabs-barHeight, 32px);
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 4px;
+    gap: var(--vc-channelTabs-tabGap, 2px);
+    margin-bottom: var(--vc-channelTabs-bottomMargin, 0px);
+    scrollbar-width: none;
+}
+
+.vc-channelTabs-tabBar::-webkit-scrollbar {
+    display: none;
+}
+
+/* ─── Tab bar position via flex order ────────────────────────────── */
+
+#vc-channelTabs-container {
+    order: -1; /* top by default — before all Discord content */
+    position: relative;
+    z-index: 10; /* above settingsHub overlay (z-index: 5) */
+}
+
+#vc-channelTabs-container.vc-channelTabs-bottom {
+    order: 9999; /* bottom — after all Discord content */
+}
+
+.vc-channelTabs-bottom .vc-channelTabs-tabBar {
+    border-bottom: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    margin-bottom: 0;
+    margin-top: var(--vc-channelTabs-bottomMargin, 0px);
+}
+
+/* ─── Sidebar toggle buttons ──────────────────────────────────────── */
+
+.vc-channelTabs-sidebarToggles {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    flex-shrink: 0;
+    padding: 0 2px;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    margin-right: 2px;
+}
+
+.vc-channelTabs-toggleBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: var(--vc-channelTabs-tabRadius, 4px);
+    color: rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition:
+        background var(--vc-anim-speed, 150ms) ease,
+        color var(--vc-anim-speed, 150ms) ease;
+}
+
+.vc-channelTabs-toggleBtn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.vc-channelTabs-toggleBtn-active {
+    color: var(--brand-500, #5865f2);
+}
+
+.vc-channelTabs-toggleBtn-active:hover {
+    color: var(--brand-400, #7289da);
+}
+
+/* ─── Tab ──────────────────────────────────────────────────────────── */
+
+.vc-channelTabs-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px var(--vc-channelTabs-tabPadding, 8px);
+    height: var(--vc-channelTabs-tabHeight, 26px);
+    border-radius: var(--vc-channelTabs-tabRadius, 4px);
+    font-size: var(--vc-channelTabs-fontSize, 12px);
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    user-select: none;
+    position: relative;
+    background: transparent;
+    transition:
+        background var(--vc-anim-speed, 150ms) ease,
+        color var(--vc-anim-speed, 150ms) ease,
+        opacity var(--vc-anim-speed, 150ms) ease,
+        box-shadow var(--vc-anim-speed, 150ms) ease,
+        transform var(--vc-anim-speed, 150ms) ease;
+}
+
+.vc-channelTabs-tab:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.vc-channelTabs-tab:active:not(:has(.vc-channelTabs-tab-close:active)) {
+    transform: scale(0.97);
+}
+
+.vc-channelTabs-tab-active {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.vc-channelTabs-tab-pinned::before {
+    content: "";
+    width: var(--vc-channelTabs-iconSize, 16px);
+    height: var(--vc-channelTabs-iconSize, 16px);
+    flex-shrink: 0;
+    background: currentColor;
+    opacity: var(--vc-channelTabs-pinOpacity, 0.4);
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19.38 11.38a3 3 0 0 0 4.24 0l.03-.03a.5.5 0 0 0 0-.7L13.35.35a.5.5 0 0 0-.7 0l-.03.03a3 3 0 0 0 0 4.24L13 5l-2.92 2.92-3.65-.34a2 2 0 0 0-1.6.58l-.62.63a1 1 0 0 0 0 1.42l9.58 9.58a1 1 0 0 0 1.42 0l.63-.63a2 2 0 0 0 .58-1.6l-.34-3.64L19 11l.38.38ZM9.07 17.07a.5.5 0 0 1-.08.77l-5.15 3.43a.5.5 0 0 1-.63-.06l-.42-.42a.5.5 0 0 1-.06-.63L6.16 15a.5.5 0 0 1 .77-.08l2.14 2.14Z'/%3E%3C/svg%3E");
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19.38 11.38a3 3 0 0 0 4.24 0l.03-.03a.5.5 0 0 0 0-.7L13.35.35a.5.5 0 0 0-.7 0l-.03.03a3 3 0 0 0 0 4.24L13 5l-2.92 2.92-3.65-.34a2 2 0 0 0-1.6.58l-.62.63a1 1 0 0 0 0 1.42l9.58 9.58a1 1 0 0 0 1.42 0l.63-.63a2 2 0 0 0 .58-1.6l-.34-3.64L19 11l.38.38ZM9.07 17.07a.5.5 0 0 1-.08.77l-5.15 3.43a.5.5 0 0 1-.63-.06l-.42-.42a.5.5 0 0 1-.06-.63L6.16 15a.5.5 0 0 1 .77-.08l2.14 2.14Z'/%3E%3C/svg%3E");
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    transition: opacity var(--vc-anim-speed, 150ms) ease;
+}
+
+.vc-channelTabs-tab-pinned:hover::before {
+    opacity: 0.7;
+}
+
+/* ─── Close button ─────────────────────────────────────────────────── */
+
+.vc-channelTabs-tab-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--vc-channelTabs-iconSize, 16px);
+    height: var(--vc-channelTabs-iconSize, 16px);
+    border-radius: 3px;
+    color: inherit;
+    opacity: 0.15;
+    flex-shrink: 0;
+    transition:
+        opacity var(--vc-anim-speed, 150ms) ease,
+        background var(--vc-anim-speed, 150ms) ease;
+}
+
+.vc-channelTabs-tab-close svg {
+    width: calc(var(--vc-channelTabs-iconSize, 16px) * 0.6);
+    height: calc(var(--vc-channelTabs-iconSize, 16px) * 0.6);
+}
+
+.vc-channelTabs-tab .vc-channelTabs-tab-close {
+    opacity: var(--vc-channelTabs-closeOpacity, 0);
+}
+
+.vc-channelTabs-tab:hover .vc-channelTabs-tab-close {
+    opacity: max(var(--vc-channelTabs-closeOpacity, 0), 0.6);
+}
+
+.vc-channelTabs-tab-close:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* ─── New tab button ──────────────────────────────────────────────── */
+
+.vc-channelTabs-newTab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: var(--vc-channelTabs-tabRadius, 4px);
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    flex-shrink: 0;
+    user-select: none;
+    transition:
+        background var(--vc-anim-speed, 150ms) ease,
+        color var(--vc-anim-speed, 150ms) ease;
+}
+
+.vc-channelTabs-newTab:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.vc-channelTabs-newTab:active {
+    transform: scale(0.9);
+}
+
+/* ─── Tab icon ─────────────────────────────────────────────────────── */
+
+.vc-channelTabs-tab-icon {
+    width: var(--vc-channelTabs-iconSize, 16px);
+    height: var(--vc-channelTabs-iconSize, 16px);
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: transform var(--vc-anim-speed, 150ms) ease;
+}
+
+.vc-channelTabs-tab:hover .vc-channelTabs-tab-icon {
+    transform: scale(1.1);
+}
+
+/* Invert white route icons on light theme */
+.theme-light .vc-channelTabs-tab-icon[src^="data:"] {
+    filter: invert(1);
+}
+
+/* ─── Unread / mention badges ──────────────────────────────────────── */
+
+.vc-channelTabs-tab-unread {
+    width: calc(var(--vc-channelTabs-iconSize, 16px) * 0.375);
+    height: calc(var(--vc-channelTabs-iconSize, 16px) * 0.375);
+    border-radius: 50%;
+    background: #fff;
+    flex-shrink: 0;
+    animation: vc-pop var(--vc-anim-speed, 150ms) var(--vc-anim-ease-spring, ease-out) both;
+}
+
+.vc-channelTabs-tab-mention {
+    font-size: calc(var(--vc-channelTabs-iconSize, 16px) * 0.5625);
+    font-weight: 700;
+    background: #f23f43;
+    color: #fff;
+    border-radius: 8px;
+    padding: 0 4px;
+    min-width: var(--vc-channelTabs-iconSize, 16px);
+    height: var(--vc-channelTabs-iconSize, 16px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    animation: vc-pop var(--vc-anim-speed, 150ms) var(--vc-anim-ease-spring, ease-out) both;
+}
+
+/* ─── Avatar wrapper (status dot positioning) ──────────────────────── */
+
+.vc-channelTabs-tab-avatarWrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+/* ─── DM status dot ───────────────────────────────────────────────── */
+
+.vc-channelTabs-statusDot {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 0, 0, 0.4);
+    transition: background var(--vc-anim-speed, 150ms) ease;
+}
+
+.vc-channelTabs-statusDot-online { background: #23a55a; }
+.vc-channelTabs-statusDot-idle { background: #f0b232; }
+.vc-channelTabs-statusDot-dnd { background: #f23f43; }
+.vc-channelTabs-statusDot-offline { background: #80848e; }
+
+/* ─── Typing indicator bar ────────────────────────────────────────── */
+
+.vc-channelTabs-typingBar {
+    position: absolute;
+    bottom: 0;
+    left: 4px;
+    right: 4px;
+    height: 2px;
+    border-radius: 1px;
+    background: rgba(255, 255, 255, 0.5);
+    animation: vc-channelTabs-typingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes vc-channelTabs-typingPulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+/* ─── Active call tab ─────────────────────────────────────────────── */
+
+.vc-channelTabs-tab-call {
+    box-shadow: inset 0 0 0 1px rgba(35, 165, 90, 0.33);
+    background: rgba(35, 165, 90, 0.12);
+}
+
+.vc-channelTabs-tab-call.vc-channelTabs-tab-active {
+    background: rgba(35, 165, 90, 0.2);
+}
+
+.vc-channelTabs-callIcon {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    color: #23a55a;
+    animation: vc-channelTabs-callPulse 2s ease-in-out infinite;
+}
+
+@keyframes vc-channelTabs-callPulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
+/* ─── Muted tab ───────────────────────────────────────────────────── */
+
+.vc-channelTabs-tab-muted {
+    opacity: 0.4;
+}
+
+/* ─── Hide guild sidebar ───────────────────────────────────────────── */
+
+body.vc-channelTabs-hideGuilds [class*="guilds_"] {
+    display: none;
+}
+
+body.vc-channelTabs-hideGuilds [class*="base_"][class*="__"] {
+    grid-template-columns: [start] 0px [guildsEnd] 0px [sidebarEnd] auto [channelsEnd] 1fr [end] !important;
+}
+
+body.vc-channelTabs-hideGuilds #vc-channelTabs-container {
+    margin-left: 0 !important;
+}
+
+/* ─── Hide channel list (keep guilds visible) ─────────────────────── */
+
+body.vc-channelTabs-hideChannels [class*="sidebarList_"] {
+    display: none;
+}
+
+body.vc-channelTabs-hideChannels [class*="sidebarResizeHandle_"] {
+    display: none;
+}
+
+body.vc-channelTabs-hideChannels [class*="base_"][class*="__"] {
+    grid-template-columns: [start] 72px [guildsEnd] 0px [sidebarEnd] 0px [channelsEnd] 1fr [end] !important;
+}
+
+/* When both are hidden */
+body.vc-channelTabs-hideGuilds.vc-channelTabs-hideChannels [class*="base_"][class*="__"] {
+    grid-template-columns: [start] 0px [guildsEnd] 0px [sidebarEnd] 0px [channelsEnd] 1fr [end] !important;
+}
+
+/* ─── Context menu ─────────────────────────────────────────────────── */
+
+.vc-channelTabs-contextMenu {
+    position: fixed;
+    z-index: 99999;
+    background: var(--background-floating, #111214);
+    border-radius: 4px;
+    padding: 6px 8px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24);
+    min-width: 160px;
+    animation: vc-slideUp var(--vc-anim-speed, 150ms) var(--vc-anim-ease-out, ease-out) both;
+    transform-origin: top left;
+}
+
+.vc-channelTabs-contextMenu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 3px;
+    font-size: 14px;
+    line-height: 18px;
+    color: var(--interactive-normal, #b5bac1);
+    cursor: pointer;
+    transition:
+        background var(--vc-anim-speed, 150ms) ease,
+        color var(--vc-anim-speed, 150ms) ease;
+}
+
+.vc-channelTabs-contextMenu-item:hover {
+    background: var(--brand-500, #5865f2);
+    color: #fff;
+}
+
+.vc-channelTabs-contextMenu-item-danger {
+    color: var(--status-danger, #f23f43);
+}
+
+.vc-channelTabs-contextMenu-item-danger:hover {
+    background: var(--status-danger, #f23f43);
+    color: #fff;
+}
+
+.vc-channelTabs-contextMenu-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.vc-channelTabs-contextMenu-item:hover .vc-channelTabs-contextMenu-icon {
+    opacity: 1;
+}
+
+.vc-channelTabs-contextMenu-separator {
+    height: 1px;
+    margin: 4px 0;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Drag feedback ───────────────────────────────────────────────── */
+
+.vc-channelTabs-tab-dropLeft::before {
+    content: "";
+    position: absolute;
+    left: -2px;
+    top: 2px;
+    bottom: 2px;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--brand-500, #5865f2);
+}
+
+.vc-channelTabs-tab-dropRight::after {
+    content: "";
+    position: absolute;
+    right: -2px;
+    top: 2px;
+    bottom: 2px;
+    width: 2px;
+    border-radius: 1px;
+    background: var(--brand-500, #5865f2);
+}
+
+/* ─── Enriched header ─────────────────────────────────────────────── */
+
+/* Hide the channel header when enriched header is active */
+body.vc-channelTabs-enrichedHeader [class*="subtitleContainer_"] {
+    display: none !important;
+}
+
+/* Sidebar toggles injected into title bar */
+.vc-channelTabs-headerToggles {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    flex-shrink: 0;
+    padding: 0 2px;
+}
+
+/* Tighter toggle spacing when nav buttons are hidden */
+body.vc-channelTabs-navHidden .vc-channelTabs-headerToggles {
+    padding-left: 0;
+}
+
+.vc-channelTabs-headerToggles .vc-channelTabs-toggleBtn {
+    width: 22px;
+    height: 22px;
+}
+
+/* Divider between injected sections */
+.vc-channelTabs-headerDivider {
+    width: 1px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+    margin: 0 4px;
+}
+
+/* Breadcrumb guild name */
+.vc-channelTabs-headerBreadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 13px;
+}
+
+.vc-channelTabs-headerBreadcrumb img {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+}
+
+.vc-channelTabs-headerBreadcrumb-separator {
+    color: rgba(255, 255, 255, 0.15);
+    font-size: 12px;
+    margin: 0 2px;
+}
+
+/* Nav button styles */
+body.vc-channelTabs-navCompact [class*="backForwardButtons__"] {
+    transform: scale(0.75);
+    margin: 0 -8px;
+}
+
+body.vc-channelTabs-navHidden [class*="leading_"] {
+    display: none !important;
+}
+
+/* Channel info needs min-width so it doesn't crush before overflow fires */
+body.vc-channelTabs-enrichedHeader [class*="children__"] {
+    min-width: 120px;
+}
+
+/* Hide topic text in enriched header — it's shown in the overflow menu instead */
+body.vc-channelTabs-enrichedHeader [class*="topic__"] {
+    display: none !important;
+}
+
+/* Also hide the topic divider (the SVG separator between channel name and topic) */
+body.vc-channelTabs-enrichedHeader [class*="children__"] > svg {
+    display: none !important;
+}
+
+/* Drag overlay: transparent div covers the entire title bar with app-region: drag.
+   pointer-events: none lets clicks pass through to buttons below.
+   Interactive elements use pointer-events: auto + app-region: no-drag to receive clicks. */
+
+.vc-channelTabs-dragOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    -webkit-app-region: drag;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* All title bar direct children sit above the drag overlay */
+body.vc-channelTabs-enrichedHeader [class*="base_"] > [class*="bar_"]:not([class*="systemBar"]) > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* The drag overlay itself stays at z-index 0 */
+body.vc-channelTabs-enrichedHeader .vc-channelTabs-dragOverlay {
+    z-index: 0;
+}
+
+/* Interactive elements opt out of drag */
+body.vc-channelTabs-enrichedHeader [role="button"],
+body.vc-channelTabs-enrichedHeader button,
+body.vc-channelTabs-enrichedHeader a[class*="anchor"],
+body.vc-channelTabs-enrichedHeader input,
+body.vc-channelTabs-enrichedHeader [class*="search__"],
+body.vc-channelTabs-enrichedHeader .vc-channelTabs-toggleBtn,
+body.vc-channelTabs-enrichedHeader .vc-channelTabs-overflowBtn,
+body.vc-channelTabs-enrichedHeader [class*="winButton_"] {
+    -webkit-app-region: no-drag;
+}
+
+/* ─── Toolbar overflow ─────────────────────────────────────────────── */
+
+.vc-channelTabs-overflowBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 24px;
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    flex-shrink: 0;
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    -webkit-app-region: no-drag;
+    transition: background var(--vc-anim-speed, 150ms) ease, color var(--vc-anim-speed, 150ms) ease;
+}
+
+.vc-channelTabs-overflowBtn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.vc-channelTabs-overflowMenu {
+    position: fixed;
+    z-index: 99999;
+    background: var(--background-floating, #111214);
+    border-radius: 4px;
+    padding: 6px 4px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24);
+    min-width: 180px;
+    animation: vc-slideUp var(--vc-anim-speed, 150ms) var(--vc-anim-ease-out, ease-out) both;
+    transform-origin: top right;
+}
+
+.vc-channelTabs-overflowMenuItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 2px;
+    font-size: 13px;
+    color: var(--interactive-normal, #b5bac1);
+    cursor: pointer;
+    transition: background var(--vc-anim-speed, 150ms) ease, color var(--vc-anim-speed, 150ms) ease;
+}
+
+.vc-channelTabs-overflowMenuItem:hover {
+    background: var(--brand-500, #5865f2);
+    color: #fff;
+}
+
+.vc-channelTabs-overflowMenuItem svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.vc-channelTabs-overflowMenuItem span {
+    flex: 1;
+}
+
+/* Topic shown in overflow menu */
+.vc-channelTabs-overflowTopic {
+    padding: 6px 8px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.4);
+    max-width: 300px;
+    line-height: 1.4;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background var(--vc-anim-speed, 150ms) ease;
+}
+
+.vc-channelTabs-overflowTopic:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* ─── Tab open/close animations ──────────────────────────────── */
+
+@keyframes vc-channelTabs-tabOpen {
+    from {
+        max-width: 0;
+        opacity: 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    to {
+        max-width: 300px;
+        opacity: 1;
+        padding-left: var(--vc-channelTabs-tabPadding, 8px);
+        padding-right: var(--vc-channelTabs-tabPadding, 8px);
+    }
+}
+
+@keyframes vc-channelTabs-tabClose {
+    from {
+        max-width: var(--vc-tab-close-width);
+        opacity: 1;
+    }
+    to {
+        max-width: 0;
+        opacity: 0;
+        padding-left: 0;
+        padding-right: 0;
+        margin-left: 0;
+        margin-right: 0;
+        gap: 0;
+    }
+}
+
+.vc-channelTabs-tab-opening {
+    animation: vc-channelTabs-tabOpen var(--vc-anim-speed-slow, 250ms) var(--vc-anim-ease-out, ease-out) both;
+    overflow: hidden;
+}
+
+.vc-channelTabs-tab-closing {
+    animation: vc-channelTabs-tabClose var(--vc-anim-speed, 150ms) var(--vc-anim-ease, ease) both;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* ─── Pinned tab shake (middle-click rejection) ──────────────── */
+
+@keyframes vc-channelTabs-shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-3px); }
+    40% { transform: translateX(3px); }
+    60% { transform: translateX(-2px); }
+    80% { transform: translateX(2px); }
+}
+
+.vc-channelTabs-tab-shake {
+    animation: vc-channelTabs-shake 0.3s ease;
+}
+
+/* ─── Sidebar toggle grid animation ──────────────────────────── */
+
+body:not(.vc-anim-off) [class*="base_"][class*="__"] {
+    transition: grid-template-columns var(--vc-anim-speed-slow, 250ms) var(--vc-anim-ease-out, ease-out);
+}
