@@ -313,7 +313,7 @@ venpm validate plugins.json --strict   # also checks dep refs
 Key conventions:
 - `_animationKit` is excluded — it's a build-time utility bundled into each plugin, not user-installable
 - All plugins use `optionalDependencies` for `settingsHub` (not hard `dependencies`) — every plugin works standalone
-- `source.git` points to the Gitea URL; `source.path` specifies the monorepo subdirectory
+- `source.git` points to the GitHub URL; `source.path` specifies the monorepo subdirectory
 - No version tags yet — plugins install from HEAD of master
 
 ### venpm CLI
