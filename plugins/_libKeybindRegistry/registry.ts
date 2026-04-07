@@ -1,5 +1,5 @@
 /*
- * Vencord userplugin — _keybindRegistry
+ * Vencord userplugin — _libKeybindRegistry
  * Authors: kamaras
  * SPDX-License-Identifier: GPL-3.0-or-later
  */

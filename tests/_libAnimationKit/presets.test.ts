@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { PRESETS, getSpeed, getStagger, getEase } from "../../plugins/_animationKit/presets";
+import { PRESETS, getSpeed, getStagger, getEase } from "../../plugins/_libAnimationKit/presets";
 
-describe("_animationKit/presets", () => {
+describe("_libAnimationKit/presets", () => {
     describe("PRESETS", () => {
         it("has three presets", () => {
             expect(Object.keys(PRESETS)).toHaveLength(3);

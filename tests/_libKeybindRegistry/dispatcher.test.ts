@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { register, _reset } from "../../plugins/_keybindRegistry/registry";
-import { startDispatcher, stopDispatcher } from "../../plugins/_keybindRegistry/dispatcher";
+import { register, _reset } from "../../plugins/_libKeybindRegistry/registry";
+import { startDispatcher, stopDispatcher } from "../../plugins/_libKeybindRegistry/dispatcher";
 
 function fireKeydown(opts: { code: string; key?: string; ctrlKey?: boolean; altKey?: boolean; shiftKey?: boolean; metaKey?: boolean; }) {
     const event = new KeyboardEvent("keydown", {
@@ -16,7 +16,7 @@ function fireKeydown(opts: { code: string; key?: string; ctrlKey?: boolean; altK
     document.dispatchEvent(event);
 }
 
-describe("_keybindRegistry/dispatcher", () => {
+describe("_libKeybindRegistry/dispatcher", () => {
     afterEach(() => {
         stopDispatcher();
         _reset();
@@ -113,7 +113,7 @@ describe("_keybindRegistry/dispatcher", () => {
             register({ plugin: "A", keybinds: { x: { action: "X", defaultKeys: "ctrl+KeyW", handler: handlerA } } });
             register({ plugin: "B", keybinds: { y: { action: "Y", defaultKeys: "ctrl+KeyW", handler: handlerB } } });
 
-            const { resolve } = await import("../../plugins/_keybindRegistry/registry");
+            const { resolve } = await import("../../plugins/_libKeybindRegistry/registry");
             resolve("ctrl+KeyW", "A.x");
 
             startDispatcher();

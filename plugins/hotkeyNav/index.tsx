@@ -5,7 +5,7 @@
  */
 
 import "./style.css";
-import "../_animationKit/animations.css";
+import "../_libAnimationKit/animations.css";
 
 import { addMemberListDecorator, removeMemberListDecorator } from "@api/MemberListDecorators";
 import { definePluginSettings } from "@api/Settings";

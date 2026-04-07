@@ -5,7 +5,7 @@
  */
 
 import "./style.css";
-import "../_animationKit/animations.css";
+import "../_libAnimationKit/animations.css";
 
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";

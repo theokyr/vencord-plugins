@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { codeToLabel, normalizeEvent, parseKeybind, serializeKeybind } from "../../plugins/_keybindRegistry/format";
+import { codeToLabel, normalizeEvent, parseKeybind, serializeKeybind } from "../../plugins/_libKeybindRegistry/format";
 
-describe("_keybindRegistry/format", () => {
+describe("_libKeybindRegistry/format", () => {
     describe("codeToLabel", () => {
         it("converts ControlLeft to ctrl", () => {
             expect(codeToLabel("ControlLeft")).toBe("ctrl");

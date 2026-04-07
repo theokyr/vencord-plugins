@@ -5,11 +5,11 @@
  */
 
 import "./style.css";
-import "../_animationKit/animations.css";
-import "../_keybindRegistry"; // triggers module-scope init (window.__keybindRegistry + dispatcher)
+import "../_libAnimationKit/animations.css";
+import "../_libKeybindRegistry"; // triggers module-scope init (window.__keybindRegistry + dispatcher)
 
 import definePlugin from "@utils/types";
-import { initVcAnim, setPreset, setEnabled, type PresetName } from "../_animationKit";
+import { initVcAnim, setPreset, setEnabled, type PresetName } from "../_libAnimationKit";
 import { createRoot } from "@webpack/common";
 import { closeAllModals } from "@utils/modal";
 import { registerSchema, unregisterSchema, getSchemas } from "./registry";

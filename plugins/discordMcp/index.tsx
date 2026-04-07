@@ -5,7 +5,7 @@
  */
 
 import "./style.css";
-import "../_animationKit/animations.css";
+import "../_libAnimationKit/animations.css";
 
 import { showNotification } from "@api/Notifications";
 import { definePluginSettings } from "@api/Settings";

@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import {
     register, unregister, getAll, getConflicts,
     resolve, updateKeys, setEnabled, onChange, _reset,
-} from "../../plugins/_keybindRegistry/registry";
+} from "../../plugins/_libKeybindRegistry/registry";
 
 function makeOpts(plugin: string, keybinds: Record<string, { action: string; defaultKeys: string; handler?: () => void; defaultEnabled?: boolean; }>) {
     const filled: Record<string, any> = {};
@@ -12,7 +12,7 @@ function makeOpts(plugin: string, keybinds: Record<string, { action: string; def
     return { plugin, keybinds: filled };
 }
 
-describe("_keybindRegistry/registry", () => {
+describe("_libKeybindRegistry/registry", () => {
     afterEach(() => _reset());
 
     describe("register / getAll", () => {

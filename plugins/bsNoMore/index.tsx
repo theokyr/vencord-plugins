@@ -5,7 +5,7 @@
  */
 
 import "./style.css";
-import "../_animationKit/animations.css";
+import "../_libAnimationKit/animations.css";
 
 import definePlugin from "@utils/types";
 import { bsNoMoreSchema } from "./settingsSchema";

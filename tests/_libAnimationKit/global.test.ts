@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { initVcAnim, setPreset, setEnabled } from "../../plugins/_animationKit/global";
+import { initVcAnim, setPreset, setEnabled } from "../../plugins/_libAnimationKit/global";
 
 // Reset module-level state between tests by clearing window.__vcAnim
 // and reimporting the module fresh each time via dynamic import with cache-bust
@@ -14,7 +14,7 @@ beforeEach(() => {
     setEnabled(true);
 });
 
-describe("_animationKit/global", () => {
+describe("_libAnimationKit/global", () => {
     describe("initVcAnim", () => {
         it("sets window.__vcAnim", () => {
             initVcAnim("smooth", true);

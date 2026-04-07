@@ -5,7 +5,7 @@
  */
 
 import "./style.css";
-import "../_animationKit/animations.css";
+import "../_libAnimationKit/animations.css";
 
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
@@ -549,7 +549,7 @@ export const settings = definePluginSettings({
         default: "",
         hidden: true,
     },
-    // ─── Keybinds (managed by _keybindRegistry) ─────────────────────
+    // ─── Keybinds (managed by _libKeybindRegistry) ───────────────────
     keybind_nextTab: {
         type: OptionType.STRING,
         description: "Next tab",

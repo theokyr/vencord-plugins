@@ -1,5 +1,5 @@
 /*
- * Vencord userplugin — _keybindRegistry
+ * Vencord userplugin — _libKeybindRegistry
  * Authors: kamaras
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
@@ -20,7 +20,7 @@ export { codeToLabel, normalizeEvent, parseKeybind, serializeKeybind, parseKeybi
 
 // ─── Module-scope global ─────────────────────────────────────────────────
 // Set up window.__keybindRegistry at module evaluation time, before any
-// plugin's start() runs. Same pattern as _animationKit's globalThis.__vcAnim.
+// plugin's start() runs. Same pattern as _libAnimationKit's globalThis.__vcAnim.
 
 import type { KeybindRegistryAPI } from "./types";
 import {

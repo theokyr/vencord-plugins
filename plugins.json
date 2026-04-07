@@ -3,11 +3,32 @@
   "name": "kamaras-plugins",
   "description": "Custom Vencord userplugins by kamaras",
   "plugins": {
+    "_libAnimationKit": {
+      "version": "0.1.0",
+      "description": "Shared animation presets, CSS variables, and keyframes for custom plugins",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "MIT",
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/_libAnimationKit"
+      }
+    },
+    "_libKeybindRegistry": {
+      "version": "0.1.0",
+      "description": "Shared keybind registration, conflict resolution, and keyboard dispatch",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "MIT",
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/_libKeybindRegistry"
+      }
+    },
     "bsNoMore": {
       "version": "0.1.0",
       "description": "Remove upsell clutter — compacts DM nav, hides clan tags, avatar decorations, quest popups, and store UI",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
+      "dependencies": ["_libAnimationKit"],
       "optionalDependencies": ["settingsHub"],
       "source": {
         "git": "https://github.com/theokyr/vencord-plugins.git",
@@ -19,7 +40,8 @@
       "description": "Quick-access tab bar for channels and DMs",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
-      "optionalDependencies": ["settingsHub"],
+      "dependencies": ["_libAnimationKit"],
+      "optionalDependencies": ["settingsHub", "_libKeybindRegistry"],
       "source": {
         "git": "https://github.com/theokyr/vencord-plugins.git",
         "path": "plugins/channelTabs"
@@ -30,6 +52,7 @@
       "description": "MCP bridge — expose Discord to AI agents via the Model Context Protocol",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
+      "dependencies": ["_libAnimationKit"],
       "optionalDependencies": ["settingsHub"],
       "source": {
         "git": "https://github.com/theokyr/vencord-plugins.git",
@@ -41,7 +64,8 @@
       "description": "Keyboard-driven navigation to notifications, DMs, and servers with inline keycap hints",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
-      "optionalDependencies": ["settingsHub"],
+      "dependencies": ["_libAnimationKit"],
+      "optionalDependencies": ["settingsHub", "_libKeybindRegistry"],
       "source": {
         "git": "https://github.com/theokyr/vencord-plugins.git",
         "path": "plugins/hotkeyNav"
@@ -52,6 +76,7 @@
       "description": "Displays user avatars inline in message headers next to the username",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
+      "dependencies": ["_libAnimationKit"],
       "optionalDependencies": ["settingsHub"],
       "source": {
         "git": "https://github.com/theokyr/vencord-plugins.git",
@@ -63,7 +88,8 @@
       "description": "Replaces the large DM/Group DM call overlay with a compact 32px bar",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
-      "optionalDependencies": ["settingsHub", "channelTabs"],
+      "dependencies": ["_libAnimationKit"],
+      "optionalDependencies": ["settingsHub", "channelTabs", "_libKeybindRegistry"],
       "source": {
         "git": "https://github.com/theokyr/vencord-plugins.git",
         "path": "plugins/minimalCallBar"
@@ -74,6 +100,7 @@
       "description": "Unified settings page for custom plugins",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
+      "dependencies": ["_libAnimationKit", "_libKeybindRegistry"],
       "optionalDependencies": ["channelTabs"],
       "source": {
         "git": "https://github.com/theokyr/vencord-plugins.git",
@@ -85,6 +112,7 @@
       "description": "Manage Vencord plugins from inside Discord — browse, install, update, and configure without the terminal",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
+      "dependencies": ["_libAnimationKit"],
       "optionalDependencies": ["settingsHub"],
       "source": {
         "git": "https://github.com/theokyr/vencord-plugins.git",

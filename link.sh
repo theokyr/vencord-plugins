@@ -44,9 +44,6 @@ echo "Installing plugins via venpm..."
 for plugin_dir in "$PLUGINS_DIR"/*/; do
     plugin_name="$(basename "$plugin_dir")"
 
-    # Skip _animationKit — it's a build-time utility, not a standalone plugin
-    [[ "$plugin_name" == _* ]] && continue
-
     dest="$USERPLUGINS_DIR/$plugin_name"
 
     # If already correctly symlinked, skip
@@ -66,19 +63,6 @@ for plugin_dir in "$PLUGINS_DIR"/*/; do
     }
     echo "  $plugin_name: installed via venpm"
 done
-
-# _animationKit needs to be in userplugins for the build (imported by other plugins)
-anim_src="$PLUGINS_DIR/_animationKit"
-anim_dest="$USERPLUGINS_DIR/_animationKit"
-if [ -d "$anim_src" ]; then
-    if [ -L "$anim_dest" ] && [ "$(readlink "$anim_dest")" = "$anim_src" ]; then
-        echo "  _animationKit: already linked"
-    else
-        [ -e "$anim_dest" ] && rm -rf "$anim_dest"
-        ln -s "$anim_src" "$anim_dest"
-        echo "  _animationKit: linked (build utility)"
-    fi
-fi
 
 echo "Building Vencord..."
 (cd "$VENCORD_DIR" && pnpm build)
