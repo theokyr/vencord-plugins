@@ -6,6 +6,7 @@
 
 import "./style.css";
 import "../_animationKit/animations.css";
+import "../_keybindRegistry"; // triggers module-scope init (window.__keybindRegistry + dispatcher)
 
 import definePlugin from "@utils/types";
 import { initVcAnim, setPreset, setEnabled, type PresetName } from "../_animationKit";

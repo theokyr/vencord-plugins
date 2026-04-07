@@ -70,12 +70,6 @@ function parseModifier(str: string): { ctrl: boolean; shift: boolean; alt: boole
     };
 }
 
-function modifierMatches(e: KeyboardEvent, mod: ReturnType<typeof parseModifier>): boolean {
-    return e.ctrlKey === mod.ctrl
-        && e.shiftKey === mod.shift
-        && e.altKey === mod.alt
-        && e.metaKey === mod.meta;
-}
 
 // ─── NotificationTracker ───────────────────────────────────────────────────
 
@@ -143,26 +137,26 @@ const NotificationTracker = {
     },
 
     getNotificationNumber(channelId: string): number | null {
-        if (!settings.store.enableNotificationLayer) return null;
+        if (!settings.store.keybind_notificationLayer_enabled) return null;
         const idx = this._notifications.findIndex(e => e.channelId === channelId);
         return idx === -1 ? null : idx + 1;
     },
 
     getNotificationNumberByGuild(guildId: string): number | null {
-        if (!settings.store.enableNotificationLayer) return null;
+        if (!settings.store.keybind_notificationLayer_enabled) return null;
         const idx = this._notifications.findIndex(e => e.guildId === guildId);
         return idx === -1 ? null : idx + 1;
     },
 
     getDmPosition(channelId: string): number | null {
-        if (!settings.store.enableDmPositionalLayer && !settings.store.alwaysShowHints) return null;
+        if (!settings.store.keybind_dmPositionalLayer_enabled && !settings.store.alwaysShowHints) return null;
         const dmIds = PrivateChannelSortStore.getPrivateChannelIds();
         const idx = dmIds.indexOf(channelId);
         return idx >= 0 && idx < 9 ? idx + 1 : null;
     },
 
     getServerPosition(guildId: string): number | null {
-        if (!settings.store.enableServerPositionalLayer && !settings.store.alwaysShowHints) return null;
+        if (!settings.store.keybind_serverPositionalLayer_enabled && !settings.store.alwaysShowHints) return null;
         const folders = SortedGuildStore.getGuildFolders();
         let pos = 0;
         for (const folder of folders) {
@@ -237,10 +231,10 @@ function KeycapHint({ notifNum, positionalNum, layerType }: {
 
     // Combined keycap: both notification and positional
     if (notifNum != null && positionalNum != null) {
-        const notifMod = formatModifier(settings.store.notificationModifier);
+        const notifMod = formatModifier(settings.store.keybind_notificationLayer);
         const posMod = formatModifier(layerType === "dm"
-            ? settings.store.dmPositionalModifier
-            : settings.store.serverPositionalModifier);
+            ? settings.store.keybind_dmPositionalLayer
+            : settings.store.keybind_serverPositionalLayer);
         const tooltipText = `${notifMod}+${notifNum} (notif) | ${posMod}+${positionalNum} (pos)`;
 
         return (
@@ -260,8 +254,8 @@ function KeycapHint({ notifNum, positionalNum, layerType }: {
     const isNotif = notifNum != null;
     const num = notifNum ?? positionalNum;
     const rawMod = isNotif
-        ? settings.store.notificationModifier
-        : (layerType === "dm" ? settings.store.dmPositionalModifier : settings.store.serverPositionalModifier);
+        ? settings.store.keybind_notificationLayer
+        : (layerType === "dm" ? settings.store.keybind_dmPositionalLayer : settings.store.keybind_serverPositionalLayer);
     const modParts = rawMod.split("+").map(s => s.trim().toLowerCase());
     const label = `${formatModifier(rawMod)}+${num}`;
 
@@ -367,14 +361,14 @@ function updateGuildHints() {
             hint.className = "vc-hotkeyNav-guild-hint vc-hotkeyNav-keycap vc-hotkeyNav-keycap-" + settings.store.keycapSide;
 
             if (notifNum != null && serverPos != null) {
-                const notifMod = formatModifier(settings.store.notificationModifier);
-                const serverMod = formatModifier(settings.store.serverPositionalModifier);
+                const notifMod = formatModifier(settings.store.keybind_notificationLayer);
+                const serverMod = formatModifier(settings.store.keybind_serverPositionalLayer);
                 hint.innerHTML = `<span>${notifNum}</span><span class="vc-hotkeyNav-keycap-divider">\u2502</span><span class="vc-hotkeyNav-keycap-dim">${serverPos}</span>`;
                 hint.title = `${notifMod}+${notifNum} (notif) | ${serverMod}+${serverPos} (pos)`;
             } else {
                 const isNotif = notifNum != null;
                 const num = notifNum ?? serverPos;
-                const rawMod = isNotif ? settings.store.notificationModifier : settings.store.serverPositionalModifier;
+                const rawMod = isNotif ? settings.store.keybind_notificationLayer : settings.store.keybind_serverPositionalLayer;
                 hint.innerHTML = `${formatModifierHTML(rawMod)}+<span>${num}</span>`;
                 hint.title = `${formatModifier(rawMod)}+${num}`;
             }
@@ -406,7 +400,7 @@ function updateGuildHints() {
 
                 const dmHint = document.createElement("div");
                 dmHint.className = "vc-hotkeyNav-guild-hint vc-hotkeyNav-keycap vc-hotkeyNav-keycap-" + settings.store.keycapSide;
-                const rawMod = settings.store.dmPositionalModifier;
+                const rawMod = settings.store.keybind_dmPositionalLayer;
                 dmHint.innerHTML = `${formatModifierHTML(rawMod)}+<span>${dmIdx + 1}</span>`;
                 dmHint.title = `${formatModifier(rawMod)}+${dmIdx + 1}`;
                 containerEl.appendChild(dmHint);
@@ -456,8 +450,8 @@ let activeCategoryIndex: number | null = null;
 let categoryTimeout: ReturnType<typeof setTimeout> | null = null;
 let channelObserver: MutationObserver | null = null;
 let channelUpdateTimer: ReturnType<typeof setTimeout> | null = null;
-let activeChordHandler: ((e: KeyboardEvent) => void) | null = null;
-let activeChordTimeout: ReturnType<typeof setTimeout> | null = null;
+let chordCategoryIndex: number | null = null;
+let modHoldCleanup: (() => void) | undefined;
 
 function getTargetGuildId(): string | null {
     return SelectedGuildStore.getGuildId() ?? SelectedGuildStore.getLastSelectedGuildId();
@@ -557,7 +551,7 @@ function updateChannelHints() {
     if (!guildId) return;
 
     const categories = getCategories(guildId);
-    const channelMod = formatModifier(settings.store.channelModifier);
+    const channelMod = formatModifier(settings.store.keybind_channelNav);
     const isStateful = settings.store.channelNavMode === "stateful";
     const inCategory = activeCategoryIndex != null;
 
@@ -602,7 +596,7 @@ function updateChannelHints() {
                 hint.title = `Press ${chNum} to navigate`;
             } else {
                 // Show dot notation: mod+catNum.chNum
-                const channelModHTML = formatModifierHTML(settings.store.channelModifier);
+                const channelModHTML = formatModifierHTML(settings.store.keybind_channelNav);
                 hint.innerHTML = `${channelModHTML}+<span class="vc-hotkeyNav-keycap-dim">${catNum}.</span><span>${chNum}</span>`;
                 hint.title = `${channelMod}+${catNum} then ${chNum}`;
             }
@@ -647,33 +641,33 @@ function stopChannelObserver() {
 // ─── settings ──────────────────────────────────────────────────────────────
 
 export const settings = definePluginSettings({
-    // Keybind settings
-    notificationModifier: {
+    // Keybind settings (keys/enabled managed by central registry, settings are backing store)
+    keybind_notificationLayer: {
         type: OptionType.STRING,
         description: "Modifier key(s) for notification jump (e.g., alt, ctrl+alt)",
         default: "ctrl+alt",
     },
-    dmPositionalModifier: {
+    keybind_dmPositionalLayer: {
         type: OptionType.STRING,
         description: "Modifier key(s) for DM positional jump",
         default: "alt",
     },
-    serverPositionalModifier: {
+    keybind_serverPositionalLayer: {
         type: OptionType.STRING,
         description: "Modifier key(s) for server positional jump",
         default: "alt+shift",
     },
-    enableNotificationLayer: {
+    keybind_notificationLayer_enabled: {
         type: OptionType.BOOLEAN,
         description: "Enable notification jump hotkeys",
         default: true,
     },
-    enableDmPositionalLayer: {
+    keybind_dmPositionalLayer_enabled: {
         type: OptionType.BOOLEAN,
         description: "Enable DM positional hotkeys",
         default: true,
     },
-    enableServerPositionalLayer: {
+    keybind_serverPositionalLayer_enabled: {
         type: OptionType.BOOLEAN,
         description: "Enable server positional hotkeys",
         default: true,
@@ -707,12 +701,12 @@ export const settings = definePluginSettings({
     },
 
     // Channel layer
-    enableChannelLayer: {
+    keybind_channelNav_enabled: {
         type: OptionType.BOOLEAN,
         description: "Enable channel navigation hotkeys (category → channel)",
         default: true,
     },
-    channelModifier: {
+    keybind_channelNav: {
         type: OptionType.STRING,
         description: "Modifier key(s) for channel navigation",
         default: "ctrl",
@@ -781,31 +775,6 @@ export const settings = definePluginSettings({
     },
 });
 
-// ─── External action registry ─────────────────────────────────────────────
-
-export interface ExternalAction {
-    id: string;
-    description: string;
-    defaultModifier: string;
-    defaultKey: string;
-    handler: () => void;
-}
-
-const externalActions = new Map<string, ExternalAction>();
-
-export function registerAction(id: string, opts: {
-    description: string;
-    defaultModifier: string;
-    defaultKey: string;
-    handler: () => void;
-}): void {
-    externalActions.set(id, { id, ...opts });
-}
-
-export function unregisterAction(id: string): void {
-    externalActions.delete(id);
-}
-
 // ─── modifier hold detection ───────────────────────────────────────────────
 
 // Tracks which layers should show hints due to modifier hold
@@ -813,11 +782,7 @@ let heldLayers: Set<string> = new Set(); // "notification" | "dm" | "server" | "
 let currentHeldMods: { ctrl: boolean; alt: boolean; shift: boolean; meta: boolean; } = { ctrl: false, alt: false, shift: false, meta: false };
 let hintsJustAppeared = false; // true when layers changed — entrance animation plays once
 
-function getHeldModifiers(e: KeyboardEvent): { ctrl: boolean; alt: boolean; shift: boolean; meta: boolean; } {
-    return { ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey };
-}
-
-function modOverlaps(layerMod: string, held: ReturnType<typeof getHeldModifiers>): boolean {
+function modOverlaps(layerMod: string, held: { ctrl: boolean; alt: boolean; shift: boolean; meta: boolean; }): boolean {
     // Show layer if ANY of the held modifiers are part of the layer's modifier combo
     // e.g., holding Alt shows "alt", "alt+shift", "ctrl+alt" layers
     const parsed = parseModifier(layerMod);
@@ -828,14 +793,14 @@ function modOverlaps(layerMod: string, held: ReturnType<typeof getHeldModifiers>
     return false;
 }
 
-function updateHeldLayers(held: ReturnType<typeof getHeldModifiers>) {
+function updateHeldLayers(held: { ctrl: boolean; alt: boolean; shift: boolean; meta: boolean; }) {
     const newLayers = new Set<string>();
     const store = settings.store;
 
-    if (store.enableNotificationLayer && modOverlaps(store.notificationModifier, held)) newLayers.add("notification");
-    if (store.enableDmPositionalLayer && modOverlaps(store.dmPositionalModifier, held)) newLayers.add("dm");
-    if (store.enableServerPositionalLayer && modOverlaps(store.serverPositionalModifier, held)) newLayers.add("server");
-    if (store.enableChannelLayer && modOverlaps(store.channelModifier, held)) newLayers.add("channel");
+    if (store.keybind_notificationLayer_enabled && modOverlaps(store.keybind_notificationLayer, held)) newLayers.add("notification");
+    if (store.keybind_dmPositionalLayer_enabled && modOverlaps(store.keybind_dmPositionalLayer, held)) newLayers.add("dm");
+    if (store.keybind_serverPositionalLayer_enabled && modOverlaps(store.keybind_serverPositionalLayer, held)) newLayers.add("server");
+    if (store.keybind_channelNav_enabled && modOverlaps(store.keybind_channelNav, held)) newLayers.add("channel");
 
     currentHeldMods = { ...held };
 
@@ -852,19 +817,6 @@ function updateHeldLayers(held: ReturnType<typeof getHeldModifiers>) {
     }
 }
 
-function onModKeyDown(e: KeyboardEvent) {
-    if (!settings.store.showHintsOnModHold && !settings.store.alwaysShowHints) return;
-    if (e.key === "Control" || e.key === "Alt" || e.key === "Shift" || e.key === "Meta") {
-        updateHeldLayers(getHeldModifiers(e));
-    }
-}
-
-function onModKeyUp(e: KeyboardEvent) {
-    if (!settings.store.showHintsOnModHold && !settings.store.alwaysShowHints) return;
-    if (e.key === "Control" || e.key === "Alt" || e.key === "Shift" || e.key === "Meta") {
-        updateHeldLayers(getHeldModifiers(e));
-    }
-}
 
 function shouldShowLayer(layer: string): boolean {
     if (settings.store.alwaysShowHints) return true;
@@ -906,9 +858,72 @@ function flashNavigationTarget(channelId: string) {
     }, 100);
 }
 
-function onKeyDown(e: KeyboardEvent) {
-    const store = settings.store;
+// ─── Registry handler functions ───────────────────────────────────────────
 
+function handleNotificationJump(digit: number): void {
+    const notifications = NotificationTracker.getNotifications();
+    const entry = notifications[digit - 1];
+    if (entry) {
+        if (entry.guildId) {
+            NavigationRouter.transitionToGuild(entry.guildId);
+            ChannelRouter.transitionToChannel(entry.channelId);
+        } else {
+            ChannelRouter.transitionToChannel(entry.channelId);
+        }
+        flashNavigationTarget(entry.channelId);
+    }
+}
+
+function handleDmPositionalJump(digit: number): void {
+    const dmIds = PrivateChannelSortStore.getPrivateChannelIds();
+    const channelId = dmIds[digit - 1];
+    if (channelId) {
+        ChannelRouter.transitionToChannel(channelId);
+        flashNavigationTarget(channelId);
+    }
+}
+
+function handleServerPositionalJump(digit: number): void {
+    const folders = SortedGuildStore.getGuildFolders();
+    let pos = 0;
+    for (const folder of folders) {
+        for (const guildId of folder.guildIds) {
+            if (pos === digit - 1) {
+                const lastChannel = SelectedChannelStore.getLastSelectedChannelId(guildId);
+                if (lastChannel) {
+                    NavigationRouter.transitionToGuild(guildId);
+                    ChannelRouter.transitionToChannel(lastChannel);
+                    flashNavigationTarget(lastChannel);
+                } else {
+                    NavigationRouter.transitionToGuild(guildId);
+                }
+                return;
+            }
+            pos++;
+        }
+    }
+}
+
+function handleChannelCategorySelect(digit: number): void {
+    const guildId = getTargetGuildId();
+    if (!guildId) return;
+
+    const categories = getCategories(guildId);
+    const catIdx = digit - 1;
+    if (catIdx >= categories.length) return;
+
+    if (settings.store.channelNavMode === "stateful") {
+        enterCategoryState(catIdx);
+        if (!SelectedGuildStore.getGuildId()) {
+            NavigationRouter.transitionToGuild(guildId);
+        }
+    }
+    // Chord mode is handled by the registry's chord handler
+}
+
+// ─── Simplified keydown (only handles stateful bare digits + Escape) ──────
+
+function onKeyDown(e: KeyboardEvent) {
     // Esc exits channel category state
     if (e.key === "Escape" && activeCategoryIndex != null) {
         e.preventDefault();
@@ -916,17 +931,13 @@ function onKeyDown(e: KeyboardEvent) {
         return;
     }
 
-    // Use e.code (physical key) so Shift+1 doesn't become "!"
-    const digitMatch = e.code.match(/^Digit([1-9])$/);
-    if (!digitMatch) return;
-    if (e.repeat) return;
-
-    const num = parseInt(digitMatch[1]);
-
-    // Channel layer: stateful mode — bare digit selects channel when in category
-    if (activeCategoryIndex != null && store.enableChannelLayer) {
+    // Bare digit in stateful category mode — select channel within active category
+    if (activeCategoryIndex != null && settings.store.keybind_channelNav_enabled) {
+        const digitMatch = e.code.match(/^Digit([1-9])$/);
+        if (!digitMatch) return;
         const noMods = !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey;
         if (noMods) {
+            const num = parseInt(digitMatch[1]);
             const guildId = getTargetGuildId();
             if (guildId) {
                 const categories = getCategories(guildId);
@@ -943,151 +954,6 @@ function onKeyDown(e: KeyboardEvent) {
                 }
             }
             exitCategoryState();
-            return;
-        }
-    }
-
-    // Check notification layer
-    if (store.enableNotificationLayer) {
-        const mod = parseModifier(store.notificationModifier);
-        if (modifierMatches(e, mod)) {
-            const notifications = NotificationTracker.getNotifications();
-            const entry = notifications[num - 1];
-            if (entry) {
-                e.preventDefault();
-                e.stopPropagation();
-                if (entry.guildId) {
-                    NavigationRouter.transitionToGuild(entry.guildId);
-                    ChannelRouter.transitionToChannel(entry.channelId);
-                } else {
-                    ChannelRouter.transitionToChannel(entry.channelId);
-                }
-                flashNavigationTarget(entry.channelId);
-                return;
-            }
-        }
-    }
-
-    // Check DM positional layer
-    if (store.enableDmPositionalLayer) {
-        const mod = parseModifier(store.dmPositionalModifier);
-        if (modifierMatches(e, mod)) {
-            const dmIds = PrivateChannelSortStore.getPrivateChannelIds();
-            const channelId = dmIds[num - 1];
-            if (channelId) {
-                e.preventDefault();
-                e.stopPropagation();
-                ChannelRouter.transitionToChannel(channelId);
-                flashNavigationTarget(channelId);
-                return;
-            }
-        }
-    }
-
-    // Check server positional layer
-    if (store.enableServerPositionalLayer) {
-        const mod = parseModifier(store.serverPositionalModifier);
-        if (modifierMatches(e, mod)) {
-            const folders = SortedGuildStore.getGuildFolders();
-            let pos = 0;
-            for (const folder of folders) {
-                for (const guildId of folder.guildIds) {
-                    if (pos === num - 1) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // Navigate to last-viewed channel in this guild
-                        const lastChannel = SelectedChannelStore.getLastSelectedChannelId(guildId);
-                        if (lastChannel) {
-                            NavigationRouter.transitionToGuild(guildId);
-                            ChannelRouter.transitionToChannel(lastChannel);
-                            flashNavigationTarget(lastChannel);
-                        } else {
-                            NavigationRouter.transitionToGuild(guildId);
-                        }
-                        return;
-                    }
-                    pos++;
-                }
-            }
-        }
-    }
-
-    // Check channel layer — enter category or chord
-    if (store.enableChannelLayer) {
-        const mod = parseModifier(store.channelModifier);
-        if (modifierMatches(e, mod)) {
-            const guildId = getTargetGuildId();
-            if (!guildId) return;
-
-            const categories = getCategories(guildId);
-            const catIdx = num - 1;
-            if (catIdx >= categories.length) return;
-
-            e.preventDefault();
-            e.stopPropagation();
-
-            if (store.channelNavMode === "stateful") {
-                // Enter category state
-                enterCategoryState(catIdx);
-                // Also navigate to the guild if we're in DMs
-                if (!SelectedGuildStore.getGuildId()) {
-                    NavigationRouter.transitionToGuild(guildId);
-                }
-            } else {
-                // Chord mode — wait for second keypress
-                // Clean up any previous chord in progress
-                if (activeChordHandler) {
-                    document.removeEventListener("keydown", activeChordHandler, true);
-                    activeChordHandler = null;
-                }
-                if (activeChordTimeout) {
-                    clearTimeout(activeChordTimeout);
-                    activeChordTimeout = null;
-                }
-
-                const chordHandler = (e2: KeyboardEvent) => {
-                    document.removeEventListener("keydown", chordHandler, true);
-                    if (activeChordTimeout) clearTimeout(activeChordTimeout);
-                    activeChordHandler = null;
-                    activeChordTimeout = null;
-
-                    const digit2 = e2.code.match(/^Digit([1-9])$/);
-                    if (!digit2) return;
-                    e2.preventDefault();
-                    e2.stopPropagation();
-
-                    const chNum = parseInt(digit2[1]) - 1;
-                    const ch = categories[catIdx]?.channels[chNum];
-                    if (ch) {
-                        if (!SelectedGuildStore.getGuildId()) {
-                            NavigationRouter.transitionToGuild(guildId);
-                        }
-                        ChannelRouter.transitionToChannel(ch.id);
-                        flashNavigationTarget(ch.id);
-                    }
-                };
-
-                activeChordTimeout = setTimeout(() => {
-                    document.removeEventListener("keydown", chordHandler, true);
-                    activeChordHandler = null;
-                    activeChordTimeout = null;
-                }, store.channelTimeout);
-
-                activeChordHandler = chordHandler;
-                document.addEventListener("keydown", chordHandler, true);
-            }
-            return;
-        }
-    }
-
-    // Check external actions (registered by other plugins like channelTabs)
-    for (const [, action] of externalActions) {
-        const actionMod = parseModifier(action.defaultModifier);
-        if (modifierMatches(e, actionMod) && e.code === action.defaultKey) {
-            e.preventDefault();
-            e.stopPropagation();
-            action.handler();
-            return;
         }
     }
 }
@@ -1127,15 +993,98 @@ export default definePlugin({
         FluxDispatcher.subscribe("BULK_ACK", onReadStateChange);
         FluxDispatcher.subscribe("MESSAGE_DELETE", onReadStateChange);
         FluxDispatcher.subscribe("CHANNEL_SELECT", onGuildSelect);
+        // Simplified keydown — only handles stateful bare digits + Escape
         document.addEventListener("keydown", onKeyDown);
-        document.addEventListener("keydown", onModKeyDown);
-        document.addEventListener("keyup", onModKeyUp);
         // Reset held state on window blur (user alt-tabbed)
         window.addEventListener("blur", onWindowBlur);
+
+        // Subscribe to modifier hold events from the central registry
+        modHoldCleanup = window.__keybindRegistry?.onModifierHold((mods) => {
+            if (!settings.store.showHintsOnModHold && !settings.store.alwaysShowHints) return;
+            updateHeldLayers(mods);
+        });
+
+        // Register keybinds with central registry
+        window.__keybindRegistry?.register({
+            plugin: "HotkeyNav",
+            keybinds: {
+                notificationLayer: {
+                    action: "Jump to notification by number",
+                    defaultKeys: "ctrl+alt",
+                    defaultEnabled: true,
+                    handler: {
+                        type: "layer" as const,
+                        handler: (_e: KeyboardEvent, digit: number) => handleNotificationJump(digit),
+                    },
+                },
+                dmPositionalLayer: {
+                    action: "Jump to DM by position",
+                    defaultKeys: "alt",
+                    defaultEnabled: true,
+                    handler: {
+                        type: "layer" as const,
+                        handler: (_e: KeyboardEvent, digit: number) => handleDmPositionalJump(digit),
+                    },
+                },
+                serverPositionalLayer: {
+                    action: "Jump to server by position",
+                    defaultKeys: "alt+shift",
+                    defaultEnabled: true,
+                    handler: {
+                        type: "layer" as const,
+                        handler: (_e: KeyboardEvent, digit: number) => handleServerPositionalJump(digit),
+                    },
+                },
+                channelNav: {
+                    action: "Navigate to channel (category then channel)",
+                    defaultKeys: "ctrl",
+                    defaultEnabled: true,
+                    handler: settings.store.channelNavMode === "chord"
+                        ? {
+                            type: "chord" as const,
+                            timeout: () => settings.store.channelTimeout as number,
+                            firstHandler: (_e: KeyboardEvent, digit: number) => {
+                                const guildId = getTargetGuildId();
+                                if (!guildId) return;
+                                const categories = getCategories(guildId);
+                                if (digit - 1 >= categories.length) return;
+                                chordCategoryIndex = digit - 1;
+                                if (!SelectedGuildStore.getGuildId()) {
+                                    NavigationRouter.transitionToGuild(guildId);
+                                }
+                            },
+                            secondHandler: (_e: KeyboardEvent, digit: number) => {
+                                if (chordCategoryIndex == null) return;
+                                const guildId = getTargetGuildId();
+                                if (!guildId) return;
+                                const categories = getCategories(guildId);
+                                const ch = categories[chordCategoryIndex]?.channels[digit - 1];
+                                if (ch) {
+                                    if (!SelectedGuildStore.getGuildId()) {
+                                        NavigationRouter.transitionToGuild(guildId);
+                                    }
+                                    ChannelRouter.transitionToChannel(ch.id);
+                                    flashNavigationTarget(ch.id);
+                                }
+                                chordCategoryIndex = null;
+                            },
+                            cancelOnEscape: true,
+                        }
+                        : {
+                            type: "layer" as const,
+                            handler: (_e: KeyboardEvent, digit: number) => handleChannelCategorySelect(digit),
+                        },
+                },
+            },
+        });
     },
 
     stop() {
         (window as any).__settingsHub?.unregister("HotkeyNav");
+        window.__keybindRegistry?.unregister("HotkeyNav");
+        modHoldCleanup?.();
+        modHoldCleanup = undefined;
+
         removeMemberListDecorator("hotkeyNav");
         stopGuildObserver();
         stopChannelObserver();
@@ -1146,19 +1095,8 @@ export default definePlugin({
         FluxDispatcher.unsubscribe("MESSAGE_DELETE", onReadStateChange);
         FluxDispatcher.unsubscribe("CHANNEL_SELECT", onGuildSelect);
         document.removeEventListener("keydown", onKeyDown);
-        document.removeEventListener("keydown", onModKeyDown);
-        document.removeEventListener("keyup", onModKeyUp);
         window.removeEventListener("blur", onWindowBlur);
         heldLayers.clear();
-
-        // Clean up any in-progress chord
-        if (activeChordHandler) {
-            document.removeEventListener("keydown", activeChordHandler, true);
-            activeChordHandler = null;
-        }
-        if (activeChordTimeout) {
-            clearTimeout(activeChordTimeout);
-            activeChordTimeout = null;
-        }
+        chordCategoryIndex = null;
     },
 });

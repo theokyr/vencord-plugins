@@ -143,15 +143,25 @@ export const settings = definePluginSettings({
             { label: "Navigate to call", value: "navigate" },
         ],
     },
-    modeCycleKeybind: {
+    keybind_cycleMode: {
         type: OptionType.STRING,
-        description: "Keybind to cycle display modes (e.g. ctrl+shift+m). Leave empty to disable.",
-        default: "ctrl+shift+m",
+        description: "Keybind to cycle display modes",
+        default: "ctrl+shift+KeyM",
     },
-    expandCollapseKeybind: {
+    keybind_cycleMode_enabled: {
+        type: OptionType.BOOLEAN,
+        description: "Enable cycle mode keybind",
+        default: true,
+    },
+    keybind_expandCollapse: {
         type: OptionType.STRING,
-        description: "Keybind to toggle expand/collapse (e.g. ctrl+shift+e). Leave empty to disable.",
+        description: "Keybind to toggle expand/collapse",
         default: "",
+    },
+    keybind_expandCollapse_enabled: {
+        type: OptionType.BOOLEAN,
+        description: "Enable expand/collapse keybind",
+        default: false,
     },
 });
 
@@ -490,49 +500,6 @@ function onChannelSelect() {
     } catch { /* swallow */ }
 }
 
-// ─── Keybind handler ─────────────────────────────────────────────────────────
-
-function matchesKeybindString(e: KeyboardEvent, bind: string): boolean {
-    if (!bind) return false;
-
-    const parts = bind.toLowerCase().split("+").map(p => p.trim());
-    const key = parts[parts.length - 1];
-    const needCtrl = parts.includes("ctrl");
-    const needShift = parts.includes("shift");
-    const needAlt = parts.includes("alt");
-
-    if (needCtrl !== e.ctrlKey) return false;
-    if (needShift !== e.shiftKey) return false;
-    if (needAlt !== e.altKey) return false;
-
-    const code = e.code.toLowerCase();
-    if (code === `key${key}` || code === `digit${key}` || code === key) return true;
-    return false;
-}
-
-function onKeyDown(e: KeyboardEvent) {
-    // Text input guard
-    const target = e.target as HTMLElement;
-    if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.getAttribute("role") === "textbox" ||
-        target.isContentEditable
-    ) return;
-
-    if (matchesKeybindString(e, settings.store.modeCycleKeybind)) {
-        e.preventDefault();
-        e.stopPropagation();
-        cycleMode();
-    }
-
-    if (activeCallChannelId && matchesKeybindString(e, settings.store.expandCollapseKeybind)) {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleOverlay();
-    }
-}
-
 // ─── Mode B API (for channelTabs integration) ────────────────────────────────
 
 function exposeTabAPI() {
@@ -596,11 +563,27 @@ export default definePlugin({
         FluxDispatcher.subscribe("CHANNEL_SELECT", onChannelSelect);
         FluxDispatcher.subscribe("RTC_CONNECTION_STATE", onCallUpdate);
 
-        // Keybind
-        window.addEventListener("keydown", onKeyDown, true);
-
         // Mode B API
         exposeTabAPI();
+
+        // Register keybinds with central registry
+        window.__keybindRegistry?.register({
+            plugin: "MinimalCallBar",
+            keybinds: {
+                cycleMode: {
+                    action: "Cycle display mode",
+                    defaultKeys: "ctrl+shift+KeyM",
+                    defaultEnabled: true,
+                    handler: () => cycleMode(),
+                },
+                expandCollapse: {
+                    action: "Toggle expand/collapse",
+                    defaultKeys: "",
+                    defaultEnabled: false,
+                    handler: () => { if (activeCallChannelId) toggleOverlay(); },
+                },
+            },
+        });
 
         // settingsHub registration
         (window as any).__settingsHub?.register(createMinimalCallBarSchema(settings));
@@ -618,8 +601,8 @@ export default definePlugin({
         FluxDispatcher.unsubscribe("CHANNEL_SELECT", onChannelSelect);
         FluxDispatcher.unsubscribe("RTC_CONNECTION_STATE", onCallUpdate);
 
-        // Keybind cleanup
-        window.removeEventListener("keydown", onKeyDown, true);
+        // Keybind registry cleanup
+        window.__keybindRegistry?.unregister("MinimalCallBar");
 
         // Mode B API cleanup
         removeTabAPI();

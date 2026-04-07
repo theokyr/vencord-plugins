@@ -112,23 +112,7 @@ export function createMinimalCallBarSchema(settings: DefinedSettings): SettingsS
                             },
                         ],
                     },
-                    {
-                        label: "Keybind",
-                        settings: [
-                            {
-                                key: "modeCycleKeybind",
-                                control: "text",
-                                label: "Mode Cycle Keybind",
-                                description: "e.g. ctrl+shift+m — leave empty to disable.",
-                            },
-                            {
-                                key: "expandCollapseKeybind",
-                                control: "text",
-                                label: "Expand/Collapse Keybind",
-                                description: "Toggle between compact bar and full overlay. Leave empty to disable.",
-                            },
-                        ],
-                    },
+
                 ],
             },
         ],

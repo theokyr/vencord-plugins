@@ -40,6 +40,14 @@ export function RecordModal({ modalProps, onSave, title }: {
             e.preventDefault();
             e.stopPropagation();
 
+            // Escape cancels recording — never recorded as a keybind
+            if (e.code === "Escape") {
+                captured.clear();
+                setKeys([]);
+                setRecording(false);
+                return;
+            }
+
             const label = codeToLabel(e.code);
             captured.add(label);
 

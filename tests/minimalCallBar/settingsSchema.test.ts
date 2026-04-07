@@ -52,11 +52,12 @@ describe("createMinimalCallBarSchema", () => {
         expect(keys).toContain("displayMode");
     });
 
-    it("behavior section has clickAction and modeCycleKeybind settings", () => {
+    it("behavior section has clickAction setting", () => {
         const behavior = schema.sections.find(s => s.id === "behavior")!;
         const keys = behavior.groups!.flatMap(g => g.settings.map(s => s.key));
         expect(keys).toContain("clickAction");
-        expect(keys).toContain("modeCycleKeybind");
+        expect(keys).not.toContain("modeCycleKeybind");
+        expect(keys).not.toContain("expandCollapseKeybind");
     });
 
     it("controls section has all 5 visibility toggles", () => {

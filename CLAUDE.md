@@ -6,6 +6,8 @@ Custom Vencord userplugins, developed outside the Vencord source tree.
 
 ```
 plugins/
+  _animationKit/        # Shared animation CSS/utilities (build-time, not in plugins.json)
+  _keybindRegistry/     # Central keybind registry (build-time, not in plugins.json)
   examplePlugin/
     index.ts          # Plugin entry point (definePlugin)
   myPlugin/
@@ -297,6 +299,37 @@ window.__channelTabs?.unregisterRoute("@@myPlugin");
 
 Currently 5 consumer plugins are migrated to the settingsHub API.
 
+## _keybindRegistry
+
+Central keybind registry and dispatcher. Build-time module (like `_animationKit`) — not user-installable, not in `plugins.json`.
+
+### Architecture
+
+- `types.ts` — Core types: `RegisteredKeybind`, `LayerHandler`, `ChordHandler`, `ConflictResolution`
+- `format.ts` — `e.code` <-> human label conversion, event normalization
+- `registry.ts` — Registration, conflict detection, resolution storage, observer pattern
+- `dispatcher.ts` — Single `keydown` listener, matching, layer/chord dispatch, text input guards
+- `index.ts` — Public API, `window.__keybindRegistry` module-scope init
+
+### Plugin Integration
+
+Plugins declare keybinds as `keybind_*` settings in `definePluginSettings` for persistence, then register handlers via:
+
+```typescript
+window.__keybindRegistry?.register({
+    plugin: "MyPlugin",
+    keybinds: {
+        myAction: {
+            action: "Do something",
+            defaultKeys: "ctrl+KeyA",
+            handler: () => doSomething(),
+        },
+    },
+});
+```
+
+settingsHub renders a global Keybinds page reading from `window.__keybindRegistry.getAll()`.
+
 ## venpm Integration
 
 This repo publishes a venpm plugin index at `plugins.json` (root). The index lists all user-facing plugins with their metadata, dependencies, and source locations.
@@ -369,6 +402,7 @@ cd ~/src/vencord-plugins && npm test
 | `plugins/settingsHub/registry.ts` | Pure registry logic, no Discord deps |
 | `plugins/settingsHub/search.ts` | Pure fuzzy search, no Discord deps |
 | `plugins/discordMcp/shared.ts` | Shared state and registration, no Discord deps |
+| `plugins/_keybindRegistry/*` | Pure logic — format, registry, dispatcher |
 
 Plugin UI code, patches, and DOM injection are **not** unit-testable (they require the Discord renderer).
 

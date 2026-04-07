@@ -31,75 +31,46 @@ const KEYBIND_ENTRIES: any[] = [
         id: "notificationJump",
         actionName: "Notification Jump",
         actionDesc: "Jump to unread notifications by position (1-9)",
-        keybindKey: "notificationModifier",
-        enableKey: "enableNotificationLayer",
+        keybindKey: "keybind_notificationLayer",
+        enableKey: "keybind_notificationLayer_enabled",
         suffix: "1-9",
     },
     {
         id: "dmPositional",
         actionName: "DM Positional",
         actionDesc: "Jump to DM by position in the DM list (1-9)",
-        keybindKey: "dmPositionalModifier",
-        enableKey: "enableDmPositionalLayer",
+        keybindKey: "keybind_dmPositionalLayer",
+        enableKey: "keybind_dmPositionalLayer_enabled",
         suffix: "1-9",
     },
     {
         id: "serverPositional",
         actionName: "Server Positional",
         actionDesc: "Jump to server by position in the server list (1-9)",
-        keybindKey: "serverPositionalModifier",
-        enableKey: "enableServerPositionalLayer",
+        keybindKey: "keybind_serverPositionalLayer",
+        enableKey: "keybind_serverPositionalLayer_enabled",
         suffix: "1-9",
     },
     {
         id: "channelNavigation",
         actionName: "Channel Navigation",
         actionDesc: "Navigate to category (1-9), then channel within it",
-        keybindKey: "channelModifier",
-        enableKey: "enableChannelLayer",
+        keybindKey: "keybind_channelNav",
+        enableKey: "keybind_channelNav_enabled",
         suffix: "1-9",
     },
 ];
 
 function KeybindSectionRender() {
-    (window as any).__settingsHub?.useSettingsReactive(settings);
-
     return (
-        <div>
-            {/* Keycap hint preview — mock guild icons */}
-            <div className="vc-settingsLib-preview" style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, padding: "12px 16px" }}>
-                {[1, 2, 3, 4, 5].map(n => (
-                    <div key={n} style={{ position: "relative", display: "inline-flex" }}>
-                        {/* Mock guild icon */}
-                        <div style={{
-                            width: 48,
-                            height: 48,
-                            borderRadius: "50%",
-                            background: "var(--background-secondary, #2b2d31)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 18,
-                            fontWeight: 700,
-                            color: "var(--text-muted, #949ba4)",
-                        }}>
-                            {n}
-                        </div>
-                        {/* Keycap badge */}
-                        <div
-                            className={`vc-hotkeyNav-keycap vc-hotkeyNav-keycap-${settings.store.keycapSide}`}
-                            style={{ pointerEvents: "none" }}
-                        >
-                            <span className="vc-hotkeyNav-keycap-dim">
-                                {settings.store.serverPositionalModifier?.split("+").map((s: string) => s.trim()[0]?.toUpperCase()).join("+") ?? "A+S"}
-                            </span>
-                            <span>+{n}</span>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {(() => { const KeybindTable = (window as any).__settingsHub?.KeybindTable; return KeybindTable ? <KeybindTable entries={KEYBIND_ENTRIES} settings={settings} /> : null; })()}
+        <div style={{ padding: "8px 0", color: "var(--text-muted, #949ba4)" }}>
+            Keybinds are managed on the global{" "}
+            <span
+                style={{ color: "var(--text-link, #00AFF4)", cursor: "pointer" }}
+                onClick={() => (window as any).__settingsHub?.open("__keybinds")}
+            >
+                Keybinds page
+            </span>.
         </div>
     );
 }
@@ -110,7 +81,7 @@ function VisualPreview() {
     (window as any).__settingsHub?.useSettingsReactive(settings);
 
     const side = settings.store.keycapSide ?? "left";
-    const mod = settings.store.serverPositionalModifier ?? "alt+shift";
+    const mod = settings.store.keybind_serverPositionalLayer ?? "alt+shift";
     const abbrev = mod.split("+").map((s: string) => s.trim()[0]?.toUpperCase()).join("+");
 
     return (

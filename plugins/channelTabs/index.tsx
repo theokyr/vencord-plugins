@@ -28,7 +28,7 @@ import {
     useState,
 } from "@webpack/common";
 
-import { TabBar, ROUTE_ICONS } from "./tabBar";
+import { TabBar, ROUTE_ICONS, animatedCloseTab, shakeTab } from "./tabBar";
 import type { Tab, ChannelTab, RouteTab } from "./types";
 import { findByPropsLazy, findLazy } from "@webpack";
 
@@ -549,6 +549,77 @@ export const settings = definePluginSettings({
         default: "",
         hidden: true,
     },
+    // ─── Keybinds (managed by _keybindRegistry) ─────────────────────
+    keybind_nextTab: {
+        type: OptionType.STRING,
+        description: "Next tab",
+        default: "ctrl+Tab",
+    },
+    keybind_nextTab_enabled: {
+        type: OptionType.BOOLEAN,
+        description: "Enable next tab keybind",
+        default: true,
+    },
+    keybind_prevTab: {
+        type: OptionType.STRING,
+        description: "Previous tab",
+        default: "ctrl+shift+Tab",
+    },
+    keybind_prevTab_enabled: {
+        type: OptionType.BOOLEAN,
+        description: "Enable previous tab keybind",
+        default: true,
+    },
+    keybind_closeTab: {
+        type: OptionType.STRING,
+        description: "Close active tab",
+        default: "ctrl+KeyW",
+    },
+    keybind_closeTab_enabled: {
+        type: OptionType.BOOLEAN,
+        description: "Enable close tab keybind",
+        default: true,
+    },
+    keybind_cycleSidebar: {
+        type: OptionType.STRING,
+        description: "Cycle sidebar visibility",
+        default: "ctrl+Backquote",
+    },
+    keybind_cycleSidebar_enabled: {
+        type: OptionType.BOOLEAN,
+        description: "Enable cycle sidebar keybind",
+        default: true,
+    },
+    keybind_nextTabBracket: {
+        type: OptionType.STRING,
+        description: "Next tab (bracket)",
+        default: "ctrl+shift+BracketRight",
+    },
+    keybind_nextTabBracket_enabled: {
+        type: OptionType.BOOLEAN,
+        description: "Enable next tab bracket keybind",
+        default: false,
+    },
+    keybind_prevTabBracket: {
+        type: OptionType.STRING,
+        description: "Previous tab (bracket)",
+        default: "ctrl+shift+BracketLeft",
+    },
+    keybind_prevTabBracket_enabled: {
+        type: OptionType.BOOLEAN,
+        description: "Enable previous tab bracket keybind",
+        default: false,
+    },
+    keybind_tabByNumber: {
+        type: OptionType.STRING,
+        description: "Activate tab by number (1-9)",
+        default: "ctrl+shift",
+    },
+    keybind_tabByNumber_enabled: {
+        type: OptionType.BOOLEAN,
+        description: "Enable tab-by-number keybinds",
+        default: false,
+    },
 });
 
 // ─── Navigation ──────────────────────────────────────────────────────────
@@ -735,62 +806,6 @@ function cycleSidebars() {
         none: "all",
     };
     setSidebarMode(next[mode]);
-}
-
-// ─── Keybinds ────────────────────────────────────────────────────────────
-
-function onKeyDown(e: KeyboardEvent) {
-    if (!e.ctrlKey || e.altKey || e.metaKey) return;
-
-    // Don't intercept when typing in text inputs (except Ctrl+Tab which is always captured)
-    const target = e.target as HTMLElement;
-    const isTextInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA"
-        || target.getAttribute("role") === "textbox" || target.isContentEditable;
-
-    // Ctrl+Tab / Ctrl+Shift+Tab — cycle tabs (takes precedence over everything)
-    if (e.code === "Tab" && tabs.length > 1) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        if (e.shiftKey) prevTab(); else nextTab();
-        return;
-    }
-
-    // Ctrl+` — cycle sidebar visibility (skip in text inputs)
-    if (e.code === "Backquote" && !e.shiftKey && !isTextInput) {
-        e.preventDefault();
-        cycleSidebars();
-        return;
-    }
-
-    // Remaining shortcuts require Ctrl+Shift and not in text inputs
-    if (!e.shiftKey || isTextInput) return;
-
-    switch (e.code) {
-        case "KeyW":
-            e.preventDefault();
-            if (activeTabIndex >= 0) closeTab(activeTabIndex);
-            break;
-        case "BracketRight":
-            e.preventDefault();
-            nextTab();
-            break;
-        case "BracketLeft":
-            e.preventDefault();
-            prevTab();
-            break;
-        case "Digit1": case "Digit2": case "Digit3":
-        case "Digit4": case "Digit5": case "Digit6":
-        case "Digit7": case "Digit8": case "Digit9": {
-            e.preventDefault();
-            const num = parseInt(e.code.replace("Digit", "")) - 1;
-            if (num < tabs.length) {
-                activateTab(num);
-                navigateTo(tabs[num]);
-            }
-            break;
-        }
-    }
 }
 
 // ─── React root ──────────────────────────────────────────────────────────
@@ -1469,6 +1484,70 @@ const plugin = definePlugin({
             closeRoute: closeExternalRoute,
         };
 
+        // Register keybinds with central registry
+        window.__keybindRegistry?.register({
+            plugin: "ChannelTabs",
+            keybinds: {
+                nextTab: {
+                    action: "Next tab",
+                    defaultKeys: "ctrl+Tab",
+                    defaultEnabled: true,
+                    handler: () => { if (tabs.length > 1) nextTab(); },
+                    textInputBehavior: "allow",
+                },
+                prevTab: {
+                    action: "Previous tab",
+                    defaultKeys: "ctrl+shift+Tab",
+                    defaultEnabled: true,
+                    handler: () => { if (tabs.length > 1) prevTab(); },
+                    textInputBehavior: "allow",
+                },
+                closeTab: {
+                    action: "Close active tab",
+                    defaultKeys: "ctrl+KeyW",
+                    defaultEnabled: true,
+                    handler: () => {
+                        if (activeTabIndex < 0) return;
+                        if (tabs[activeTabIndex]?.pinned) shakeTab(activeTabIndex);
+                        else animatedCloseTab(activeTabIndex, closeTab);
+                    },
+                },
+                cycleSidebar: {
+                    action: "Cycle sidebar visibility",
+                    defaultKeys: "ctrl+Backquote",
+                    defaultEnabled: true,
+                    handler: () => cycleSidebars(),
+                },
+                nextTabBracket: {
+                    action: "Next tab (bracket)",
+                    defaultKeys: "ctrl+shift+BracketRight",
+                    defaultEnabled: false,
+                    handler: () => nextTab(),
+                },
+                prevTabBracket: {
+                    action: "Previous tab (bracket)",
+                    defaultKeys: "ctrl+shift+BracketLeft",
+                    defaultEnabled: false,
+                    handler: () => prevTab(),
+                },
+                tabByNumber: {
+                    action: "Activate tab by number (1-9)",
+                    defaultKeys: "ctrl+shift",
+                    defaultEnabled: false,
+                    handler: {
+                        type: "layer" as const,
+                        handler: (_e: KeyboardEvent, digit: number) => {
+                            const idx = digit - 1;
+                            if (idx < tabs.length) {
+                                activateTab(idx);
+                                navigateTo(tabs[idx]);
+                            }
+                        },
+                    },
+                },
+            },
+        });
+
         (window as any).__settingsHub?.register(createChannelTabsSchema(settings));
 
         restoreTabs();
@@ -1493,7 +1572,6 @@ const plugin = definePlugin({
             }, 1000);
         }
 
-        document.addEventListener("keydown", onKeyDown, true);
         FluxDispatcher.subscribe("CHANNEL_SELECT", onChannelSelect);
         FluxDispatcher.subscribe("MESSAGE_CREATE", onMessageCreate);
         FluxDispatcher.subscribe("CHANNEL_ACK", onUnreadUpdate);
@@ -1518,8 +1596,8 @@ const plugin = definePlugin({
 
     stop() {
         delete window.__channelTabs;
+        window.__keybindRegistry?.unregister("ChannelTabs");
         (window as any).__settingsHub?.unregister("ChannelTabs");
-        document.removeEventListener("keydown", onKeyDown, true);
         FluxDispatcher.unsubscribe("CHANNEL_SELECT", onChannelSelect);
         FluxDispatcher.unsubscribe("MESSAGE_CREATE", onMessageCreate);
         FluxDispatcher.unsubscribe("CHANNEL_ACK", onUnreadUpdate);

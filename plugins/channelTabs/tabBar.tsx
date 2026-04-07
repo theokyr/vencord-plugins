@@ -202,6 +202,22 @@ function ContextMenu({ tabIndex, tab, x, y, onClose, onCloseTab, onCloseOthers, 
 
 let initialRenderDone = false;
 
+/** Module-level callbacks set by TabBar on mount. Allows external callers (keybinds)
+ *  to trigger the same animations as the UI controls. */
+let _animatedCloseCallback: ((i: number) => void) | null = null;
+let _shakeCallback: ((i: number) => void) | null = null;
+
+/** Close a tab with animation. Falls back to immediate close if TabBar isn't mounted. */
+export function animatedCloseTab(index: number, fallback: (i: number) => void): void {
+    if (_animatedCloseCallback) _animatedCloseCallback(index);
+    else fallback(index);
+}
+
+/** Shake a tab (used to reject close on pinned tabs). */
+export function shakeTab(index: number): void {
+    _shakeCallback?.(index);
+}
+
 function animateClose(tabEl: HTMLElement | null, then: () => void) {
     if (!tabEl || document.body.classList.contains("vc-anim-off")) {
         then();
@@ -415,12 +431,29 @@ export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClo
 
     const barRef = useRef<HTMLDivElement>(null);
 
-    // Animated close for context menu — finds the tab element by index in the DOM
+    // Animated close — finds the tab element by index in the DOM
     const animatedClose = useCallback((i: number) => {
         const tabEls = barRef.current?.querySelectorAll<HTMLElement>(".vc-channelTabs-tab");
         const tabEl = tabEls?.[i] ?? null;
         animateClose(tabEl, () => onClose(i));
     }, [onClose]);
+
+    // Shake a tab by index — same animation as middle-clicking a pinned tab
+    const shakeByIndex = useCallback((i: number) => {
+        const tabEls = barRef.current?.querySelectorAll<HTMLElement>(".vc-channelTabs-tab");
+        const tabEl = tabEls?.[i] ?? null;
+        if (!tabEl) return;
+        tabEl.classList.remove("vc-channelTabs-tab-shake");
+        void tabEl.offsetWidth;
+        tabEl.classList.add("vc-channelTabs-tab-shake");
+    }, []);
+
+    // Expose animated close + shake to keybind handlers via module-level callbacks
+    useEffect(() => {
+        _animatedCloseCallback = animatedClose;
+        _shakeCallback = shakeByIndex;
+        return () => { _animatedCloseCallback = null; _shakeCallback = null; };
+    }, [animatedClose, shakeByIndex]);
 
     const onBarContextMenu = useCallback((e: React.MouseEvent) => {
         if ((e.target as HTMLElement).closest(".vc-channelTabs-tab")) return;

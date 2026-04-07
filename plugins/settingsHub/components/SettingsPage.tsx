@@ -11,6 +11,7 @@ import { useScrollSpy, useThemeDetect } from "../hooks";
 import { getSchemas, onSchemasChange } from "../registry";
 import { SettingsSidebar } from "./SettingsSidebar";
 import { SettingsContent } from "./SettingsContent";
+import { GlobalKeybindsPage, KEYBINDS_PLUGIN_ID } from "./GlobalKeybindsPage";
 
 const CloseIcon = () => (
     <svg viewBox="0 0 24 24">
@@ -90,7 +91,11 @@ export function SettingsPage({ initialPlugin, onClose }: SettingsPageProps) {
                         <CloseIcon />
                     </button>
                 )}
-                {activeSchema ? (
+                {activePlugin === KEYBINDS_PLUGIN_ID ? (
+                    <div className="vc-settingsHub-content-inner" key="__keybinds">
+                        <GlobalKeybindsPage />
+                    </div>
+                ) : activeSchema ? (
                     <div className="vc-settingsHub-content-inner" key={activePlugin}>
                         <SettingsContent schema={activeSchema} />
                     </div>
