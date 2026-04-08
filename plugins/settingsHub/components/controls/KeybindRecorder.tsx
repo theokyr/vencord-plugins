@@ -10,18 +10,7 @@ import { ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, openModa
 import { useCallback, useEffect, useState } from "@webpack/common";
 import { Keycap, KeybindDisplay, serializeKeybind } from "./Keycap";
 import { SettingRow } from "./SettingRow";
-
-export const MODIFIER_CODES = new Set(["ControlLeft", "ControlRight", "AltLeft", "AltRight", "ShiftLeft", "ShiftRight", "MetaLeft", "MetaRight"]);
-
-export function codeToLabel(code: string): string {
-    if (code.startsWith("Control")) return "ctrl";
-    if (code.startsWith("Alt")) return "alt";
-    if (code.startsWith("Shift")) return "shift";
-    if (code.startsWith("Meta")) return "meta";
-    if (code.startsWith("Key")) return code.slice(3).toLowerCase();
-    if (code.startsWith("Digit")) return code.slice(5);
-    return code.toLowerCase();
-}
+import { codeToLabel, isModifierCode } from "../../../_libKeybindRegistry/format";
 
 export function RecordModal({ modalProps, onSave, title }: {
     modalProps: ModalProps;
@@ -51,7 +40,7 @@ export function RecordModal({ modalProps, onSave, title }: {
             const label = codeToLabel(e.code);
             captured.add(label);
 
-            if (!MODIFIER_CODES.has(e.code)) {
+            if (!isModifierCode(e.code)) {
                 setKeys([...captured]);
                 setRecording(false);
             } else {

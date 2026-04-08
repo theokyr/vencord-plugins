@@ -28,7 +28,7 @@ import {
     useState,
 } from "@webpack/common";
 
-import { TabBar, ROUTE_ICONS, animatedCloseTab, shakeTab } from "./tabBar";
+import { TabBar, ROUTE_ICONS, animatedCloseTab, shakeTab, resetTabBarState } from "./tabBar";
 import { openTabContextMenu, initNativeMenus, cleanupNativeMenus, registerContextMenuPatches, unregisterContextMenuPatches, type TabActionHandlers } from "./contextMenu";
 import type { Tab, ChannelTab, RouteTab } from "./types";
 import type { ContextMenuMode } from "./contextMenuConfig";
@@ -161,6 +161,8 @@ let tabs: Tab[] = [];
 let activeTabIndex = -1;
 let idCounter = 0;
 const listeners = new Set<() => void>();
+let restoreTimer1: ReturnType<typeof setTimeout> | undefined;
+let restoreTimer2: ReturnType<typeof setTimeout> | undefined;
 
 let notifyRaf = 0;
 function notify() {
@@ -782,11 +784,12 @@ function restoreTabs() {
             // Block CHANNEL_SELECT during startup so Discord's default navigation
             // (usually Friends) doesn't create a spurious tab
             startupGuard = true;
-            setTimeout(() => {
+            restoreTimer1 = setTimeout(() => {
+                restoreTimer1 = undefined;
                 const tab = tabs[activeTabIndex];
                 if (tab) navigateTo(tab);
                 // Release guard after navigation settles
-                setTimeout(() => { startupGuard = false; }, 200);
+                restoreTimer2 = setTimeout(() => { restoreTimer2 = undefined; startupGuard = false; }, 200);
             }, 500);
         }
         notify();
@@ -801,6 +804,8 @@ function resetState() {
     startupGuard = false;
     listeners.clear();
     if (notifyRaf) { cancelAnimationFrame(notifyRaf); notifyRaf = 0; }
+    if (restoreTimer1) { clearTimeout(restoreTimer1); restoreTimer1 = undefined; }
+    if (restoreTimer2) { clearTimeout(restoreTimer2); restoreTimer2 = undefined; }
 }
 
 // ─── Sidebar toggles ────────────────────────────────────────────────────
@@ -1702,6 +1707,7 @@ const plugin = definePlugin({
         unpatchNavigation();
         removeUI();
         resetState();
+        resetTabBarState();
         document.body.classList.remove("vc-channelTabs-hideGuilds", "vc-channelTabs-hideChannels", "vc-channelTabs-navCompact", "vc-channelTabs-navHidden");
 
         logger.info("ChannelTabs stopped");

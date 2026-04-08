@@ -12,6 +12,10 @@ import type { Tab, ChannelTab } from "./types";
 import type { ContextMenuMode, TabActionConfig, TabActionId } from "./contextMenuConfig";
 import { ACTION_LABELS, HIDDEN_SUBMENU_ORDER, HIDDEN_SUBMENU_SEPARATOR_AFTER, resolveActionPositions } from "./contextMenuConfig";
 
+declare const DiscordNative: {
+    clipboard: { copy: (text: string) => void; };
+} | undefined;
+
 // ═══════════════════════════════════════════════════════════════════════════
 // GENERIC LAYER — extractable to _libContextMenu
 // ═══════════════════════════════════════════════════════════════════════════
@@ -341,7 +345,11 @@ export function openTabContextMenu(
             event.clientY,
         );
 
-        if (dispatched) return;
+        if (dispatched) {
+            // Safety: clear source after a tick if the patch hasn't consumed it
+            setTimeout(() => { if (tabContextSource) tabContextSource = null; }, 0);
+            return;
+        }
 
         // Sidebar element not found (guild not visible, channel virtualized, etc.)
         openTabActionsOnlyMenu(event, tabIndex, tab, actions, mode, configs, submenuPosition, clearSource);

@@ -6,7 +6,7 @@
 
 import "./style.css";
 import "../_libAnimationKit/animations.css";
-import "../_libKeybindRegistry"; // triggers module-scope init (window.__keybindRegistry + dispatcher)
+import { startDispatcher, stopDispatcher } from "../_libKeybindRegistry";
 
 import definePlugin from "@utils/types";
 import { initVcAnim, setPreset, setEnabled, type PresetName } from "../_libAnimationKit";
@@ -108,7 +108,14 @@ function injectSettingsPage(pluginName?: string): void {
     );
 
     escapeHandler = (e: KeyboardEvent) => {
-        if (e.key === "Escape") closeSettingsTab();
+        if (e.key !== "Escape") return;
+        // Don't close settings if focus is in a text input — blur instead
+        const active = document.activeElement;
+        if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+            (active as HTMLElement).blur();
+            return;
+        }
+        closeSettingsTab();
     };
     window.addEventListener("keydown", escapeHandler);
 
@@ -261,7 +268,26 @@ export default definePlugin({
     authors: [{ name: "kamaras", id: 132106519264100352n }],
 
     start() {
+        startDispatcher();
         initAnimRuntime();
+
+        // Re-create module-scope API if plugin was stopped and restarted
+        // (module evaluation only runs once, so the delete in stop() is permanent
+        // unless we restore it here)
+        if (!window.__settingsHub) {
+            window.__settingsHub = {
+                register: registerSchema,
+                unregister: unregisterSchema,
+                open: openSettingsPage,
+                version: 2,
+                useSettingsReactive: null as any,
+                TriStateToggle: null as any,
+                KeybindTable: null as any,
+                setAnimPreset(_preset: PresetName) { /* populated below */ },
+                setAnimEnabled(_enabled: boolean) { /* populated below */ },
+                getAnimSettings: loadAnimSettings,
+            };
+        }
 
         const { useSettingsReactive } = require("./hooks");
         const { TriStateToggle } = require("./components/controls/TriStateToggle");
@@ -307,6 +333,7 @@ export default definePlugin({
     },
 
     stop() {
+        stopDispatcher();
         cleanupAnimRuntime();
 
         if (routeRegistered) {

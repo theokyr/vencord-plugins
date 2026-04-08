@@ -515,9 +515,9 @@ export default definePlugin({
             sub.cleanups.forEach(fn => fn());
         }
         activeSubscriptions.clear();
-        document.getElementById("vc-discordMcp-prompts")?.remove();
         pendingPrompts.forEach(p => p.resolve(false));
         pendingPrompts = [];
+        document.getElementById("vc-discordMcp-prompts")?.remove();
         logger.info("DiscordMCP stopped");
     },
 });

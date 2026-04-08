@@ -13,6 +13,9 @@ export class Logger {
     log(..._args: unknown[]) {}
 }
 
+// @utils/types — definePlugin stub
+export default function definePlugin<T extends Record<string, unknown>>(p: T): T { return p; }
+
 // @utils/types — OptionType enum
 export const OptionType = {
     STRING: 0,

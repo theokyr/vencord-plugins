@@ -113,6 +113,11 @@ let initialRenderDone = false;
 let _animatedCloseCallback: ((i: number) => void) | null = null;
 let _shakeCallback: ((i: number) => void) | null = null;
 
+/** Reset module-level state when the plugin stops. */
+export function resetTabBarState() {
+    initialRenderDone = false;
+}
+
 /** Close a tab with animation. Falls back to immediate close if TabBar isn't mounted. */
 export function animatedCloseTab(index: number, fallback: (i: number) => void): void {
     if (_animatedCloseCallback) _animatedCloseCallback(index);

@@ -169,6 +169,10 @@ const NotificationTracker = {
         return null;
     },
 
+    forceNotify() {
+        this._listeners.forEach(fn => fn());
+    },
+
     subscribe(listener: () => void) {
         this._listeners.add(listener);
         return () => { this._listeners.delete(listener); };
@@ -811,7 +815,7 @@ function updateHeldLayers(held: { ctrl: boolean; alt: boolean; shift: boolean; m
         heldLayers = newLayers;
         hintsJustAppeared = grew; // entrance anim only when layers are added
         // Trigger hint re-render
-        NotificationTracker._listeners.forEach(fn => fn()); // DM decorator re-renders
+        NotificationTracker.forceNotify(); // DM decorator re-renders
         scheduleGuildUpdate();
         scheduleChannelUpdate();
     }
@@ -828,7 +832,7 @@ function shouldShowLayer(layer: string): boolean {
 function onWindowBlur() {
     if (heldLayers.size > 0) {
         heldLayers.clear();
-        NotificationTracker._listeners.forEach(fn => fn());
+        NotificationTracker.forceNotify();
         scheduleGuildUpdate();
         scheduleChannelUpdate();
     }

@@ -31,10 +31,15 @@ const vcAnim: VcAnim = {
     },
 };
 
-export function initVcAnim(preset: PresetName, isEnabled: boolean): void {
-    if ((globalThis as any).__vcAnim) return;
-    currentPreset = preset;
-    enabled = isEnabled;
+export function initVcAnim(preset?: PresetName, isEnabled?: boolean): void {
+    if ((globalThis as any).__vcAnim) {
+        // Update existing instance with new values if provided
+        if (preset !== undefined) currentPreset = preset;
+        if (isEnabled !== undefined) enabled = isEnabled;
+        return;
+    }
+    if (preset !== undefined) currentPreset = preset;
+    if (isEnabled !== undefined) enabled = isEnabled;
     (globalThis as any).__vcAnim = vcAnim;
 }
 

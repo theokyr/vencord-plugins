@@ -5,7 +5,7 @@ export const TOOLS: Tool[] = [
     {
         name: "discord_list_guilds",
         description: "List all guilds (servers) the user is a member of",
-        inputSchema: { type: "object", properties: {}, required: [] },
+        inputSchema: { type: "object", properties: {} },
     },
     {
         name: "discord_list_channels",
@@ -284,7 +284,7 @@ export const TOOLS: Tool[] = [
     {
         name: "discord_rebuild_plugins",
         description: "Rebuild and redeploy Vencord userplugins. Spawns link.sh which closes Discord, builds, deploys dist, and reopens Discord. Auto-denied when user is in a voice call (configurable).",
-        inputSchema: { type: "object", properties: {}, required: [] },
+        inputSchema: { type: "object", properties: {} },
     },
     // ─── Utility ─────────────────────────────────────────────────────────
     {

@@ -94,8 +94,12 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
             } catch { /* store not ready */ }
         };
         sync();
-        const interval = setInterval(sync, 500);
-        return () => clearInterval(interval);
+        FluxDispatcher.subscribe("AUDIO_TOGGLE_SELF_MUTE", sync);
+        FluxDispatcher.subscribe("AUDIO_TOGGLE_SELF_DEAF", sync);
+        return () => {
+            FluxDispatcher.unsubscribe("AUDIO_TOGGLE_SELF_MUTE", sync);
+            FluxDispatcher.unsubscribe("AUDIO_TOGGLE_SELF_DEAF", sync);
+        };
     }, []);
 
     // Hover handlers

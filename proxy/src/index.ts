@@ -5,10 +5,11 @@ import {
     ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
+import { randomUUID } from "node:crypto";
 import { createBridge, type DiscordBridge } from "./ws-server.js";
 import { TOOLS } from "./tools.js";
 import { SubscriptionManager } from "./subscriptions.js";
-import { DEFAULT_PORT, TOOL_NAMES } from "./protocol.js";
+import { DEFAULT_PORT, TOOL_NAMES, type EventFilters } from "./protocol.js";
 
 async function main() {
     const { bridge, mode } = await createBridge(DEFAULT_PORT);
@@ -34,8 +35,14 @@ async function main() {
 
         // Handle subscription tools proxy-side (proxy owns subscription state)
         if (name === TOOL_NAMES.subscribe) {
+            if (!Array.isArray(params.events)) {
+                return {
+                    content: [{ type: "text", text: JSON.stringify({ error: "events must be an array" }) }],
+                    isError: true,
+                };
+            }
             const events = params.events as string[];
-            const filters = params.filters as Record<string, string> | undefined;
+            const filters = params.filters as EventFilters | undefined;
             const subId = subscriptions.create(events, filters);
             bridge.sendSubscribe(subId, events, filters);
             return {
@@ -53,14 +60,14 @@ async function main() {
         }
 
         // All other tools: forward to plugin via WS
-        const callId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const callId = `call_${randomUUID()}`;
 
         try {
             const result = await bridge.callTool(callId, name, params as Record<string, unknown>);
 
             if (!result.success) {
                 return {
-                    content: [{ type: "text", text: JSON.stringify({ error: result.error, ...(result.data as object ?? {}) }) }],
+                    content: [{ type: "text", text: JSON.stringify({ error: result.error, ...(typeof result.data === "object" && result.data !== null ? result.data : {}) }) }],
                     isError: true,
                 };
             }
@@ -93,7 +100,7 @@ async function main() {
         process.stderr.write(`[ws] Connection state: ${state}\n`);
         if (state === "ready") {
             for (const sub of subscriptions.getAll()) {
-                bridge.sendSubscribe(sub.id, sub.events, sub.filters as Record<string, unknown> | undefined);
+                bridge.sendSubscribe(sub.id, sub.events, sub.filters);
             }
         }
     });

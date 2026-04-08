@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { register, _reset } from "../../plugins/_libKeybindRegistry/registry";
 import { startDispatcher, stopDispatcher } from "../../plugins/_libKeybindRegistry/dispatcher";

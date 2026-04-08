@@ -7,9 +7,11 @@ import {
     type ToolResultMessage,
     type PromptPendingMessage,
     type EventMessage,
+    type EventFilters,
     PROTOCOL_VERSION,
     DEFAULT_PORT,
     TIMEOUTS,
+    TOOL_NAMES,
 } from "./protocol.js";
 
 export type ConnectionState = "disconnected" | "connecting" | "ready";
@@ -17,7 +19,7 @@ export type ConnectionState = "disconnected" | "connecting" | "ready";
 interface PendingCall {
     resolve: (result: ToolResultMessage) => void;
     reject: (error: Error) => void;
-    timer: ReturnType<typeof setTimeout>;
+    timer: ReturnType<typeof setTimeout> | undefined;
 }
 
 type EventHandler = (event: EventMessage) => void;
@@ -30,7 +32,7 @@ export interface DiscordBridge {
     setOnStateChange(handler: (state: ConnectionState) => void): void;
     onEvent(handler: EventHandler): void;
     callTool(id: string, tool: string, params: Record<string, unknown>): Promise<ToolResultMessage>;
-    sendSubscribe(id: string, events: string[], filters?: Record<string, unknown>): void;
+    sendSubscribe(id: string, events: string[], filters?: EventFilters): void;
     sendUnsubscribe(subscriptionId: string): void;
     close(): Promise<void>;
 }
@@ -54,6 +56,9 @@ export class DiscordWsServer implements DiscordBridge {
     constructor(port: number = DEFAULT_PORT) {
         this.wss = new WebSocketServer({ port, host: "127.0.0.1" });
         this.wss.on("connection", (ws) => this.handleConnection(ws));
+        this.wss.on("error", (err) => {
+            process.stderr.write(`[ws-server] WebSocket server error: ${err.message}\n`);
+        });
     }
 
     getState(): ConnectionState {
@@ -134,6 +139,7 @@ export class DiscordWsServer implements DiscordBridge {
         });
 
         ws.on("close", () => {
+            clearTimeout(handshakeTimer);
             if (this.plugin === ws) {
                 this.plugin = null;
                 this.availableTools = [];
@@ -148,6 +154,7 @@ export class DiscordWsServer implements DiscordBridge {
                         const pending = this.pendingCalls.get(id);
                         if (pending) {
                             clearTimeout(pending.timer);
+                            pending.reject(new Error("Secondary proxy disconnected"));
                             this.pendingCalls.delete(id);
                         }
                     }
@@ -161,7 +168,9 @@ export class DiscordWsServer implements DiscordBridge {
     private handlePluginIdentified(ws: WebSocket, ready: ReadyMessage) {
         // Replace existing plugin connection
         if (this.plugin) {
-            this.plugin.close(1000, "New plugin connected");
+            const oldPlugin = this.plugin;
+            this.plugin = null;
+            oldPlugin.close(1000, "New plugin connected");
             this.rejectAllPending("Connection replaced");
         }
         this.plugin = ws;
@@ -218,7 +227,7 @@ export class DiscordWsServer implements DiscordBridge {
                     clearTimeout(pending.timer);
                     const timeoutMs = prompt.timeoutMs;
                     if (timeoutMs === 0) {
-                        pending.timer = undefined as any;
+                        pending.timer = undefined;
                     } else {
                         const ms = timeoutMs ?? TIMEOUTS.prompt;
                         pending.timer = setTimeout(() => {
@@ -237,9 +246,9 @@ export class DiscordWsServer implements DiscordBridge {
                 }
                 // Forward to all secondaries
                 const eventStr = JSON.stringify(event);
-                for (const ws of this.secondaries) {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        ws.send(eventStr);
+                for (const secWs of this.secondaries) {
+                    if (secWs.readyState === WebSocket.OPEN) {
+                        secWs.send(eventStr);
                     }
                 }
                 break;
@@ -248,6 +257,10 @@ export class DiscordWsServer implements DiscordBridge {
     }
 
     private handleSecondaryMessage(ws: WebSocket, msg: any) {
+        // Validate tool_call has a valid id before using it as a Map key
+        if (msg.type === "tool_call" && (typeof msg.id !== "string" || !msg.id)) {
+            return;
+        }
         // Secondary proxies send tool_call, subscribe, unsubscribe — relay to plugin
         if (msg.type === "tool_call" || msg.type === "subscribe" || msg.type === "unsubscribe") {
             if (this.state !== "ready" || !this.plugin) {
@@ -282,7 +295,7 @@ export class DiscordWsServer implements DiscordBridge {
             };
         }
 
-        const timeout = tool === "discord_eval" ? TIMEOUTS.eval : TIMEOUTS.toolCall;
+        const timeout = tool === TOOL_NAMES.eval ? TIMEOUTS.eval : TIMEOUTS.toolCall;
 
         return new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
@@ -295,7 +308,7 @@ export class DiscordWsServer implements DiscordBridge {
         });
     }
 
-    sendSubscribe(id: string, events: string[], filters?: Record<string, unknown>) {
+    sendSubscribe(id: string, events: string[], filters?: EventFilters) {
         if (this.state === "ready" && this.plugin) {
             this.plugin.send(JSON.stringify({ type: "subscribe", id, events, filters }));
         }
@@ -377,8 +390,8 @@ export class DiscordWsClient implements DiscordBridge {
             this.scheduleReconnect();
         });
 
-        this.ws.on("error", () => {
-            // close handler does cleanup
+        this.ws.on("error", (err) => {
+            process.stderr.write(`[ws-client] WebSocket error: ${(err as Error).message}\n`);
         });
     }
 
@@ -422,7 +435,7 @@ export class DiscordWsClient implements DiscordBridge {
                     clearTimeout(pending.timer);
                     const timeoutMs = prompt.timeoutMs;
                     if (timeoutMs === 0) {
-                        pending.timer = undefined as any;
+                        pending.timer = undefined;
                     } else {
                         const ms = timeoutMs ?? TIMEOUTS.prompt;
                         pending.timer = setTimeout(() => {
@@ -470,7 +483,7 @@ export class DiscordWsClient implements DiscordBridge {
             };
         }
 
-        const timeout = tool === "discord_eval" ? TIMEOUTS.eval : TIMEOUTS.toolCall;
+        const timeout = tool === TOOL_NAMES.eval ? TIMEOUTS.eval : TIMEOUTS.toolCall;
 
         return new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
@@ -483,7 +496,7 @@ export class DiscordWsClient implements DiscordBridge {
         });
     }
 
-    sendSubscribe(id: string, events: string[], filters?: Record<string, unknown>) {
+    sendSubscribe(id: string, events: string[], filters?: EventFilters) {
         if (this.state === "ready") {
             this.send({ type: "subscribe", id, events, filters });
         }

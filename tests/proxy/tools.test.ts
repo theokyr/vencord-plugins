@@ -74,6 +74,7 @@ describe("action tools mention approval", () => {
         "discord_delete_message",
         "discord_set_presence",
         "discord_join_voice",
+        "discord_leave_voice",
     ];
 
     for (const name of actionToolNames) {

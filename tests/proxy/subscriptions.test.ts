@@ -10,14 +10,20 @@ describe("SubscriptionManager", () => {
     });
 
     describe("create()", () => {
-        it("returns incrementing IDs starting with sub_1", () => {
+        it("returns incrementing IDs with epoch prefix", () => {
             const id1 = manager.create(["message_create"]);
             const id2 = manager.create(["typing_start"]);
             const id3 = manager.create(["presence_update"]);
 
-            expect(id1).toBe("sub_1");
-            expect(id2).toBe("sub_2");
-            expect(id3).toBe("sub_3");
+            expect(id1).toMatch(/^sub_\d+_1$/);
+            expect(id2).toMatch(/^sub_\d+_2$/);
+            expect(id3).toMatch(/^sub_\d+_3$/);
+            // All share the same epoch
+            const epoch1 = id1.split("_")[1];
+            const epoch2 = id2.split("_")[1];
+            const epoch3 = id3.split("_")[1];
+            expect(epoch1).toBe(epoch2);
+            expect(epoch2).toBe(epoch3);
         });
 
         it("stores subscription with events and filters", () => {
@@ -73,7 +79,10 @@ describe("SubscriptionManager", () => {
 
             const all = manager.getAll();
             expect(all).toHaveLength(3);
-            expect(all.map(s => s.id)).toEqual(["sub_1", "sub_2", "sub_3"]);
+            const ids = all.map(s => s.id);
+            expect(ids[0]).toMatch(/^sub_\d+_1$/);
+            expect(ids[1]).toMatch(/^sub_\d+_2$/);
+            expect(ids[2]).toMatch(/^sub_\d+_3$/);
         });
     });
 
@@ -135,13 +144,13 @@ describe("SubscriptionManager", () => {
             expect(manager.getAll()).toEqual([]);
         });
 
-        it("resets counter so IDs start from sub_1 again", () => {
+        it("resets counter so IDs restart from 1 again", () => {
             manager.create(["message_create"]);
             manager.create(["typing_start"]);
             manager.clear();
 
             const id = manager.create(["presence_update"]);
-            expect(id).toBe("sub_1");
+            expect(id).toMatch(/^sub_\d+_1$/);
         });
     });
 });

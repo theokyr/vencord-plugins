@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://venpm.dev/plugins/kamaras"><img src="https://img.shields.io/badge/showcase-venpm.dev-f97316" alt="showcase" /></a>
-  <a href="https://github.com/theokyr/vencord-plugins/blob/master/LICENSE"><img src="https://img.shields.io/github/license/theokyr/vencord-plugins?color=94a3b8" alt="license" /></a>
+  <a href="https://github.com/theokyr/vencord-plugins/blob/main/LICENSE"><img src="https://img.shields.io/github/license/theokyr/vencord-plugins?color=94a3b8" alt="license" /></a>
   <a href="https://vencord.dev"><img src="https://img.shields.io/badge/requires-Vencord-bd5dfc" alt="requires Vencord" /></a>
 </p>
 
@@ -26,9 +26,9 @@
 | **bsNoMore** | Remove upsell clutter — DM nav, clan tags, quest popups, store UI |
 | **hotkeyNav** | Keyboard-driven navigation with inline keycap hints |
 | **minimalCallBar** | Compact 32px call overlay replacement |
-| **discordMcp** | MCP bridge — expose Discord internals to AI agents |
-| **messageHeaderAvatar** | Display avatars inline in message headers |
-| **venpmGui** | Manage plugins from inside Discord — browse, install, update |
+| **discordMcp** | MCP bridge — expose Discord to AI agents via the Model Context Protocol |
+| **messageHeaderAvatar** | Displays user avatars inline in message headers next to the username |
+| **venpmGui** | Manage Vencord plugins from inside Discord — browse, install, update, and configure |
 
 See the **[plugin showcase](https://venpm.dev/plugins/kamaras)** for interactive demos and screenshots.
 
@@ -41,7 +41,7 @@ See the **[plugin showcase](https://venpm.dev/plugins/kamaras)** for interactive
 npm install -g @kamaras/venpm
 
 # Add this plugin repo
-venpm repo add https://github.com/theokyr/vencord-plugins/releases/latest/download/plugins.json
+venpm repo add https://raw.githubusercontent.com/theokyr/vencord-plugins/main/plugins.json
 
 # Install plugins
 venpm install channelTabs
@@ -63,14 +63,14 @@ git clone https://github.com/theokyr/vencord-plugins.git
 cd vencord-plugins
 
 # Symlink the plugins you want into your Vencord userplugins directory
-ln -s "$(pwd)/plugins/channelTabs" ~/src/Vencord/src/userplugins/channelTabs
-ln -s "$(pwd)/plugins/settingsHub" ~/src/Vencord/src/userplugins/settingsHub
+ln -s "$(pwd)/plugins/channelTabs" ~/path/to/Vencord/src/userplugins/channelTabs
+ln -s "$(pwd)/plugins/settingsHub" ~/path/to/Vencord/src/userplugins/settingsHub
 
 # Rebuild Vencord
-cd ~/src/Vencord && pnpm build
+cd ~/path/to/Vencord && pnpm build
 ```
 
-Replace `~/src/Vencord` with your actual Vencord source path.
+Replace `~/path/to/Vencord` with your actual Vencord source path.
 
 ### New to Vencord userplugins?
 
@@ -89,9 +89,10 @@ plugins/
   channelTabs/       # Each folder is one plugin
     index.tsx        # Plugin entry point (definePlugin)
     style.css        # Optional styles
-  _animationKit/     # Build-time utility (not a standalone plugin)
+  _libAnimationKit/  # Shared animation presets (build-time dependency)
+  _libKeybindRegistry/ # Shared keybind registry (build-time dependency)
 proxy/               # MCP proxy server for discordMcp
-tests/               # Vitest test suite
+tests/               # Vitest test suite (186 tests)
 plugins.json         # venpm plugin index
 ```
 

@@ -9,9 +9,10 @@ interface Subscription {
 export class SubscriptionManager {
     private subscriptions = new Map<string, Subscription>();
     private counter = 0;
+    private epoch = Date.now();
 
     create(events: string[], filters?: EventFilters): string {
-        const id = `sub_${++this.counter}`;
+        const id = `sub_${this.epoch}_${++this.counter}`;
         this.subscriptions.set(id, { id, events, filters });
         return id;
     }

@@ -6,26 +6,25 @@ Custom Vencord userplugins, developed outside the Vencord source tree.
 
 ```
 plugins/
-  _animationKit/        # Shared animation CSS/utilities (build-time, not in plugins.json)
-  _keybindRegistry/     # Central keybind registry (build-time, not in plugins.json)
+  _libAnimationKit/     # Shared animation CSS/utilities (build-time dependency)
+  _libKeybindRegistry/  # Central keybind registry (build-time dependency)
   examplePlugin/
     index.ts          # Plugin entry point (definePlugin)
   myPlugin/
     index.tsx         # Use .tsx for plugins with React UI
     native.ts         # Optional: runs in Node.js (fs, child_process, etc.)
     style.css         # Optional: plugin styles
-plugins.json          # venpm plugin index — all user-facing plugins listed here
+plugins.json          # venpm plugin index — all plugins + shared libs listed here
 link.sh               # Install all plugins via venpm --local + rebuild + restart
 unlink.sh             # Uninstall all local plugins via venpm + rebuild
 ```
 
-Each subfolder of `plugins/` is one Vencord plugin. Folder names use **camelCase**.
+Each subfolder of `plugins/` is one Vencord plugin. Folder names use **camelCase**. `_lib`-prefixed folders are shared build-time modules (no `definePlugin`) — they are listed in `plugins.json` as dependencies.
 
 ## Vencord Source
 
 The Vencord source checkout lives at `~/src/extern/Vencord/` (not in this repo).
 
-- **GitHub origin:** `https://github.com/Vendicated/Vencord.git`
 - **GitHub origin:** `https://github.com/Vendicated/Vencord.git`
 
 A patch to `scripts/build/common.mjs` adds a `pathAliasPlugin` that resolves `@utils`, `@api`, `@webpack`, etc. for symlinked userplugins whose real paths are outside `src/`. This patch must be maintained when updating Vencord.
@@ -207,12 +206,13 @@ cd ~/src/vencord-plugins/proxy && npm install && npm run build
 
 | Context | Command | Notes |
 |---------|---------|-------|
-| **Agent** | `discord_rebuild_plugins` MCP tool | Only correct option from agent context |
+| **Agent** | `discord_rebuild_plugins` MCP tool | Preferred from agent context |
+| **Agent (fallback)** | `venpm rebuild` | If MCP tool unavailable or returns symlink error |
 | **Human (terminal)** | `venpm rebuild` | Preferred — builds, deploys, restarts Discord |
 | **Human (terminal)** | `./link.sh` | Alternative — also installs local symlinks first |
 | **Never** | `pnpm build` directly | Does not deploy; leaves dist/ out of sync |
 
-**Agent rules:** See the [Agent Rules](#agent-rules) section. Agents MUST use `discord_rebuild_plugins` and MUST NOT use shell commands for build+deploy.
+**Agent rules:** See the [Agent Rules](#agent-rules) section. Agents should prefer `discord_rebuild_plugins` MCP tool, falling back to `venpm rebuild` when the MCP tool is unavailable.
 
 **Voice call auto-deny:** If the user is in a voice channel or call, `discord_rebuild_plugins` returns an auto-deny error. Agents MUST respect this rejection. Do NOT attempt to bypass it via `discord_eval`, shell commands, or any other workaround. Inform the user and wait for them to leave the call.
 
@@ -301,7 +301,7 @@ Currently 5 consumer plugins are migrated to the settingsHub API.
 
 ## _keybindRegistry
 
-Central keybind registry and dispatcher. Build-time module (like `_animationKit`) — not user-installable, not in `plugins.json`.
+Central keybind registry and dispatcher. Build-time shared module (like `_libAnimationKit`) — listed in `plugins.json` as a dependency for other plugins, but not independently useful to end users.
 
 ### Architecture
 
@@ -344,10 +344,10 @@ venpm validate plugins.json --strict   # also checks dep refs
 ```
 
 Key conventions:
-- `_animationKit` is excluded — it's a build-time utility bundled into each plugin, not user-installable
+- `_lib`-prefixed entries (`_libAnimationKit`, `_libKeybindRegistry`) are shared build-time modules — they are listed in `plugins.json` because other plugins declare them as `dependencies`, but they have no `definePlugin` and are not independently useful to end users
 - All plugins use `optionalDependencies` for `settingsHub` (not hard `dependencies`) — every plugin works standalone
 - `source.git` points to the GitHub URL; `source.path` specifies the monorepo subdirectory
-- No version tags yet — plugins install from HEAD of master
+- No version tags yet — plugins install from HEAD of main
 
 ### venpm CLI
 
@@ -368,12 +368,12 @@ Update `plugins.json` when:
 - Changing a plugin's dependencies or optionalDependencies
 - Bumping version numbers (when we start tagging releases)
 
-Do NOT list `_animationKit` — it has no `definePlugin` and is not independently installable.
+Always list `_lib`-prefixed shared modules — other plugins depend on them. They must stay in `plugins.json` for dependency resolution even though they have no `definePlugin`.
 
 ## Agent Rules
 
 1. **Use venpm for all plugin operations.** Install, uninstall, update, search, list — always through venpm, never manual file operations.
-2. **Use `discord_rebuild_plugins` MCP tool for build+deploy.** Never run `./link.sh`, `venpm rebuild`, `pnpm build`, or any build command from agent context.
+2. **Use `discord_rebuild_plugins` MCP tool for build+deploy when available.** Falls back to `venpm rebuild` if the MCP tool is unavailable or returns a symlink error. Never run `pnpm build` directly — it does not deploy.
 3. **Use MCP tools for investigation.** `discord_eval`, `discord_get_store`, `discord_query_selector` — not `/tmp` scripts.
 4. **Respect voice call auto-deny.** If `discord_rebuild_plugins` returns auto-deny, do NOT attempt workarounds. Inform the user and wait.
 5. **Update `plugins.json` when adding/modifying plugins.** Run `venpm validate plugins.json` after changes.
@@ -402,18 +402,18 @@ cd ~/src/vencord-plugins && npm test
 | `plugins/settingsHub/registry.ts` | Pure registry logic, no Discord deps |
 | `plugins/settingsHub/search.ts` | Pure fuzzy search, no Discord deps |
 | `plugins/discordMcp/shared.ts` | Shared state and registration, no Discord deps |
-| `plugins/_keybindRegistry/*` | Pure logic — format, registry, dispatcher |
+| `plugins/_libKeybindRegistry/*` | Pure logic — format, registry, dispatcher |
 
 Plugin UI code, patches, and DOM injection are **not** unit-testable (they require the Discord renderer).
 
 ### Current Coverage
 
-78 tests across 6 test files, all passing.
+186 tests across 13 test files, all passing. DOM-dependent tests (dispatcher) use `happy-dom`.
 
 ## Git
 
 - **Origin:** `https://github.com/theokyr/vencord-plugins.git`
-- **Branch:** `master`
+- **Branch:** `main`
 
 ## Constraints
 

@@ -176,6 +176,7 @@ let renderScheduled = false;
 let isConnectedToCall = false;
 let minimizeButton: HTMLButtonElement | null = null;
 let minimizeObserver: MutationObserver | null = null;
+let removeBarInFlight: Promise<void> | null = null;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -312,19 +313,22 @@ function renderBar() {
 }
 
 async function removeBar(): Promise<void> {
+    if (removeBarInFlight) return removeBarInFlight;
     if (!barContainer) return;
+    removeBarInFlight = (async () => {
+        // Exit animation — play it, then tear down
+        barContainer!.classList.add("vc-anim-fadeOut");
+        await new Promise<void>(resolve => {
+            barContainer!.addEventListener("animationend", () => resolve(), { once: true });
+            setTimeout(resolve, 500); // fallback in case animationend never fires
+        });
 
-    // Exit animation — play it, then tear down
-    barContainer.classList.add("vc-anim-fadeOut");
-    await new Promise<void>(resolve => {
-        barContainer!.addEventListener("animationend", () => resolve(), { once: true });
-        setTimeout(resolve, 500); // fallback in case animationend never fires
-    });
-
-    barRoot?.unmount();
-    barRoot = null;
-    barContainer?.remove();
-    barContainer = null;
+        barRoot?.unmount();
+        barRoot = null;
+        barContainer?.remove();
+        barContainer = null;
+    })().finally(() => { removeBarInFlight = null; });
+    return removeBarInFlight;
 }
 
 function scheduleRender() {
@@ -495,9 +499,13 @@ function onVoiceStateUpdate() {
 function onChannelSelect() {
     try {
         if (!activeCallChannelId || !overlayHidden) return;
-        // Re-inject bar after navigation (Discord may have destroyed our container)
+        // Re-inject bar after navigation only if Discord destroyed our container
         setTimeout(() => {
-            removeBar().then(() => injectBar());
+            if (barContainer?.isConnected) {
+                scheduleRender(); // container still valid, just re-render
+            } else {
+                removeBar().then(() => injectBar());
+            }
         }, 100);
     } catch { /* swallow */ }
 }

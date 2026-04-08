@@ -26,6 +26,15 @@ export interface UnsubscribeMessage {
 
 export type ProxyMessage = HelloMessage | ToolCallMessage | SubscribeMessage | UnsubscribeMessage;
 
+export interface SecondaryHelloMessage {
+    type: "secondary_hello";
+    version: number;
+}
+
+export interface BridgeDisconnectedMessage {
+    type: "bridge_disconnected";
+}
+
 // ─── Plugin → Proxy messages ───────────────────────────────────────────
 
 export interface ReadyMessage {

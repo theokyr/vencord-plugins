@@ -90,6 +90,7 @@ function dispatch(e: KeyboardEvent): void {
 
         for (const kb of getAll()) {
             if (!kb.enabled) continue;
+            if (!kb.keys) continue; // skip keybinds with no keys (e.g. disabled defaults)
             if (textFocused && kb.textInputBehavior === "block") continue;
             if (kb.keys !== modString) continue;
 
