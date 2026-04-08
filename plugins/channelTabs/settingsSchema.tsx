@@ -542,6 +542,31 @@ export function createChannelTabsSchema(settings: DefinedSettings): SettingsSche
                     },
                 ],
             },
+            {
+                id: "context-menu",
+                label: "Context Menu",
+                groups: [
+                    {
+                        label: "Tab Action Placement",
+                        settings: [
+                            {
+                                key: "contextMenuMode",
+                                control: "select",
+                            },
+                        ],
+                    },
+                    {
+                        label: "Tabs Submenu",
+                        description: "The 'Tabs >' submenu appears when any action is set to Hidden (Hybrid mode)",
+                        settings: [
+                            {
+                                key: "tabsSubmenuPosition",
+                                control: "select",
+                            },
+                        ],
+                    },
+                ],
+            },
         ],
     };
 }

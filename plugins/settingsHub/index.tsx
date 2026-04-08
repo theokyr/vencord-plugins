@@ -10,7 +10,7 @@ import "../_libKeybindRegistry"; // triggers module-scope init (window.__keybind
 
 import definePlugin from "@utils/types";
 import { initVcAnim, setPreset, setEnabled, type PresetName } from "../_libAnimationKit";
-import { createRoot } from "@webpack/common";
+import { createRoot, Menu } from "@webpack/common";
 import { closeAllModals } from "@utils/modal";
 import { registerSchema, unregisterSchema, getSchemas } from "./registry";
 import type { SettingsSchema } from "./schema";
@@ -230,6 +230,8 @@ declare global {
             unregisterRoute(path: string): void;
             openRoute(path: string): void;
             closeRoute(path: string): void;
+            registerRouteContextMenu?(path: string, builder: () => React.ReactElement[]): void;
+            unregisterRouteContextMenu?(path: string): void;
         };
     }
 }
@@ -285,6 +287,23 @@ export default definePlugin({
         });
 
         ensureRouteRegistered();
+
+        // Register context menu items for the settingsHub virtual tab
+        if (window.__channelTabs?.registerRouteContextMenu) {
+            window.__channelTabs.registerRouteContextMenu(SETTINGS_TAB_PATH, () => {
+                const schemas = getSchemas();
+                return schemas.map(schema => (
+                    <Menu.MenuItem
+                        id={`vc-settingshub-nav-${schema.plugin}`}
+                        key={schema.plugin}
+                        label={schema.plugin}
+                        action={() => {
+                            (window as any).__settingsHub?.open(schema.plugin);
+                        }}
+                    />
+                ));
+            });
+        }
     },
 
     stop() {
@@ -292,6 +311,7 @@ export default definePlugin({
 
         if (routeRegistered) {
             window.__channelTabs?.unregisterRoute(SETTINGS_TAB_PATH);
+            window.__channelTabs?.unregisterRouteContextMenu?.(SETTINGS_TAB_PATH);
             routeRegistered = false;
         }
         cleanupSettingsPage();

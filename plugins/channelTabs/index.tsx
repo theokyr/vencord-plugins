@@ -29,7 +29,9 @@ import {
 } from "@webpack/common";
 
 import { TabBar, ROUTE_ICONS, animatedCloseTab, shakeTab } from "./tabBar";
+import { openTabContextMenu, initNativeMenus, cleanupNativeMenus, registerContextMenuPatches, unregisterContextMenuPatches, type TabActionHandlers } from "./contextMenu";
 import type { Tab, ChannelTab, RouteTab } from "./types";
+import type { ContextMenuMode } from "./contextMenuConfig";
 import { findByPropsLazy, findLazy } from "@webpack";
 
 const AckUtils = findByPropsLazy("ack") as { ack: (channelId: string, messageId: string) => void; };
@@ -70,6 +72,21 @@ interface ExternalRouteConfig {
 
 const externalRouteCallbacks = new Map<string, ExternalRouteConfig>();
 
+/** Registry for virtual tab context menu builders */
+const routeContextMenuBuilders = new Map<string, () => React.ReactElement[]>();
+
+export function registerRouteContextMenu(path: string, builder: () => React.ReactElement[]) {
+    routeContextMenuBuilders.set(path, builder);
+}
+
+export function unregisterRouteContextMenu(path: string) {
+    routeContextMenuBuilders.delete(path);
+}
+
+export function getRouteContextMenuBuilder(path: string): (() => React.ReactElement[]) | undefined {
+    return routeContextMenuBuilders.get(path);
+}
+
 function registerExternalRoute(path: string, config: ExternalRouteConfig) {
     ROUTE_TAB_CONFIG[path] = { label: config.label };
     if (config.icon) ROUTE_ICONS[path] = config.icon;
@@ -107,6 +124,10 @@ interface ChannelTabsAPI {
     openRoute(path: string): void;
     /** Close the tab for a route (without unregistering). Navigates to the next tab. */
     closeRoute(path: string): void;
+    /** Register custom context menu items for a virtual tab route */
+    registerRouteContextMenu(path: string, builder: () => React.ReactElement[]): void;
+    /** Unregister custom context menu items for a virtual tab route */
+    unregisterRouteContextMenu(path: string): void;
 }
 
 declare global {
@@ -529,6 +550,31 @@ export const settings = definePluginSettings({
             { label: "None", value: "none" },
         ],
     },
+    contextMenuMode: {
+        type: OptionType.SELECT,
+        description: "Context menu tab action placement",
+        options: [
+            { label: "Top (above Discord items)", value: "top" },
+            { label: "Bottom (below Discord items)", value: "bottom" },
+            { label: "Hybrid (per-action)", value: "hybrid", default: true },
+        ],
+        onChange: notify,
+    },
+    tabActionConfigs: {
+        type: OptionType.STRING,
+        description: "Per-action context menu positions (internal, JSON)",
+        default: "",
+        hidden: true,
+    },
+    tabsSubmenuPosition: {
+        type: OptionType.SELECT,
+        description: "Tabs submenu placement when actions are hidden",
+        options: [
+            { label: "Above Discord items", value: "above" },
+            { label: "Below Discord items", value: "below", default: true },
+        ],
+        onChange: notify,
+    },
     pinIconOpacity: {
         type: OptionType.SLIDER,
         description: "Pin icon opacity (0 = hidden, 1 = fully visible)",
@@ -621,6 +667,25 @@ export const settings = definePluginSettings({
         default: false,
     },
 });
+
+import { DEFAULT_ACTION_CONFIGS, type TabActionConfig } from "./contextMenuConfig";
+
+/** Parse tabActionConfigs from settings, falling back to defaults */
+export function getTabActionConfigs(): TabActionConfig[] {
+    const raw = settings.store.tabActionConfigs;
+    if (!raw) return [...DEFAULT_ACTION_CONFIGS];
+    try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch { }
+    return [...DEFAULT_ACTION_CONFIGS];
+}
+
+/** Save tabActionConfigs to settings */
+export function setTabActionConfigs(configs: TabActionConfig[]) {
+    settings.store.tabActionConfigs = JSON.stringify(configs);
+    notify();
+}
 
 // ─── Navigation ──────────────────────────────────────────────────────────
 
@@ -825,6 +890,27 @@ function QuickAccessBar() {
     const onToggleChannels = useCallback(() => { toggleChannels(); }, []);
     const onSetSidebarMode = useCallback((mode: SidebarMode) => { setSidebarMode(mode); }, []);
 
+    const onContextMenu = useCallback((e: React.MouseEvent, idx: number) => {
+        const tab = tabs[idx];
+        if (!tab) return;
+        const actions: TabActionHandlers = {
+            onClose: (i: number) => animatedCloseTab(i, closeTab),
+            onCloseOthers: closeOtherTabs,
+            onCloseToLeft: closeTabsToLeft,
+            onCloseToRight: closeTabsToRight,
+            onPin: pinTab,
+            onMarkAsRead: markTabAsRead,
+            onMarkAllAsRead: markAllAsRead,
+            onMarkOthersAsRead: markOthersAsRead,
+            onMarkToLeftAsRead: markToLeftAsRead,
+            onMarkToRightAsRead: markToRightAsRead,
+        };
+        const mode = (settings.store.contextMenuMode ?? "hybrid") as ContextMenuMode;
+        const configs = getTabActionConfigs();
+        const submenuPosition = (settings.store.tabsSubmenuPosition ?? "below") as "above" | "below";
+        openTabContextMenu(e, tab, idx, actions, mode, configs, submenuPosition);
+    }, []);
+
     if (tabs.length === 0) return null;
 
     return (
@@ -836,16 +922,9 @@ function QuickAccessBar() {
                     tabs={tabs}
                     activeTabIndex={activeTabIndex}
                     onClose={closeTab}
-                    onCloseOthers={closeOtherTabs}
-                    onCloseToLeft={closeTabsToLeft}
-                    onCloseToRight={closeTabsToRight}
                     onPin={pinTab}
                     onMove={moveTab}
-                    onMarkAsRead={markTabAsRead}
-                    onMarkAllAsRead={markAllAsRead}
-                    onMarkOthersAsRead={markOthersAsRead}
-                    onMarkToLeftAsRead={markToLeftAsRead}
-                    onMarkToRightAsRead={markToRightAsRead}
+                    onContextMenu={onContextMenu}
                     hideGuilds={settings.store.hideGuildSidebar}
                     hideChannels={settings.store.hideChannelList}
                     showSidebarToggles={settings.store.showSidebarToggles}
@@ -1482,6 +1561,8 @@ const plugin = definePlugin({
             unregisterRoute: unregisterExternalRoute,
             openRoute: (path: string) => openRouteTab(path, true),
             closeRoute: closeExternalRoute,
+            registerRouteContextMenu,
+            unregisterRouteContextMenu,
         };
 
         // Register keybinds with central registry
@@ -1550,6 +1631,9 @@ const plugin = definePlugin({
 
         (window as any).__settingsHub?.register(createChannelTabsSchema(settings));
 
+        initNativeMenus();
+        registerContextMenuPatches();
+
         restoreTabs();
         patchNavigation();
         injectUI();
@@ -1595,6 +1679,9 @@ const plugin = definePlugin({
     },
 
     stop() {
+        unregisterContextMenuPatches();
+        cleanupNativeMenus();
+
         delete window.__channelTabs;
         window.__keybindRegistry?.unregister("ChannelTabs");
         (window as any).__settingsHub?.unregister("ChannelTabs");

@@ -36,7 +36,7 @@
       }
     },
     "channelTabs": {
-      "version": "0.2.0",
+      "version": "0.3.0",
       "description": "Quick-access tab bar for channels and DMs",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
@@ -96,7 +96,7 @@
       }
     },
     "settingsHub": {
-      "version": "0.2.0",
+      "version": "0.3.0",
       "description": "Unified settings page for custom plugins",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",

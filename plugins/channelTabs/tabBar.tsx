@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { useCallback, useEffect, useRef, useState, ChannelStore, GuildStore, ReadStateStore, ReactDOM, UserStore } from "@webpack/common";
+import { useCallback, useEffect, useRef, ChannelStore, GuildStore, ReadStateStore, UserStore } from "@webpack/common";
+import { openBarContextMenu } from "./contextMenu";
 import { findStoreLazy } from "@webpack";
 import type { Tab } from "./types";
 
@@ -101,102 +102,7 @@ function PhoneIcon() {
     );
 }
 
-// ─── Context Menu Icons ──────────────────────────────────────────────────
 
-const MenuIcon = ({ d }: { d: string }) => (
-    <svg className="vc-channelTabs-contextMenu-icon" viewBox="0 0 24 24" fill="white">
-        <path d={d} />
-    </svg>
-);
-
-const MENU_ICONS = {
-    close: "M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z",
-    closeOthers: "M13.41 12l4.3-4.29a1 1 0 1 0-1.42-1.42L12 10.59l-4.29-4.3a1 1 0 0 0-1.42 1.42l4.3 4.29-4.3 4.29a1 1 0 1 0 1.42 1.42L12 13.41l4.29 4.3a1 1 0 0 0 1.42-1.42L13.41 12Z",
-    closeLeft: "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z",
-    closeRight: "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
-    pin: "M19.38 11.38a3 3 0 0 0 4.24 0l.03-.03a.5.5 0 0 0 0-.7L13.35.35a.5.5 0 0 0-.7 0l-.03.03a3 3 0 0 0 0 4.24L13 5l-2.92 2.92-3.65-.34a2 2 0 0 0-1.6.58l-.62.63a1 1 0 0 0 0 1.42l9.58 9.58a1 1 0 0 0 1.42 0l.63-.63a2 2 0 0 0 .58-1.6l-.34-3.64L19 11l.38.38ZM9.07 17.07a.5.5 0 0 1-.08.77l-5.15 3.43a.5.5 0 0 1-.63-.06l-.42-.42a.5.5 0 0 1-.06-.63L6.16 15a.5.5 0 0 1 .77-.08l2.14 2.14Z",
-    markRead: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z",
-    settings: "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z",
-    sidebar: "M20 2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM8 20H4V4h4v16zm12 0H10V4h10v16z",
-    channelList: "M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z",
-};
-
-// ─── Context Menu ─────────────────────────────────────────────────────────
-
-/** Position a context menu so it doesn't overflow the viewport */
-function useMenuPosition(ref: React.RefObject<HTMLDivElement | null>, x: number, y: number) {
-    useEffect(() => {
-        const el = ref.current;
-        if (!el) return;
-        const rect = el.getBoundingClientRect();
-        // Flip up if overflowing bottom
-        if (rect.bottom > window.innerHeight) {
-            el.style.top = `${Math.max(0, y - rect.height)}px`;
-        }
-        // Flip left if overflowing right
-        if (rect.right > window.innerWidth) {
-            el.style.left = `${Math.max(0, x - rect.width)}px`;
-        }
-    }, [x, y]);
-}
-
-function ContextMenu({ tabIndex, tab, x, y, onClose, onCloseTab, onCloseOthers, onCloseToLeft, onCloseToRight, onPin, onMarkAsRead, onMarkAllAsRead, onMarkOthersAsRead, onMarkToLeftAsRead, onMarkToRightAsRead }: {
-    tabIndex: number;
-    tab: Tab;
-    x: number; y: number;
-    onClose: () => void;
-    onCloseTab: (i: number) => void;
-    onCloseOthers: (i: number) => void;
-    onCloseToLeft: (i: number) => void;
-    onCloseToRight: (i: number) => void;
-    onPin: (i: number) => void;
-    onMarkAsRead: (i: number) => void;
-    onMarkAllAsRead: () => void;
-    onMarkOthersAsRead: (i: number) => void;
-    onMarkToLeftAsRead: (i: number) => void;
-    onMarkToRightAsRead: (i: number) => void;
-}) {
-    const ref = useRef<HTMLDivElement>(null);
-    useMenuPosition(ref, x, y);
-
-    useEffect(() => {
-        const dismiss = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
-        const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-        document.addEventListener("mousedown", dismiss);
-        document.addEventListener("keydown", esc);
-        return () => { document.removeEventListener("mousedown", dismiss); document.removeEventListener("keydown", esc); };
-    }, [onClose]);
-
-    const items: ({ label: string; icon: string; action: () => void; danger?: boolean } | null)[] = [
-        { label: "Close", icon: MENU_ICONS.close, action: () => onCloseTab(tabIndex), danger: true },
-        { label: "Close Others", icon: MENU_ICONS.closeOthers, action: () => onCloseOthers(tabIndex) },
-        { label: "Close to the Left", icon: MENU_ICONS.closeLeft, action: () => onCloseToLeft(tabIndex) },
-        { label: "Close to the Right", icon: MENU_ICONS.closeRight, action: () => onCloseToRight(tabIndex) },
-        null,
-        { label: tab.pinned ? "Unpin" : "Pin", icon: MENU_ICONS.pin, action: () => onPin(tabIndex) },
-        null,
-        { label: "Mark as Read", icon: MENU_ICONS.markRead, action: () => onMarkAsRead(tabIndex) },
-        { label: "Mark All as Read", icon: MENU_ICONS.markRead, action: () => onMarkAllAsRead() },
-        { label: "Mark Others as Read", icon: MENU_ICONS.markRead, action: () => onMarkOthersAsRead(tabIndex) },
-        { label: "Mark Left as Read", icon: MENU_ICONS.markRead, action: () => onMarkToLeftAsRead(tabIndex) },
-        { label: "Mark Right as Read", icon: MENU_ICONS.markRead, action: () => onMarkToRightAsRead(tabIndex) },
-    ];
-
-    return (
-        <div ref={ref} className="vc-channelTabs-contextMenu" style={{ left: x, top: y }}>
-            {items.map((item, i) =>
-                item === null
-                    ? <div key={i} className="vc-channelTabs-contextMenu-separator" />
-                    : <div key={i} className={`vc-channelTabs-contextMenu-item${item.danger ? " vc-channelTabs-contextMenu-item-danger" : ""}`}
-                        onClick={() => { item.action(); onClose(); }}
-                    >
-                        <MenuIcon d={item.icon} />
-                        {item.label}
-                    </div>
-            )}
-        </div>
-    );
-}
 
 // ─── Tab open/close animation ────────────────────────────────────────────
 
@@ -238,7 +144,7 @@ function TabItem({ tab, index, isActive, showIcon, onActivate, onClose, onPin, o
     onActivate: (tab: Tab) => void;
     onClose: (i: number) => void;
     onPin: (i: number) => void;
-    onContextMenu: (i: number, x: number, y: number) => void;
+    onContextMenu: (e: React.MouseEvent, i: number) => void;
     onMove: (from: number, to: number) => void;
     doubleClickAction: string;
 }) {
@@ -306,7 +212,7 @@ function TabItem({ tab, index, isActive, showIcon, onActivate, onClose, onPin, o
                     doClose();
                 }
             }}
-            onContextMenu={e => { e.preventDefault(); onContextMenu(index, e.clientX, e.clientY); }}
+            onContextMenu={e => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, index); }}
             draggable
             onDragStart={e => { e.dataTransfer.setData("text/plain", String(index)); e.dataTransfer.effectAllowed = "move"; }}
             onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
@@ -348,68 +254,18 @@ function TabItem({ tab, index, isActive, showIcon, onActivate, onClose, onPin, o
     );
 }
 
-// ─── Bar-level context menu (sidebar toggles) ────────────────────────────
-
-function BarContextMenu({ x, y, onClose, hideGuilds, hideChannels, onToggleGuilds, onToggleChannels, onOpenSettings }: {
-    x: number; y: number;
-    onClose: () => void;
-    hideGuilds: boolean;
-    hideChannels: boolean;
-    onToggleGuilds: () => void;
-    onToggleChannels: () => void;
-    onOpenSettings: () => void;
-}) {
-    const ref = useRef<HTMLDivElement>(null);
-    useMenuPosition(ref, x, y);
-
-    useEffect(() => {
-        const dismiss = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
-        const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-        document.addEventListener("mousedown", dismiss);
-        document.addEventListener("keydown", esc);
-        return () => { document.removeEventListener("mousedown", dismiss); document.removeEventListener("keydown", esc); };
-    }, [onClose]);
-
-    return (
-        <div ref={ref} className="vc-channelTabs-contextMenu" style={{ left: x, top: y }}>
-            <div className="vc-channelTabs-contextMenu-item"
-                onClick={() => { onToggleGuilds(); onClose(); }}>
-                <MenuIcon d={MENU_ICONS.sidebar} />
-                {hideGuilds ? "Show" : "Hide"} Server Sidebar
-            </div>
-            <div className="vc-channelTabs-contextMenu-item"
-                onClick={() => { onToggleChannels(); onClose(); }}>
-                <MenuIcon d={MENU_ICONS.channelList} />
-                {hideChannels ? "Show" : "Hide"} Channel List
-            </div>
-            <div className="vc-channelTabs-contextMenu-separator" />
-            <div className="vc-channelTabs-contextMenu-item"
-                onClick={() => { onOpenSettings(); onClose(); }}>
-                <MenuIcon d={MENU_ICONS.settings} />
-                ChannelTabs Settings
-            </div>
-        </div>
-    );
-}
 
 // ─── TabBar ───────────────────────────────────────────────────────────────
 
-export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClose, onCloseOthers, onCloseToLeft, onCloseToRight, onPin, onMove, onMarkAsRead, onMarkAllAsRead, onMarkOthersAsRead, onMarkToLeftAsRead, onMarkToRightAsRead, hideGuilds, hideChannels, showSidebarToggles, enrichedHeader, onToggleGuilds, onToggleChannels, onSetSidebarMode, onNewTab, onOpenSettings, doubleClickAction }: {
+export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClose, onPin, onMove, onContextMenu, hideGuilds, hideChannels, showSidebarToggles, enrichedHeader, onToggleGuilds, onToggleChannels, onSetSidebarMode, onNewTab, onOpenSettings, doubleClickAction }: {
     showServerIcon: boolean;
     onActivate: (tab: Tab) => void;
     tabs: Tab[];
     activeTabIndex: number;
     onClose: (i: number) => void;
-    onCloseOthers: (i: number) => void;
-    onCloseToLeft: (i: number) => void;
-    onCloseToRight: (i: number) => void;
     onPin: (i: number) => void;
     onMove: (from: number, to: number) => void;
-    onMarkAsRead: (i: number) => void;
-    onMarkAllAsRead: () => void;
-    onMarkOthersAsRead: (i: number) => void;
-    onMarkToLeftAsRead: (i: number) => void;
-    onMarkToRightAsRead: (i: number) => void;
+    onContextMenu: (e: React.MouseEvent, idx: number) => void;
     hideGuilds: boolean;
     hideChannels: boolean;
     showSidebarToggles: boolean;
@@ -421,9 +277,6 @@ export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClo
     onOpenSettings: () => void;
     doubleClickAction: string;
 }) {
-    const [tabCtx, setTabCtx] = useState<{ index: number; x: number; y: number; } | null>(null);
-    const [barCtx, setBarCtx] = useState<{ x: number; y: number; } | null>(null);
-
     // Mark initial render done after first paint so TabItem can distinguish new tabs from restored ones
     useEffect(() => {
         requestAnimationFrame(() => { initialRenderDone = true; });
@@ -458,8 +311,8 @@ export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClo
     const onBarContextMenu = useCallback((e: React.MouseEvent) => {
         if ((e.target as HTMLElement).closest(".vc-channelTabs-tab")) return;
         e.preventDefault();
-        setBarCtx({ x: e.clientX, y: e.clientY });
-    }, []);
+        openBarContextMenu(e, hideGuilds, hideChannels, onToggleGuilds, onToggleChannels, onOpenSettings);
+    }, [hideGuilds, hideChannels, onToggleGuilds, onToggleChannels, onOpenSettings]);
 
     const onBarDoubleClick = useCallback((e: React.MouseEvent) => {
         const t = e.target as HTMLElement;
@@ -518,44 +371,12 @@ export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClo
                     onActivate={onActivate}
                     onClose={onClose}
                     onPin={onPin}
-                    onContextMenu={(idx, x, y) => { setBarCtx(null); setTabCtx({ index: idx, x, y }); }}
+                    onContextMenu={onContextMenu}
                     onMove={onMove}
                     doubleClickAction={doubleClickAction}
                 />
             ))}
             <span className="vc-channelTabs-newTab" onClick={onNewTab} title="New tab (Quick Switcher)">+</span>
-            {/* Portal context menus to document.body to escape stacking context */}
-            {tabCtx && tabCtx.index < tabs.length && tabs[tabCtx.index] && ReactDOM.createPortal(
-                <ContextMenu
-                    tabIndex={tabCtx.index}
-                    tab={tabs[tabCtx.index]}
-                    x={tabCtx.x} y={tabCtx.y}
-                    onClose={() => setTabCtx(null)}
-                    onCloseTab={animatedClose}
-                    onCloseOthers={onCloseOthers}
-                    onCloseToLeft={onCloseToLeft}
-                    onCloseToRight={onCloseToRight}
-                    onPin={onPin}
-                    onMarkAsRead={onMarkAsRead}
-                    onMarkAllAsRead={onMarkAllAsRead}
-                    onMarkOthersAsRead={onMarkOthersAsRead}
-                    onMarkToLeftAsRead={onMarkToLeftAsRead}
-                    onMarkToRightAsRead={onMarkToRightAsRead}
-                />,
-                document.body,
-            )}
-            {barCtx && ReactDOM.createPortal(
-                <BarContextMenu
-                    x={barCtx.x} y={barCtx.y}
-                    onClose={() => setBarCtx(null)}
-                    hideGuilds={hideGuilds}
-                    hideChannels={hideChannels}
-                    onToggleGuilds={onToggleGuilds}
-                    onToggleChannels={onToggleChannels}
-                    onOpenSettings={onOpenSettings}
-                />,
-                document.body,
-            )}
         </div>
     );
 }

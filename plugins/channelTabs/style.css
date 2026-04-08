@@ -354,64 +354,10 @@ body.vc-channelTabs-hideGuilds.vc-channelTabs-hideChannels [class*="base_"][clas
     grid-template-columns: [start] 0px [guildsEnd] 0px [sidebarEnd] 0px [channelsEnd] 1fr [end] !important;
 }
 
-/* ─── Context menu ─────────────────────────────────────────────────── */
-
-.vc-channelTabs-contextMenu {
-    position: fixed;
-    z-index: 99999;
-    background: var(--background-floating, #111214);
-    border-radius: 4px;
-    padding: 6px 8px;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24);
-    min-width: 160px;
-    animation: vc-slideUp var(--vc-anim-speed, 150ms) var(--vc-anim-ease-out, ease-out) both;
-    transform-origin: top left;
-}
-
-.vc-channelTabs-contextMenu-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
-    border-radius: 3px;
-    font-size: 14px;
-    line-height: 18px;
-    color: var(--interactive-normal, #b5bac1);
-    cursor: pointer;
-    transition:
-        background var(--vc-anim-speed, 150ms) ease,
-        color var(--vc-anim-speed, 150ms) ease;
-}
-
-.vc-channelTabs-contextMenu-item:hover {
-    background: var(--brand-500, #5865f2);
-    color: #fff;
-}
-
-.vc-channelTabs-contextMenu-item-danger {
-    color: var(--status-danger, #f23f43);
-}
-
-.vc-channelTabs-contextMenu-item-danger:hover {
-    background: var(--status-danger, #f23f43);
-    color: #fff;
-}
+/* ─── Context menu icons (left-side) ─────────────────────────────── */
 
 .vc-channelTabs-contextMenu-icon {
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
     opacity: 0.7;
-}
-
-.vc-channelTabs-contextMenu-item:hover .vc-channelTabs-contextMenu-icon {
-    opacity: 1;
-}
-
-.vc-channelTabs-contextMenu-separator {
-    height: 1px;
-    margin: 4px 0;
-    background: rgba(255, 255, 255, 0.08);
 }
 
 /* ─── Drag feedback ───────────────────────────────────────────────── */

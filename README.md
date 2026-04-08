@@ -1,6 +1,21 @@
-# vencord-plugins
+<p align="center">
+  <img src="https://venpm.dev/logo.svg" alt="venpm" width="80" />
+</p>
 
-Custom [Vencord](https://vencord.dev/) userplugins by [kamaras](https://github.com/theokyr).
+<h1 align="center">vencord-plugins</h1>
+
+<p align="center">
+  <strong>Custom Vencord userplugins by <a href="https://github.com/theokyr">kamaras</a>.</strong><br/>
+  UI enhancements, keyboard navigation, and developer tools for Discord.
+</p>
+
+<p align="center">
+  <a href="https://venpm.dev/plugins/kamaras"><img src="https://img.shields.io/badge/showcase-venpm.dev-f97316" alt="showcase" /></a>
+  <a href="https://github.com/theokyr/vencord-plugins/blob/master/LICENSE"><img src="https://img.shields.io/github/license/theokyr/vencord-plugins?color=94a3b8" alt="license" /></a>
+  <a href="https://vencord.dev"><img src="https://img.shields.io/badge/requires-Vencord-bd5dfc" alt="requires Vencord" /></a>
+</p>
+
+---
 
 ## Plugins
 
@@ -14,6 +29,8 @@ Custom [Vencord](https://vencord.dev/) userplugins by [kamaras](https://github.c
 | **discordMcp** | MCP bridge — expose Discord internals to AI agents |
 | **messageHeaderAvatar** | Display avatars inline in message headers |
 | **venpmGui** | Manage plugins from inside Discord — browse, install, update |
+
+See the **[plugin showcase](https://venpm.dev/plugins/kamaras)** for interactive demos and screenshots.
 
 ## Install with venpm
 
@@ -80,6 +97,14 @@ plugins.json         # venpm plugin index
 
 Full documentation: [venpm.dev](https://venpm.dev)
 
+## Disclaimer
+
+These plugins are not affiliated with, endorsed by, or sponsored by Discord Inc. or the Vencord project. "Discord" is a trademark of Discord Inc., mentioned solely for descriptive purposes.
+
+Client modifications — including Vencord and any userplugins — are against [Discord's Terms of Service](https://discord.com/terms). While no widespread bans for client mod usage are known, Discord may take action against accounts at any time. **You use client modifications entirely at your own risk.**
+
+These plugins are provided "as is", without warranty of any kind. The author is not responsible for any damage to your Discord account, computer, or data.
+
 ## License
 
-MIT
+[MIT](LICENSE)

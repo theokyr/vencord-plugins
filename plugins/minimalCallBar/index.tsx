@@ -257,6 +257,8 @@ function injectBar() {
     if (mode === "strip") {
         const page = document.querySelector('[class*="page_"]');
         if (!page) return;
+        // Use CSS order to stay at top alongside channelTabs (which uses order: -1)
+        barContainer.style.order = "-1";
         const tabsContainer = page.querySelector("#vc-channelTabs-container");
         if (tabsContainer) {
             tabsContainer.after(barContainer);
