@@ -383,10 +383,8 @@ export class DiscordWsClient implements DiscordBridge {
 
         this.ws.on("close", () => {
             this.ws = null;
-            if (this.state === "ready") {
-                this.setState("disconnected");
-                this.rejectAllPending("Primary proxy disconnected");
-            }
+            this.setState("disconnected");
+            this.rejectAllPending("Primary proxy disconnected");
             this.scheduleReconnect();
         });
 
@@ -533,21 +531,21 @@ export function createBridge(port: number = DEFAULT_PORT): Promise<{ bridge: Dis
         wss.on("listening", () => {
             // We got the port — close this test server and create the real one
             wss.close(() => {
-                const bridge = new DiscordWsServer(port);
-                resolve({ bridge, mode: "primary" });
+                try {
+                    const bridge = new DiscordWsServer(port);
+                    resolve({ bridge, mode: "primary" });
+                } catch {
+                    // Another process grabbed the port between close and constructor
+                    const bridge = new DiscordWsClient(port);
+                    resolve({ bridge, mode: "secondary" });
+                }
             });
         });
 
-        wss.on("error", (err: NodeJS.ErrnoException) => {
-            if (err.code === "EADDRINUSE") {
-                // Port taken — become a secondary client
-                const bridge = new DiscordWsClient(port);
-                resolve({ bridge, mode: "secondary" });
-            } else {
-                // Some other error — still try client mode
-                const bridge = new DiscordWsClient(port);
-                resolve({ bridge, mode: "secondary" });
-            }
+        wss.on("error", () => {
+            // Port taken or other error — become a secondary client
+            const bridge = new DiscordWsClient(port);
+            resolve({ bridge, mode: "secondary" });
         });
     });
 }

@@ -33,7 +33,9 @@ const vcAnim: VcAnim = {
 
 export function initVcAnim(preset?: PresetName, isEnabled?: boolean): void {
     if ((globalThis as any).__vcAnim) {
-        // Update existing instance with new values if provided
+        // Update existing instance with new values if provided.
+        // __vcAnim uses getters that read from module-scope vars, so updating
+        // currentPreset/enabled here is reflected through the frozen object.
         if (preset !== undefined) currentPreset = preset;
         if (isEnabled !== undefined) enabled = isEnabled;
         return;

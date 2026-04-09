@@ -7,6 +7,7 @@ import { Native } from "./nativeApi";
 
 async function checkForUpdates() {
     if (!settings.store.checkUpdatesOnLaunch) return;
+    if (!Native) return;
 
     const lockfile = await Native.readLockfile();
     if (!lockfile) return;
@@ -54,6 +55,7 @@ export default definePlugin({
         (window as any).__settingsHub?.register(venpmGuiSchema);
 
         // Check if venpm is installed
+        if (!Native) return;
         const detection = await Native.detectVenpm();
 
         if (!detection.found && !settings.store.setupComplete) {

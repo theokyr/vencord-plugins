@@ -176,9 +176,12 @@ function TabItem({ tab, index, isActive, showIcon, onActivate, onClose, onPin, o
     useEffect(() => {
         if (justOpened.current && tabRef.current) {
             if (initialRenderDone && !document.body.classList.contains("vc-anim-off")) {
-                tabRef.current.classList.add("vc-channelTabs-tab-opening");
-                const handler = () => tabRef.current?.classList.remove("vc-channelTabs-tab-opening");
-                tabRef.current.addEventListener("animationend", handler, { once: true });
+                const el = tabRef.current;
+                el.classList.add("vc-channelTabs-tab-opening");
+                const handler = () => el.classList.remove("vc-channelTabs-tab-opening");
+                el.addEventListener("animationend", handler, { once: true });
+                justOpened.current = false;
+                return () => el.removeEventListener("animationend", handler);
             }
             justOpened.current = false;
         }

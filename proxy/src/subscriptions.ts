@@ -38,5 +38,6 @@ export class SubscriptionManager {
     clear() {
         this.subscriptions.clear();
         this.counter = 0;
+        this.epoch = Date.now();
     }
 }

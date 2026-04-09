@@ -21,7 +21,7 @@ export function useSettingsReactive(settings: DefinedSettings): number {
             subscriberMap.set(def, subs);
             const WRAPPED = Symbol.for("settingsHub-wrapped");
             for (const [key, opt] of Object.entries(def)) {
-                if (!opt || opt.type === 7) continue;
+                if (!opt || opt.type === 6 || opt.type === 7) continue;
                 if (!(opt as any)[WRAPPED]) {
                     const original = opt.onChange;
                     opt.onChange = (val: any) => {

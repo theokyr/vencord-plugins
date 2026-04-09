@@ -7,4 +7,4 @@ export const Native = (window as any).VencordNative?.pluginHelpers?.VenpmGui as 
     readLockfile: () => Promise<{ installed: Record<string, { version: string; repo: string; method: string; pinned: boolean }> } | null>;
     readCachedIndexes: () => Promise<{ entries?: Record<string, { body?: string }> } | null>;
     runVenpm: (args: string[]) => Promise<{ success: boolean; error?: string; data?: unknown }>;
-};
+} | undefined;

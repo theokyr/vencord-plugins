@@ -268,6 +268,7 @@ export default definePlugin({
     authors: [{ name: "kamaras", id: 132106519264100352n }],
 
     start() {
+        // settingsHub owns dispatcher lifecycle — _libKeybindRegistry module-scope init defers to this
         startDispatcher();
         initAnimRuntime();
 
@@ -333,6 +334,7 @@ export default definePlugin({
     },
 
     stop() {
+        // settingsHub owns dispatcher lifecycle — _libKeybindRegistry module-scope init defers to this
         stopDispatcher();
         cleanupAnimRuntime();
 

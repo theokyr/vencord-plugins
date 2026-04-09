@@ -5,7 +5,7 @@ export default defineConfig({
     resolve: {
         alias: {
             // Proxy imports (protocol.ts uses .js extension for Node16 module resolution)
-            "./protocol.js": resolve(__dirname, "proxy/src/protocol.ts"),
+            [resolve(__dirname, "proxy/src/protocol.js")]: resolve(__dirname, "proxy/src/protocol.ts"),
             // Vencord stubs — these don't exist outside Discord, so mock them
             "@utils/Logger": resolve(__dirname, "tests/__mocks__/vencord.ts"),
             "@utils/types": resolve(__dirname, "tests/__mocks__/vencord.ts"),

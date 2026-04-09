@@ -55,7 +55,7 @@ function dispatchNativeContextMenu(
     return true;
 }
 
-/** No-op init/cleanup — kept for API stability during extraction */
+// TODO: remove — no extraction planned
 export function initNativeMenus() { }
 export function cleanupNativeMenus() { }
 

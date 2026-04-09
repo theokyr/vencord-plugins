@@ -4,7 +4,7 @@
   "description": "Custom Vencord userplugins by kamaras",
   "plugins": {
     "_libAnimationKit": {
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "Shared animation presets, CSS variables, and keyframes for custom plugins",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
@@ -24,7 +24,7 @@
       }
     },
     "bsNoMore": {
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "Remove upsell clutter — compacts DM nav, hides clan tags, avatar decorations, quest popups, and store UI",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
@@ -36,7 +36,7 @@
       }
     },
     "channelTabs": {
-      "version": "0.3.0",
+      "version": "0.3.1",
       "description": "Quick-access tab bar for channels and DMs",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
@@ -48,7 +48,7 @@
       }
     },
     "discordMcp": {
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "MCP bridge — expose Discord to AI agents via the Model Context Protocol",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
@@ -96,7 +96,7 @@
       }
     },
     "settingsHub": {
-      "version": "0.3.0",
+      "version": "0.3.1",
       "description": "Unified settings page for custom plugins",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
@@ -108,7 +108,7 @@
       }
     },
     "venpmGui": {
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "Manage Vencord plugins from inside Discord — browse, install, update, and configure without the terminal",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",

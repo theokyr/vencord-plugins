@@ -372,8 +372,8 @@ function getStyleVars(): Record<string, string> {
         "--vc-channelTabs-tabPadding": s.tabPadding + "px",
         "--vc-channelTabs-tabRadius": s.tabRadius + "px",
         "--vc-channelTabs-bottomMargin": s.bottomMargin + "px",
-        "--vc-channelTabs-pinOpacity": String(s.pinIconOpacity ?? 0.4),
-        "--vc-channelTabs-closeOpacity": String(s.closeIconOpacity ?? 0),
+        "--vc-channelTabs-pinOpacity": String(s.pinIconOpacity),
+        "--vc-channelTabs-closeOpacity": String(s.closeIconOpacity),
     };
 }
 
@@ -1416,9 +1416,11 @@ function setupHeaderObserver() {
         debounceTimer = setTimeout(() => {
             debounceTimer = null;
             const freshChildren = findChannelHeaderChildren();
-            if (freshChildren) {
-                relocateChannelHeader();
-            }
+            if (!freshChildren) return;
+            // Skip if header children are already relocated into the title bar
+            const titleBar = findVisibleTitleBar();
+            if (titleBar?.contains(freshChildren)) return;
+            relocateChannelHeader();
         }, 150);
     });
 

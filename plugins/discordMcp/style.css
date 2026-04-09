@@ -127,5 +127,5 @@
     background: var(--brand-500, #5865f2);
     border-radius: 0 0 8px 8px;
     width: 100%;
-    transition: width linear;
+    transition: width 30s linear;
 }

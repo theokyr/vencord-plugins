@@ -52,7 +52,10 @@ export function buildSearchIndex(schemas: readonly SettingsSchema[]): SearchEntr
                         pluginName: schema.plugin,
                         sectionId: section.id,
                         settingKey: setting.key,
-                        label: setting.label ?? (optDef as any)?.description ?? setting.key,
+                        label: (() => {
+                            const rawLabel = setting.label ?? (optDef as any)?.description ?? setting.key;
+                            return rawLabel.length > 60 ? rawLabel.slice(0, 57) + "..." : rawLabel;
+                        })(),
                         description: setting.description ?? "",
                         tags: setting.tags ?? [],
                         anchorId: `settings-${schema.plugin}-${setting.key}`,

@@ -43,6 +43,7 @@ body.vc-bsNoMore-hideServerBanners [class*="hasBanner_"][class*="bannerVisible_"
 }
 
 /* Banner spacer — animate height collapse */
+/* NOTE: class hash is Discord-version-dependent; update if selector stops working */
 body.vc-bsNoMore-hideServerBanners [class*="content_d125d2"] > div[aria-hidden="true"][style*="height"] {
     height: 0px !important;
     transition: height var(--vc-anim-speed-slow, 250ms);

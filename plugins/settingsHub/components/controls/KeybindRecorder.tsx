@@ -50,7 +50,7 @@ export function RecordModal({ modalProps, onSave, title }: {
 
         function onKeyUp(e: KeyboardEvent) {
             e.preventDefault();
-            if (captured.size > 0) {
+            if (captured.size > 0 && !isModifierCode(e.code)) {
                 setKeys([...captured]);
                 setRecording(false);
             }
