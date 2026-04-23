@@ -330,6 +330,39 @@ window.__keybindRegistry?.register({
 
 settingsHub renders a global Keybinds page reading from `window.__keybindRegistry.getAll()`.
 
+## embedFix Plugin
+
+Rewrites social media URLs in both directions to produce richer embeds.
+
+### Architecture
+
+- **Outgoing** — `onBeforeMessageSend` hook. Cache-hit: instant URL rewrite before the message is sent. Cache-miss: message sends first, then a deferred `MessageActions.editMessage` replaces the URL (avoids blocking the send on a network probe).
+- **Incoming** — Render patch on `"mustConfirmExternalLink"` module suppresses Discord's default external-link embeds for rewritten URLs, then `MessageAccessories` API injects a replacement embed using Discord's native Embed component (`findComponentByCodeLazy "renderSuppressButton"`).
+
+### Platforms
+
+7 platforms: Twitter/X, Reddit, Instagram, TikTok, Pixiv, Bluesky, Threads.
+
+### File Structure
+
+```
+plugins/embedFix/
+  index.tsx          # Plugin entry, patches, MessageAccessories registration
+  native.ts          # Node.js: HTTP probing with OG/oEmbed metadata parsing
+  probeCache.ts      # ProbeCache with TTL and static fallback map
+  platforms.ts       # Per-platform URL rewrite rules
+```
+
+### Critical Gotchas
+
+| Issue | Detail |
+|-------|--------|
+| `addMessageAccessory` needs factory fn | Expects `(props) => ReactNode`. `ErrorBoundary.wrap()` returns a component class — passing it directly silently produces nothing. Wrap: `(props) => <EmbedFixAccessory {...props} />` |
+| Embed DOM structure | Native embeds render as `<article class="embedFull__* embed__*">` inside `#message-accessories-{messageId}`. The `embedWrapper_` class does NOT exist in the accessories container. |
+| CSP blocks external video | `media-src` only allows Discord CDN. `<video src="https://vxreddit.com/...">` is silently blocked. Use `type: "article"` synthetic embeds with images (`img-src` is more permissive). |
+| Patch `$1` not resolved | In Vencord patch replace strings, `$1` may appear as a literal rather than the captured group. Use `arguments[N]` to reference function parameters directly. |
+| Domain normalization | When matching embed URLs against platform domains, strip `www`/`m`/`mobile`/`old` from BOTH the original URL hostname AND the embed link hostname. Add both raw and normalized forms to the match set. |
+
 ## venpm Integration
 
 This repo publishes a venpm plugin index at `plugins.json` (root). The index lists all user-facing plugins with their metadata, dependencies, and source locations.
@@ -403,12 +436,14 @@ cd ~/src/vencord-plugins && npm test
 | `plugins/settingsHub/search.ts` | Pure fuzzy search, no Discord deps |
 | `plugins/discordMcp/shared.ts` | Shared state and registration, no Discord deps |
 | `plugins/_libKeybindRegistry/*` | Pure logic — format, registry, dispatcher |
+| `plugins/embedFix/probeCache.ts` | Pure cache logic, no Discord deps |
+| `plugins/embedFix/platforms.ts` | Pure URL rewrite rules, no Discord deps |
 
 Plugin UI code, patches, and DOM injection are **not** unit-testable (they require the Discord renderer).
 
 ### Current Coverage
 
-186 tests across 13 test files, all passing. DOM-dependent tests (dispatcher) use `happy-dom`.
+238 tests across 16 test files, all passing. DOM-dependent tests (dispatcher) use `happy-dom`.
 
 ## Git
 

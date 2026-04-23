@@ -8,7 +8,8 @@ import { addContextMenuPatch, NavContextMenuPatchCallback, removeContextMenuPatc
 import { findByPropsLazy } from "@webpack";
 import { ChannelStore, ContextMenuApi, FluxDispatcher, Menu, UserStore } from "@webpack/common";
 
-import type { Tab, ChannelTab } from "./types";
+import type { Tab, ChannelTab, GroupTab, LeafTab } from "./types";
+import { isGroupTab } from "./types";
 import type { ContextMenuMode, TabActionConfig, TabActionId } from "./contextMenuConfig";
 import { ACTION_LABELS, HIDDEN_SUBMENU_ORDER, HIDDEN_SUBMENU_SEPARATOR_AFTER, resolveActionPositions } from "./contextMenuConfig";
 
@@ -667,6 +668,136 @@ function openVirtualTabMenu(
                 </Menu.MenuGroup>
             )}
         </Menu.Menu>
+    ));
+}
+
+// ─── Group context menu ──────────────────────────────────────────────────
+
+const GROUP_COLORS = [
+    { label: "None", value: null as string | null },
+    { label: "Red", value: "#ed4245" },
+    { label: "Orange", value: "#f97316" },
+    { label: "Yellow", value: "#fee75c" },
+    { label: "Green", value: "#57f287" },
+    { label: "Blue", value: "#5865f2" },
+    { label: "Purple", value: "#9b59b6" },
+    { label: "Pink", value: "#eb459e" },
+    { label: "Teal", value: "#1abc9c" },
+];
+
+export interface GroupActionHandlers {
+    onPinGroup: (groupId: string) => void;
+    onRenameGroup: (groupId: string) => void;
+    onSetGroupColor: (groupId: string, color: string | null) => void;
+    onMarkGroupRead: (groupId: string) => void;
+    onCloseGroup: (groupId: string) => void;
+    onUngroupTabs: (groupId: string) => void;
+}
+
+export function openGroupContextMenu(
+    event: React.MouseEvent,
+    group: GroupTab,
+    groupIndex: number,
+    handlers: GroupActionHandlers,
+) {
+    ContextMenuApi.openContextMenu(event, () => (
+        <Menu.ContextMenu navId="channeltabs-group-context">
+            <Menu.MenuItem
+                id="pin-group"
+                label={group.pinned ? "Unpin Group" : "Pin Group"}
+                action={() => handlers.onPinGroup(group.id)}
+            />
+            <Menu.MenuItem
+                id="rename-group"
+                label="Rename Group"
+                action={() => handlers.onRenameGroup(group.id)}
+            />
+            <Menu.MenuItem
+                id="change-color"
+                label="Change Color"
+            >
+                {GROUP_COLORS.map(c => (
+                    <Menu.MenuItem
+                        key={c.value ?? "none"}
+                        id={`color-${c.value ?? "none"}`}
+                        label={c.label}
+                        action={() => handlers.onSetGroupColor(group.id, c.value)}
+                    />
+                ))}
+            </Menu.MenuItem>
+            <Menu.MenuSeparator />
+            <Menu.MenuItem
+                id="mark-group-read"
+                label="Mark Group as Read"
+                action={() => handlers.onMarkGroupRead(group.id)}
+            />
+            <Menu.MenuSeparator />
+            <Menu.MenuItem
+                id="close-group"
+                label="Close Group"
+                color="danger"
+                action={() => handlers.onCloseGroup(group.id)}
+            />
+            <Menu.MenuItem
+                id="ungroup-tabs"
+                label="Ungroup Tabs"
+                action={() => handlers.onUngroupTabs(group.id)}
+            />
+        </Menu.ContextMenu>
+    ));
+}
+
+// ─── Child tab context menu ──────────────────────────────────────────────
+
+export interface ChildActionHandlers {
+    onPinChild: (groupId: string, childId: string) => void;
+    onRemoveFromGroup: (tabId: string) => void;
+    onMoveToGroup: (tabId: string, targetGroupId: string) => void;
+    onCloseChild: (groupId: string, childId: string) => void;
+}
+
+export function openChildContextMenu(
+    event: React.MouseEvent,
+    child: LeafTab,
+    childIndex: number,
+    sourceGroupId: string,
+    groups: GroupTab[],
+    handlers: ChildActionHandlers,
+) {
+    const otherGroups = groups.filter(g => g.id !== sourceGroupId);
+
+    ContextMenuApi.openContextMenu(event, () => (
+        <Menu.ContextMenu navId="channeltabs-child-context">
+            <Menu.MenuItem
+                id="pin-child"
+                label={child.pinned ? "Unpin" : "Pin"}
+                action={() => handlers.onPinChild(sourceGroupId, child.id)}
+            />
+            <Menu.MenuItem
+                id="remove-from-group"
+                label="Remove from Group"
+                action={() => handlers.onRemoveFromGroup(child.id)}
+            />
+            {otherGroups.length > 0 && (
+                <Menu.MenuItem id="move-to-group" label="Move to Group">
+                    {otherGroups.map(g => (
+                        <Menu.MenuItem
+                            key={g.id}
+                            id={`move-${g.id}`}
+                            label={g.name}
+                            action={() => handlers.onMoveToGroup(child.id, g.id)}
+                        />
+                    ))}
+                </Menu.MenuItem>
+            )}
+            <Menu.MenuSeparator />
+            <Menu.MenuItem
+                id="close-child"
+                label="Close"
+                color="danger"
+                action={() => handlers.onCloseChild(sourceGroupId, child.id)}
+            />
+        </Menu.ContextMenu>
     ));
 }
 

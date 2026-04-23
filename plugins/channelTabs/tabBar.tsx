@@ -4,31 +4,16 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { useCallback, useEffect, useRef, ChannelStore, GuildStore, ReadStateStore, UserStore } from "@webpack/common";
+import { useCallback, useEffect, useRef, ReadStateStore } from "@webpack/common";
 import { openBarContextMenu } from "./contextMenu";
 import { findStoreLazy } from "@webpack";
 import type { Tab } from "./types";
+import { getTabMeta, ROUTE_ICONS } from "./tabMeta";
+import { isGroupTab, type GroupTab } from "./types";
+import { GroupChip } from "./groupChip";
+import { GroupDropdown } from "./groupDropdown";
+import { GroupNamePrompt } from "./groupNamePrompt";
 
-// ─── Route tab icons (data URIs) ─────────────────────────────────────────
-// SVGs encoded as data URIs for use in <img> tags. White fill for visibility on dark backgrounds.
-
-function svgDataUri(svg: string): string {
-    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-}
-
-export const ROUTE_ICONS: Record<string, string> = {
-    "/channels/@me": svgDataUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M13 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-2-4a2 2 0 1 1 4 0 2 2 0 0 1-4 0Z"/><path d="M3 18a5 5 0 0 1 5-5h10a5 5 0 0 1 5 5v2a1 1 0 1 1-2 0v-2a3 3 0 0 0-3-3H8a3 3 0 0 0-3 3v2a1 1 0 1 1-2 0v-2Z"/></svg>'),
-    "/message-requests": svgDataUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2Zm0 4-8 5-8-5V6l8 5 8-5v2Z"/></svg>'),
-    "/store": svgDataUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M2.01 8.5 2 22h20V8.5l-4-6H6l-3.99 6ZM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2Zm-4.47-7h8.94l2.67 4H4.86l2.67-4Z"/></svg>'),
-    "/shop": svgDataUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M18 6h-2c0-2.21-1.79-4-4-4S8 3.79 8 6H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2Zm-6-2c1.1 0 2 .9 2 2h-4c0-1.1.9-2 2-2Zm6 16H6V8h2v2a1 1 0 1 0 2 0V8h4v2a1 1 0 1 0 2 0V8h2v12Z"/></svg>'),
-    "/quest-home": svgDataUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 15.9V19H7v2h10v-2h-4v-3.1a5.01 5.01 0 0 0 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2ZM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8Zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1Z"/></svg>'),
-};
-
-const DISCORD_FALLBACK_ICON = svgDataUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M19.73 4.87a18.2 18.2 0 0 0-4.6-1.44c-.21.4-.4.8-.58 1.21-1.69-.26-3.4-.26-5.1 0-.18-.41-.37-.82-.59-1.2a18.2 18.2 0 0 0-4.6 1.43A19.04 19.04 0 0 0 .96 18.6a18.56 18.56 0 0 0 5.63 2.87c.46-.62.86-1.28 1.2-1.98-.65-.25-1.29-.55-1.9-.92.16-.12.32-.24.47-.37a13.18 13.18 0 0 0 11.28 0c.15.13.31.26.47.37-.6.36-1.25.67-1.9.92.35.7.75 1.35 1.2 1.98 1.94-.57 3.86-1.5 5.63-2.87A19.04 19.04 0 0 0 19.73 4.87ZM8.3 15.63c-1.18 0-2.16-1.08-2.16-2.42 0-1.34.95-2.42 2.15-2.42 1.2 0 2.17 1.08 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Zm7.4 0c-1.19 0-2.16-1.08-2.16-2.42 0-1.34.96-2.42 2.16-2.42s2.16 1.08 2.15 2.42c0 1.34-.95 2.42-2.15 2.42Z"/></svg>');
-
-function getRouteIcon(path: string): string {
-    return ROUTE_ICONS[path] ?? DISCORD_FALLBACK_ICON;
-}
 
 const PresenceStore = findStoreLazy("PresenceStore") as {
     getStatus: (userId: string) => "online" | "idle" | "dnd" | "offline";
@@ -51,46 +36,6 @@ const UserGuildSettingsStore = findStoreLazy("UserGuildSettingsStore") as {
     isChannelMuted: (guildId: string | null, channelId: string) => boolean;
 };
 
-const RelationshipStore = findStoreLazy("RelationshipStore") as {
-    getNickname: (userId: string) => string | undefined;
-    isFriend: (userId: string) => boolean;
-};
-
-// ─── Tab metadata ─────────────────────────────────────────────────────────
-
-interface TabMeta {
-    icon: string | null;
-    name: string;
-    isDm: boolean;
-    dmUserId: string | null;
-}
-
-function getTabMeta(tab: Tab, showIcon: boolean): TabMeta {
-    if (tab.type === "route") {
-        return { icon: showIcon ? getRouteIcon(tab.path) : null, name: tab.label, isDm: false, dmUserId: null };
-    }
-
-    const channel = ChannelStore.getChannel(tab.channelId);
-    if (!channel) return { icon: null, name: "Unknown", isDm: false, dmUserId: null };
-
-    if (!tab.guildId || channel.isDM?.()) {
-        const recipientId = channel.recipients?.[0] ?? null;
-        const user = recipientId ? UserStore.getUser(recipientId) : null;
-        const friendNick = recipientId ? RelationshipStore?.getNickname?.(recipientId) : undefined;
-        return {
-            icon: showIcon ? (user?.getAvatarURL(undefined, 32) ?? null) : null,
-            name: friendNick ?? user?.globalName ?? user?.username ?? "DM",
-            isDm: true,
-            dmUserId: recipientId,
-        };
-    }
-
-    const guild = showIcon ? GuildStore.getGuild(tab.guildId) : null;
-    const guildIcon = guild?.icon
-        ? `https://cdn.discordapp.com/icons/${tab.guildId}/${guild.icon}.webp?size=32`
-        : null;
-    return { icon: guildIcon, name: `#${channel.name ?? "unknown"}`, isDm: false, dmUserId: null };
-}
 
 // ─── Phone SVG icon ───────────────────────────────────────────────────────
 
@@ -141,7 +86,7 @@ function animateClose(tabEl: HTMLElement | null, then: () => void) {
 
 // ─── Single Tab ───────────────────────────────────────────────────────────
 
-function TabItem({ tab, index, isActive, showIcon, onActivate, onClose, onPin, onContextMenu, onMove, doubleClickAction }: {
+function TabItem({ tab, index, isActive, showIcon, onActivate, onClose, onPin, onContextMenu, onMove, doubleClickAction, isSelected, onMultiSelect }: {
     tab: Tab;
     index: number;
     isActive: boolean;
@@ -152,6 +97,8 @@ function TabItem({ tab, index, isActive, showIcon, onActivate, onClose, onPin, o
     onContextMenu: (e: React.MouseEvent, i: number) => void;
     onMove: (from: number, to: number) => void;
     doubleClickAction: string;
+    isSelected?: boolean;
+    onMultiSelect?: (index: number, e: React.MouseEvent) => void;
 }) {
     const meta = getTabMeta(tab, showIcon);
     // ─── Indicator state ──────────────────────────────────────────────
@@ -198,12 +145,19 @@ function TabItem({ tab, index, isActive, showIcon, onActivate, onClose, onPin, o
     if (tab.pinned) className += " vc-channelTabs-tab-pinned";
     if (isMuted) className += " vc-channelTabs-tab-muted";
     if (isCallActive && !isMuted) className += " vc-channelTabs-tab-call";
+    if (isSelected) className += " vc-channelTabs-tab-selected";
 
     return (
         <div
             ref={tabRef}
             className={className}
-            onClick={() => onActivate(tab)}
+            onClick={e => {
+                    if ((e.ctrlKey || e.metaKey || e.shiftKey) && onMultiSelect) {
+                        onMultiSelect(index, e);
+                        return;
+                    }
+                    onActivate(tab);
+                }}
             onDoubleClick={() => {
                 if (doubleClickAction === "pin") onPin(index);
                 else if (doubleClickAction === "close" && !tab.pinned) doClose();
@@ -222,7 +176,12 @@ function TabItem({ tab, index, isActive, showIcon, onActivate, onClose, onPin, o
             }}
             onContextMenu={e => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, index); }}
             draggable
-            onDragStart={e => { e.dataTransfer.setData("text/plain", String(index)); e.dataTransfer.effectAllowed = "move"; }}
+            onDragStart={e => {
+                    e.dataTransfer.setData("text/plain", String(index));
+                    e.dataTransfer.setData("application/x-tab-type", "tab");
+                    e.dataTransfer.setData("application/x-tab-id", tab.id);
+                    e.dataTransfer.effectAllowed = "move";
+                }}
             onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
             onDrop={e => { e.preventDefault(); const src = parseInt(e.dataTransfer.getData("text/plain")); if (!isNaN(src)) onMove(src, index); }}
         >
@@ -265,7 +224,7 @@ function TabItem({ tab, index, isActive, showIcon, onActivate, onClose, onPin, o
 
 // ─── TabBar ───────────────────────────────────────────────────────────────
 
-export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClose, onPin, onMove, onContextMenu, hideGuilds, hideChannels, showSidebarToggles, enrichedHeader, onToggleGuilds, onToggleChannels, onSetSidebarMode, onNewTab, onOpenSettings, doubleClickAction }: {
+export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClose, onPin, onMove, onContextMenu, hideGuilds, hideChannels, showSidebarToggles, enrichedHeader, onToggleGuilds, onToggleChannels, onSetSidebarMode, onNewTab, onOpenSettings, doubleClickAction, activeChildIndex, maxGroupIcons, groupChipStyle, onToggleGroupCollapsed, onActivateChild, onCloseChild, onMoveChild, onPinChild, onDropToGroup, onDropFromGroup, onGroupContextMenu, onChildContextMenu, onCreateGroup, onAddCurrentTabToGroup, multiSelectIndices, onMultiSelectToggle }: {
     showServerIcon: boolean;
     onActivate: (tab: Tab) => void;
     tabs: Tab[];
@@ -284,6 +243,22 @@ export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClo
     onNewTab: () => void;
     onOpenSettings: () => void;
     doubleClickAction: string;
+    activeChildIndex?: number | null;
+    maxGroupIcons?: number;
+    groupChipStyle?: "compact" | "minimal";
+    onToggleGroupCollapsed?: (groupId: string) => void;
+    onActivateChild?: (groupIndex: number, childIndex: number) => void;
+    onCloseChild?: (groupId: string, childId: string) => void;
+    onMoveChild?: (groupId: string, from: number, to: number) => void;
+    onPinChild?: (groupId: string, childId: string) => void;
+    onDropToGroup?: (tabId: string, groupId: string) => void;
+    onDropFromGroup?: (tabId: string, dropIndex: number) => void;
+    onGroupContextMenu?: (e: React.MouseEvent, index: number) => void;
+    onChildContextMenu?: (e: React.MouseEvent, groupId: string, childIndex: number) => void;
+    onCreateGroup?: (indices: number[], name: string) => void;
+    onAddCurrentTabToGroup?: (groupId: string) => void;
+    multiSelectIndices?: Set<number>;
+    onMultiSelectToggle?: (index: number, e: React.MouseEvent) => void;
 }) {
     // Mark initial render done after first paint so TabItem can distinguish new tabs from restored ones
     useEffect(() => {
@@ -291,6 +266,15 @@ export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClo
     }, []);
 
     const barRef = useRef<HTMLDivElement>(null);
+    const chipRefs = useRef<Record<string, React.RefObject<HTMLElement>>>({});
+
+    // Prune stale chipRef entries when tabs change (prevents memory leak on group destroy)
+    useEffect(() => {
+        const liveIds = new Set(tabs.filter(isGroupTab).map(t => t.id));
+        for (const k of Object.keys(chipRefs.current)) {
+            if (!liveIds.has(k)) delete chipRefs.current[k];
+        }
+    }, [tabs]);
 
     // Animated close — finds the tab element by index in the DOM
     const animatedClose = useCallback((i: number) => {
@@ -330,8 +314,24 @@ export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClo
 
     if (tabs.length === 0) return null;
 
+
+
     return (
-        <div ref={barRef} className="vc-channelTabs-tabBar" onContextMenu={onBarContextMenu} onDoubleClick={onBarDoubleClick}>
+        <div
+            ref={barRef}
+            className="vc-channelTabs-tabBar"
+            onContextMenu={onBarContextMenu}
+            onDoubleClick={onBarDoubleClick}
+            onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+            onDrop={e => {
+                const tabType = e.dataTransfer.getData("application/x-tab-type");
+                if (tabType === "child") {
+                    e.preventDefault();
+                    const tabId = e.dataTransfer.getData("application/x-tab-id");
+                    if (tabId) onDropFromGroup?.(tabId, tabs.length);
+                }
+            }}
+        >
             {showSidebarToggles && !enrichedHeader && (() => {
                 const mode = !hideGuilds && !hideChannels ? "all"
                     : !hideGuilds && hideChannels ? "guilds"
@@ -369,21 +369,76 @@ export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClo
                     </div>
                 );
             })()}
-            {tabs.map((tab, i) => (
-                <TabItem
-                    key={tab.id}
-                    tab={tab}
-                    index={i}
-                    isActive={i === activeTabIndex}
-                    showIcon={showServerIcon}
-                    onActivate={onActivate}
-                    onClose={onClose}
-                    onPin={onPin}
-                    onContextMenu={onContextMenu}
-                    onMove={onMove}
-                    doubleClickAction={doubleClickAction}
-                />
-            ))}
+            {tabs.map((tab, i) => {
+                if (isGroupTab(tab)) {
+                    const isActive = i === activeTabIndex;
+                    const showDropdown = isActive && !tab.collapsed;
+                    return (
+                        <div
+                            key={tab.id}
+                            style={{ position: "relative" }}
+                            ref={el => {
+                                if (!chipRefs.current[tab.id]) chipRefs.current[tab.id] = { current: null };
+                                chipRefs.current[tab.id].current = el;
+                            }}
+                        >
+                            <GroupChip
+                                group={tab}
+                                index={i}
+                                isActive={isActive}
+                                maxIcons={maxGroupIcons ?? 4}
+                                chipStyle={groupChipStyle ?? "compact"}
+                                activeChildIndex={isActive ? (activeChildIndex ?? null) : null}
+                                showIcon={showServerIcon}
+                                onToggleCollapsed={id => onToggleGroupCollapsed?.(id)}
+                                onActivateChild={(gi, ci) => onActivateChild?.(gi, ci)}
+                                onCloseChild={(gid, cid) => onCloseChild?.(gid, cid)}
+                                onMoveChild={(gid, from, to) => onMoveChild?.(gid, from, to)}
+                                onDropToGroup={(tid, gid) => onDropToGroup?.(tid, gid)}
+                                onDropFromGroup={(tid, idx) => onDropFromGroup?.(tid, idx)}
+                                onContextMenu={(e, idx) => onGroupContextMenu?.(e, idx)}
+                                onChildContextMenu={(e, gid, ci) => onChildContextMenu?.(e, gid, ci)}
+                                onMove={onMove}
+                            />
+                            {showDropdown && (
+                                <GroupDropdown
+                                    group={tab}
+                                    groupIndex={i}
+                                    activeChildIndex={activeChildIndex ?? null}
+                                    showIcon={showServerIcon}
+                                    chipRef={chipRefs.current[tab.id] ?? { current: null }}
+                                    onActivateChild={(gi, ci) => onActivateChild?.(gi, ci)}
+                                    onCloseChild={(gid, cid) => onCloseChild?.(gid, cid)}
+                                    onMoveChild={(gid, from, to) => onMoveChild?.(gid, from, to)}
+                                    onPinChild={(gid, cid) => onPinChild?.(gid, cid)}
+                                    onChildContextMenu={(e, gid, ci) => onChildContextMenu?.(e, gid, ci)}
+                                    onClose={() => onToggleGroupCollapsed?.(tab.id)}
+                                    onAddCurrentTab={() => onAddCurrentTabToGroup?.(tab.id)}
+                                    onDropFromGroup={(tid, idx) => onDropFromGroup?.(tid, idx)}
+                                />
+                            )}
+                        </div>
+                    );
+                }
+
+                return (
+                    <TabItem
+                        key={tab.id}
+                        tab={tab}
+                        index={i}
+                        isActive={i === activeTabIndex}
+                        showIcon={showServerIcon}
+                        onActivate={onActivate}
+                        onClose={onClose}
+                        onPin={onPin}
+                        onContextMenu={onContextMenu}
+                        onMove={onMove}
+                        doubleClickAction={doubleClickAction}
+                        isSelected={multiSelectIndices?.has(i)}
+                        onMultiSelect={onMultiSelectToggle}
+                    />
+                );
+            })}
             <span className="vc-channelTabs-newTab" onClick={onNewTab} title="New tab (Quick Switcher)">+</span>
         </div>
     );

@@ -30,6 +30,25 @@
     user-select: none;
 }
 
+/* ─── Streaming state ─── */
+.vc-minimalCallBar-streaming.vc-minimalCallBar-strip {
+    background: rgba(89, 54, 149, 0.15);
+    border-bottom-color: rgba(89, 54, 149, 0.35);
+}
+
+.vc-minimalCallBar-streaming.vc-minimalCallBar-bottom {
+    background: linear-gradient(90deg, rgba(89, 54, 149, 0.18) 0%, transparent 70%);
+    border-top-color: rgba(89, 54, 149, 0.3);
+}
+
+.vc-minimalCallBar-streaming .vc-minimalCallBar-statusDot {
+    background: #7c4dbd;
+}
+
+.vc-minimalCallBar-streaming .vc-minimalCallBar-statusText {
+    color: #9b6dd7;
+}
+
 /* ─── Shared bar elements ─── */
 .vc-minimalCallBar-statusDot {
     width: 8px;
@@ -113,6 +132,15 @@
 .vc-minimalCallBar-avatarBadge svg {
     width: 10px;
     height: 10px;
+}
+
+.vc-minimalCallBar-badgeStream {
+    background: #593695;
+    color: #fff;
+}
+
+.vc-minimalCallBar-badgeVideo {
+    color: #23a55a;
 }
 
 /* ─── Channel name ─── */

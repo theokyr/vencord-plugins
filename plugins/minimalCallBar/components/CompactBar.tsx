@@ -5,14 +5,14 @@
  */
 
 import { findByPropsLazy, findStoreLazy } from "@webpack";
-import { FluxDispatcher, React, UserStore } from "@webpack/common";
+import { FluxDispatcher, React, UserStore, useStateFromStores } from "@webpack/common";
 
 import { settings } from "../index";
 import { CallTooltip } from "./CallTooltip";
 import { ControlButton } from "./ControlButton";
 
 const VoiceStateStore = findStoreLazy("VoiceStateStore") as {
-    getVoiceStatesForChannel: (channelId: string) => Record<string, { userId: string; selfMute: boolean; selfDeaf: boolean; mute: boolean; deaf: boolean; }>;
+    getVoiceStatesForChannel: (channelId: string) => Record<string, { userId: string; selfMute: boolean; selfDeaf: boolean; mute: boolean; deaf: boolean; selfVideo: boolean; selfStream: boolean; }>;
 };
 
 const SpeakingStore = findStoreLazy("SpeakingStore") as {
@@ -32,13 +32,15 @@ const ScreenshareActions = findByPropsLazy("toggleScreenShare") as {
     toggleScreenShare: () => void;
 };
 
-const CallActions = findByPropsLazy("disconnect") as {
+const VoiceChannelActions = findByPropsLazy("selectVoiceChannel") as {
+    selectVoiceChannel: (channelId: string) => void;
     disconnect: () => void;
 };
 
 const MediaEngineStore = findStoreLazy("MediaEngineStore") as {
     isSelfMute: () => boolean;
     isSelfDeaf: () => boolean;
+    isScreenSharing: () => boolean;
 };
 
 export interface CompactBarProps {
@@ -59,6 +61,7 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
     const [showOverflow, setShowOverflow] = React.useState(false);
     const [isMuted, setIsMuted] = React.useState(false);
     const [isDeafened, setIsDeafened] = React.useState(false);
+    const [isSelfStreaming, setIsSelfStreaming] = React.useState(false);
     const barRef = React.useRef<HTMLDivElement>(null);
     const hoverTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -102,6 +105,24 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
         };
     }, []);
 
+    // Sync self-stream state
+    React.useEffect(() => {
+        const sync = () => {
+            try { setIsSelfStreaming(MediaEngineStore.isScreenSharing()); } catch { /* store not ready */ }
+        };
+        sync();
+        FluxDispatcher.subscribe("STREAM_START", sync);
+        FluxDispatcher.subscribe("STREAM_STOP", sync);
+        FluxDispatcher.subscribe("STREAM_CREATE", sync);
+        FluxDispatcher.subscribe("STREAM_DELETE", sync);
+        return () => {
+            FluxDispatcher.unsubscribe("STREAM_START", sync);
+            FluxDispatcher.unsubscribe("STREAM_STOP", sync);
+            FluxDispatcher.unsubscribe("STREAM_CREATE", sync);
+            FluxDispatcher.unsubscribe("STREAM_DELETE", sync);
+        };
+    }, []);
+
     // Hover handlers
     const onMouseEnter = React.useCallback(() => {
         hoverTimeout.current = setTimeout(() => setShowTooltip(true), settings.store.hoverDelay);
@@ -127,9 +148,10 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
         ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
         : `${m}:${String(s).padStart(2, "0")}`;
 
-    const className = mode === "strip"
+    const baseClass = mode === "strip"
         ? "vc-minimalCallBar-strip"
         : "vc-minimalCallBar-bottom";
+    const className = isSelfStreaming ? `${baseClass} vc-minimalCallBar-streaming` : baseClass;
 
     const tooltipPosition = mode === "bottom" ? "above" : "below";
 
@@ -172,6 +194,8 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
                     if (!user) return null;
                     const isDeaf = vs.selfDeaf || vs.deaf;
                     const isMute = vs.selfMute || vs.mute;
+                    const isVideo = vs.selfVideo;
+                    const isStreaming = vs.selfStream;
                     const isSpeaking = speakingUsers.has(vs.userId);
                     const avatarClass = isSpeaking
                         ? "vc-minimalCallBar-avatar vc-minimalCallBar-speaking"
@@ -183,7 +207,19 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
                                 src={user.getAvatarURL(undefined, 32)}
                                 alt={user.globalName ?? user.username}
                             />
-                            {isDeaf ? (
+                            {isStreaming ? (
+                                <div className="vc-minimalCallBar-avatarBadge vc-minimalCallBar-badgeStream">
+                                    <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10">
+                                        <path d="M2 4.5C2 3.39 2.9 2.5 4 2.5H20C21.1 2.5 22 3.39 22 4.5V15.5C22 16.6 21.1 17.5 20 17.5H13V19.5H16V21.5H8V19.5H11V17.5H4C2.9 17.5 2 16.6 2 15.5V4.5ZM4 4.5V15.5H20V4.5H4Z" />
+                                    </svg>
+                                </div>
+                            ) : isVideo ? (
+                                <div className="vc-minimalCallBar-avatarBadge vc-minimalCallBar-badgeVideo">
+                                    <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10">
+                                        <path d="M18 7C18 5.9 17.1 5 16 5H4C2.9 5 2 5.9 2 7V17C2 18.1 2.9 19 4 19H16C17.1 19 18 18.1 18 17V13.5L22 17.5V6.5L18 10.5V7Z" />
+                                    </svg>
+                                </div>
+                            ) : isDeaf ? (
                                 <div className="vc-minimalCallBar-avatarBadge">
                                     <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10">
                                         <path d="M22.7 2.7a1 1 0 0 0-1.4-1.4l-20 20a1 1 0 1 0 1.4 1.4l20-20ZM17.06 2.94a.48.48 0 0 0-.11-.77A11 11 0 0 0 2.18 16.94c.14.3.53.35.76.12l3.2-3.2c.25-.25.15-.68-.2-.76a5 5 0 0 0-1.02-.1H3.05a9 9 0 0 1 12.66-9.2c.2.09.44.05.59-.1l.76-.76ZM20.2 8.28a.52.52 0 0 1 .1-.58l.76-.76a.48.48 0 0 1 .77.11 11 11 0 0 1-4.5 14.57c-1.27.71-2.73.23-3.55-.74a3.1 3.1 0 0 1-.17-3.78l1.38-1.97a5 5 0 0 1 4.1-2.13h1.86a9.1 9.1 0 0 0-.75-4.72ZM10.1 17.9c.25-.25.65-.18.74.14a3.1 3.1 0 0 1-.62 2.84 2.85 2.85 0 0 1-3.55.74.16.16 0 0 1-.04-.25l3.48-3.48Z" />
@@ -250,7 +286,7 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
                                 </div>
                             );
                         })()}
-                        <ControlButton type="hangup" onClick={() => CallActions.disconnect()} title="Disconnect" />
+                        <ControlButton type="hangup" onClick={() => VoiceChannelActions.disconnect()} title="Disconnect" />
                     </>
                 ) : (
                     <ControlButton type="rejoin" onClick={e => { e.stopPropagation(); onRejoin(); }} title="Rejoin Call" />

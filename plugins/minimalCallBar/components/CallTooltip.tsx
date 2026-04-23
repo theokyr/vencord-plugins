@@ -10,7 +10,7 @@ import { React, UserStore } from "@webpack/common";
 import { settings } from "../index";
 
 const VoiceStateStore = findStoreLazy("VoiceStateStore") as {
-    getVoiceStatesForChannel: (channelId: string) => Record<string, { userId: string; selfMute: boolean; selfDeaf: boolean; mute: boolean; deaf: boolean; }>;
+    getVoiceStatesForChannel: (channelId: string) => Record<string, { userId: string; selfMute: boolean; selfDeaf: boolean; mute: boolean; deaf: boolean; selfVideo: boolean; selfStream: boolean; }>;
 };
 
 function formatDuration(ms: number): string {
@@ -67,7 +67,9 @@ export function CallTooltip({ channelId, channelName, callStartedAt, position, a
                 if (!user) return null;
 
                 let statusText = "";
-                if (vs.selfDeaf || vs.deaf) statusText = "Deafened";
+                if (vs.selfStream) statusText = "Screen Sharing";
+                else if (vs.selfVideo) statusText = "Video";
+                else if (vs.selfDeaf || vs.deaf) statusText = "Deafened";
                 else if (vs.selfMute || vs.mute) statusText = "Muted";
 
                 return (

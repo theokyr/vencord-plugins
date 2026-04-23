@@ -60,12 +60,9 @@ const ScreenshareActions = findByPropsLazy("toggleScreenShare") as {
     toggleScreenShare: () => void;
 };
 
-const CallActions = findByPropsLazy("disconnect") as {
-    disconnect: () => void;
-};
-
 const VoiceChannelActions = findByPropsLazy("selectVoiceChannel") as {
     selectVoiceChannel: (channelId: string) => void;
+    disconnect: () => void;
 };
 
 // ─── Settings ────────────────────────────────────────────────────────────────
@@ -534,6 +531,8 @@ function exposeTabAPI() {
                     userId: vs.userId,
                     muted: vs.selfMute || vs.mute,
                     deafened: vs.selfDeaf || vs.deaf,
+                    video: vs.selfVideo ?? false,
+                    streaming: vs.selfStream ?? false,
                     speaking: SpeakingStore?.isSpeaking?.(vs.userId) ?? false,
                 })),
             };
@@ -543,7 +542,7 @@ function exposeTabAPI() {
             toggleDeafen: () => MediaEngineActions.toggleSelfDeaf(),
             toggleCamera: () => VideoActions.toggleVideo(),
             toggleScreenshare: () => ScreenshareActions.toggleScreenShare(),
-            disconnect: () => CallActions.disconnect(),
+            disconnect: () => VoiceChannelActions.disconnect(),
             rejoin: () => rejoinCall(),
         },
         CompactBar,

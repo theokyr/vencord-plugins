@@ -354,6 +354,18 @@ body.vc-channelTabs-hideGuilds.vc-channelTabs-hideChannels [class*="base_"][clas
     grid-template-columns: [start] 0px [guildsEnd] 0px [sidebarEnd] 0px [channelsEnd] 1fr [end] !important;
 }
 
+/* Pin the page wrapper to named grid lines. Discord's grid-template-areas has
+ * only 3 area-columns ("guildsList channelsList page"), but our overrides
+ * above define 4 tracks via line names (start/guildsEnd/sidebarEnd/channelsEnd/
+ * end). Without this rule, `grid-area: page` resolves to area-column 3 which
+ * lands on the 0px [sidebarEnd→channelsEnd] track while the width-bearing
+ * [channelsEnd→end] track sits unnamed — the content area renders at 0 width.
+ */
+body.vc-channelTabs-hideGuilds [class*="base_"][class*="__"] [class*="page_"][class*="__"],
+body.vc-channelTabs-hideChannels [class*="base_"][class*="__"] [class*="page_"][class*="__"] {
+    grid-column: channelsEnd / end !important;
+}
+
 /* ─── Context menu icons (left-side) ─────────────────────────────── */
 
 .vc-channelTabs-contextMenu-icon {
@@ -424,21 +436,32 @@ body.vc-channelTabs-navHidden .vc-channelTabs-headerToggles {
     display: flex;
     align-items: center;
     gap: 4px;
-    flex-shrink: 0;
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 200px;
     color: rgba(255, 255, 255, 0.35);
     font-size: 13px;
+    overflow: hidden;
 }
 
 .vc-channelTabs-headerBreadcrumb img {
     width: 16px;
     height: 16px;
     border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.vc-channelTabs-headerBreadcrumb span:not(.vc-channelTabs-headerBreadcrumb-separator) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .vc-channelTabs-headerBreadcrumb-separator {
     color: rgba(255, 255, 255, 0.15);
     font-size: 12px;
     margin: 0 2px;
+    flex-shrink: 0;
 }
 
 /* Nav button styles */
@@ -451,9 +474,19 @@ body.vc-channelTabs-navHidden [class*="leading_"] {
     display: none !important;
 }
 
-/* Channel info needs min-width so it doesn't crush before overflow fires */
+/* Channel info: flex-shrink allowed, but with a floor so it doesn't collapse completely */
 body.vc-channelTabs-enrichedHeader [class*="children__"] {
-    min-width: 120px;
+    min-width: 80px;
+    flex-shrink: 1;
+    overflow: hidden;
+}
+
+/* Channel name text truncates instead of overflowing the title bar */
+body.vc-channelTabs-enrichedHeader [class*="children__"] [class*="title_"],
+body.vc-channelTabs-enrichedHeader [class*="children__"] [class*="name__"] {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Hide topic text in enriched header — it's shown in the overflow menu instead */
@@ -481,10 +514,11 @@ body.vc-channelTabs-enrichedHeader [class*="children__"] > svg {
     z-index: 0;
 }
 
-/* All title bar direct children sit above the drag overlay */
+/* All title bar direct children sit above the drag overlay and allow flex shrinking */
 body.vc-channelTabs-enrichedHeader [class*="base_"] > [class*="bar_"]:not([class*="systemBar"]) > * {
     position: relative;
     z-index: 1;
+    min-width: 0;
 }
 
 /* The drag overlay itself stays at z-index 0 */
@@ -646,4 +680,230 @@ body.vc-channelTabs-enrichedHeader [class*="winButton_"] {
 
 body:not(.vc-anim-off) [class*="base_"][class*="__"] {
     transition: grid-template-columns var(--vc-anim-speed-slow, 250ms) var(--vc-anim-ease-out, ease-out);
+}
+
+/* ─── Group Chip ─────────────────────────────────────────────────────── */
+
+.vc-channelTabs-group-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    position: relative;
+}
+
+.vc-channelTabs-group-name {
+    font-weight: 600;
+    font-size: var(--vc-channelTabs-fontSize, 12px);
+    color: var(--header-primary, #f2f3f5);
+    white-space: nowrap;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vc-channelTabs-group-icons {
+    display: flex;
+    align-items: center;
+}
+
+.vc-channelTabs-group-icon {
+    position: relative;
+    width: 18px;
+    height: 18px;
+    margin-left: -3px;
+    border-radius: 50%;
+    overflow: visible;
+}
+
+.vc-channelTabs-group-icon:first-child {
+    margin-left: 0;
+}
+
+.vc-channelTabs-group-icon img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 1.5px solid var(--background-secondary, #2b2d31);
+}
+
+.vc-channelTabs-group-icon-active img {
+    border-color: var(--brand-500, #5865f2);
+}
+
+.vc-channelTabs-group-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+}
+
+.vc-channelTabs-group-badge-mention {
+    background: var(--status-danger, #ed4245);
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+    min-width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+}
+
+.vc-channelTabs-group-badge-unread {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--header-primary, #f2f3f5);
+}
+
+.vc-channelTabs-group-overflow {
+    font-size: 10px;
+    color: var(--text-muted, #949ba4);
+    margin-left: 2px;
+}
+
+.vc-channelTabs-group-count {
+    font-size: 10px;
+    color: var(--text-muted, #949ba4);
+}
+
+.vc-channelTabs-group-chevron {
+    font-size: 10px;
+    color: var(--text-muted, #949ba4);
+}
+
+/* Drop target indicator */
+.vc-channelTabs-drop-target {
+    outline: 2px solid var(--brand-500, #5865f2);
+    outline-offset: -2px;
+    border-radius: var(--vc-channelTabs-tabRadius, 4px);
+}
+
+/* ─── Group Dropdown ─────────────────────────────────────────────────── */
+
+.vc-channelTabs-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1001;
+    min-width: 200px;
+    max-width: 300px;
+    background: var(--background-floating, #2b2d31);
+    border: 1px solid var(--background-modifier-accent, #4e5058);
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    margin-top: 2px;
+    border-top: 2px solid var(--brand-500, #5865f2);
+}
+
+.vc-channelTabs-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--interactive-normal, #b5bac1);
+}
+
+.vc-channelTabs-dropdown-item:hover {
+    background: var(--background-modifier-hover, #36373d);
+    color: var(--interactive-hover, #dcddde);
+}
+
+.vc-channelTabs-dropdown-item-active {
+    background: var(--background-modifier-selected, #43444b);
+    color: var(--interactive-active, #f2f3f5);
+}
+
+.vc-channelTabs-dropdown-item-pinned::before {
+    content: "";
+    width: 12px;
+    height: 12px;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='currentColor' d='M19 2H5c-1.1 0-2 .9-2 2v14l4-4h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z'/%3E%3C/svg%3E");
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    background: var(--text-muted, #949ba4);
+    flex-shrink: 0;
+}
+
+.vc-channelTabs-dropdown-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vc-channelTabs-dropdown-close {
+    background: none;
+    border: none;
+    color: var(--interactive-normal, #b5bac1);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 2px;
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+
+.vc-channelTabs-dropdown-item:hover .vc-channelTabs-dropdown-close {
+    opacity: 0.6;
+}
+
+.vc-channelTabs-dropdown-close:hover {
+    opacity: 1 !important;
+    color: var(--status-danger, #ed4245);
+}
+
+.vc-channelTabs-dropdown-addCurrent {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    background: none;
+    color: var(--text-muted, #949ba4);
+    cursor: pointer;
+    font-size: 12px;
+    border-top: 1px solid var(--background-modifier-accent, #4e5058);
+    margin-top: 4px;
+    border-radius: 0 0 4px 4px;
+}
+
+.vc-channelTabs-dropdown-addCurrent:hover {
+    color: var(--interactive-hover, #dcddde);
+    background: var(--background-modifier-hover, #36373d);
+}
+
+/* ─── Multi-Select ───────────────────────────────────────────────────── */
+
+.vc-channelTabs-tab-selected {
+    outline: 2px solid var(--brand-500, #5865f2);
+    outline-offset: -2px;
+}
+
+/* ─── Group Name Prompt ──────────────────────────────────────────────── */
+
+.vc-channelTabs-group-namePrompt {
+    padding: 0 4px;
+}
+
+.vc-channelTabs-group-nameInput {
+    background: var(--input-background, #1e1f22);
+    border: 1px solid var(--brand-500, #5865f2);
+    border-radius: 3px;
+    color: var(--text-normal, #dcddde);
+    font-size: var(--vc-channelTabs-fontSize, 12px);
+    padding: 2px 6px;
+    height: calc(var(--vc-channelTabs-tabHeight, 26px) - 4px);
+    width: 100px;
+    outline: none;
+}
+
+.vc-channelTabs-group-nameInput:focus {
+    border-color: var(--brand-experiment, #5865f2);
 }

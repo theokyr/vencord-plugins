@@ -66,6 +66,21 @@ export const HIDDEN_SUBMENU_ORDER: TabActionId[] = [
 
 export const HIDDEN_SUBMENU_SEPARATOR_AFTER = 2;
 
+export const GROUP_ACTIONS = [
+    "renameGroup", "changeColor", "markGroupRead",
+    "closeGroup", "ungroupTabs", "closeOtherGroups",
+] as const;
+export type GroupActionId = typeof GROUP_ACTIONS[number];
+
+export const GROUP_ACTION_LABELS: Record<GroupActionId, string> = {
+    renameGroup: "Rename Group",
+    changeColor: "Change Color",
+    markGroupRead: "Mark Group as Read",
+    closeGroup: "Close Group",
+    ungroupTabs: "Ungroup Tabs",
+    closeOtherGroups: "Close Other Groups",
+};
+
 export function resolveActionPositions(
     mode: ContextMenuMode,
     configs: TabActionConfig[]

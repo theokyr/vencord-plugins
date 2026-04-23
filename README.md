@@ -26,6 +26,7 @@
 | **bsNoMore** | Remove upsell clutter — DM nav, clan tags, quest popups, store UI |
 | **hotkeyNav** | Keyboard-driven navigation with inline keycap hints |
 | **minimalCallBar** | Compact 32px call overlay replacement |
+| **embedFix** | Replaces social media URLs with embed-friendly alternatives |
 | **discordMcp** | MCP bridge — expose Discord to AI agents via the Model Context Protocol |
 | **messageHeaderAvatar** | Displays user avatars inline in message headers next to the username |
 | **venpmGui** | Manage Vencord plugins from inside Discord — browse, install, update, and configure |

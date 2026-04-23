@@ -36,7 +36,7 @@
       }
     },
     "channelTabs": {
-      "version": "0.3.1",
+      "version": "0.4.1",
       "description": "Quick-access tab bar for channels and DMs",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "MIT",
@@ -45,6 +45,16 @@
       "source": {
         "git": "https://github.com/theokyr/vencord-plugins.git",
         "path": "plugins/channelTabs"
+      }
+    },
+    "embedFix": {
+      "version": "0.1.0",
+      "description": "Replaces social media URLs with embed-friendly alternatives from third-party providers",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "MIT",
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/embedFix"
       }
     },
     "discordMcp": {

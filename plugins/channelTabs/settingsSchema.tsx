@@ -520,6 +520,29 @@ export function createChannelTabsSchema(settings: DefinedSettings): SettingsSche
                 ],
             },
             {
+                id: "groups",
+                label: "Groups",
+                groups: [
+                    {
+                        settings: [
+                            {
+                                key: "maxGroupIcons",
+                                control: "slider",
+                                slider: { min: 1, max: 8, step: 1 },
+                            },
+                            {
+                                key: "groupChipStyle",
+                                control: "select",
+                            },
+                            {
+                                key: "emptyGroupBehavior",
+                                control: "select",
+                            },
+                        ],
+                    },
+                ],
+            },
+            {
                 id: "sidebar",
                 label: "Sidebar",
                 preview: makeSidebarPreview(settings),
