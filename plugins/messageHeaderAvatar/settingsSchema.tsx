@@ -396,7 +396,7 @@ export function createMessageHeaderAvatarSchema(s: DefinedSettings): any {
                             label: "Line Color",
                             description: "Color of the vertical line (CSS color or variable)",
                             tags: ["line", "color", "colour"],
-                            control: "color",
+                            control: "text",
                         },
                     ],
                 },

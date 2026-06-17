@@ -562,6 +562,14 @@ export default definePlugin({
     description: "Replaces the large DM/Group DM call overlay with a compact 32px bar",
     authors: [{ name: "kamaras", id: 132106519264100352n }],
     settings,
+    settingsAboutComponent() {
+        const { Button } = require("@webpack/common");
+        return (
+            <Button onClick={() => (window as any).__settingsHub?.open("MinimalCallBar")}>
+                Open Full Settings
+            </Button>
+        );
+    },
 
     start() {
         // FluxDispatcher subscriptions
@@ -578,6 +586,7 @@ export default definePlugin({
         // Register keybinds with central registry
         window.__keybindRegistry?.register({
             plugin: "MinimalCallBar",
+            settings,
             keybinds: {
                 cycleMode: {
                     action: "Cycle display mode",

@@ -54,6 +54,45 @@ export interface TabMeta {
     dmUserId: string | null;
 }
 
+function isGroupDmChannel(channel: any): boolean {
+    return channel?.isGroupDM?.() === true || channel?.type === 3;
+}
+
+function getGroupDmIconUrl(channel: any): string | null {
+    if (!channel?.id || !channel?.icon) return null;
+    return `https://cdn.discordapp.com/channel-icons/${channel.id}/${channel.icon}.png?size=32`;
+}
+
+function getRawRecipientDisplayName(recipient: any): string | null {
+    return recipient?.display_name ?? recipient?.displayName ?? recipient?.globalName ?? recipient?.username ?? null;
+}
+
+function getRecipientDisplayName(channel: any, recipientId: string): string | null {
+    const rawRecipient = channel.rawRecipients?.find?.((recipient: any) => recipient?.id === recipientId);
+    const user = UserStore.getUser(recipientId);
+    return channel.nicks?.[recipientId]
+        ?? getRawRecipientDisplayName(rawRecipient)
+        ?? user?.globalName
+        ?? user?.username
+        ?? null;
+}
+
+function getGroupDmName(channel: any): string {
+    if (typeof channel.name === "string" && channel.name.trim()) return channel.name;
+
+    const recipientIds = Array.isArray(channel.recipients)
+        ? channel.recipients
+        : Array.isArray(channel.rawRecipients)
+            ? channel.rawRecipients.map((recipient: any) => recipient?.id).filter(Boolean)
+            : [];
+
+    const recipientNames = recipientIds
+        .map((recipientId: string) => getRecipientDisplayName(channel, recipientId))
+        .filter((name: string | null): name is string => Boolean(name));
+
+    return recipientNames.join(", ") || "Unknown";
+}
+
 export function getTabMeta(tab: Tab, showIcon: boolean): TabMeta {
     if (tab.type === "route") {
         return { icon: showIcon ? (ROUTE_ICONS[tab.path] ?? DISCORD_FALLBACK_ICON) : null, name: tab.label, isDm: false, dmUserId: null };
@@ -65,6 +104,15 @@ export function getTabMeta(tab: Tab, showIcon: boolean): TabMeta {
 
     const channel = ChannelStore.getChannel(tab.channelId);
     if (!channel) return { icon: null, name: "Unknown", isDm: false, dmUserId: null };
+
+    if (isGroupDmChannel(channel)) {
+        return {
+            icon: showIcon ? getGroupDmIconUrl(channel) : null,
+            name: getGroupDmName(channel),
+            isDm: false,
+            dmUserId: null,
+        };
+    }
 
     if (!tab.guildId || channel.isDM?.()) {
         const recipientId = channel.recipients?.[0] ?? null;

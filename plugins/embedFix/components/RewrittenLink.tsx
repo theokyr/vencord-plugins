@@ -6,6 +6,20 @@
 
 import { Tooltip } from "@webpack/common";
 
+import { findMessageIdForRefreshTarget, type RefreshFallbackContext } from "../fallbackEmbed";
+
+function buildRefreshContext(
+    trigger: Element | null,
+    messageId?: string,
+    channelId?: string,
+): RefreshFallbackContext {
+    return {
+        messageId: findMessageIdForRefreshTarget(trigger) ?? messageId,
+        channelId,
+        trigger,
+    };
+}
+
 export function RewrittenLink({
     href,
     originalHref,
@@ -21,7 +35,7 @@ export function RewrittenLink({
     children: any;
     title?: string;
     onClick?: (e: MouseEvent) => void;
-    onRefresh?: () => void;
+    onRefresh?: (context: RefreshFallbackContext) => void;
     messageId?: string;
     channelId?: string;
 }) {
@@ -50,12 +64,13 @@ export function RewrittenLink({
                                 onClick={(e: any) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    onRefresh?.();
+                                    onRefresh?.(buildRefreshContext(e.currentTarget, messageId, channelId));
                                 }}
                                 onKeyDown={(e: any) => {
                                     if (e.key === "Enter" || e.key === " ") {
                                         e.preventDefault();
-                                        onRefresh?.();
+                                        e.stopPropagation();
+                                        onRefresh?.(buildRefreshContext(e.currentTarget, messageId, channelId));
                                     }
                                 }}
                             />

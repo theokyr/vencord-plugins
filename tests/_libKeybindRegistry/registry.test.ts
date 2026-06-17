@@ -4,12 +4,12 @@ import {
     resolve, updateKeys, setEnabled, onChange, _reset,
 } from "../../plugins/_libKeybindRegistry/registry";
 
-function makeOpts(plugin: string, keybinds: Record<string, { action: string; defaultKeys: string; handler?: () => void; defaultEnabled?: boolean; }>) {
+function makeOpts(plugin: string, keybinds: Record<string, { action: string; defaultKeys: string; handler?: () => void; defaultEnabled?: boolean; }>, settings?: any) {
     const filled: Record<string, any> = {};
     for (const [k, v] of Object.entries(keybinds)) {
         filled[k] = { action: v.action, defaultKeys: v.defaultKeys, handler: v.handler ?? (() => {}), defaultEnabled: v.defaultEnabled };
     }
-    return { plugin, keybinds: filled };
+    return { plugin, settings, keybinds: filled };
 }
 
 describe("_libKeybindRegistry/registry", () => {
@@ -32,6 +32,25 @@ describe("_libKeybindRegistry/registry", () => {
                 a: { action: "A", defaultKeys: "ctrl+KeyA", defaultEnabled: false },
             }));
             expect(getAll()[0].enabled).toBe(false);
+        });
+
+        it("uses persisted keybind settings when provided", () => {
+            const settings = {
+                store: {
+                    keybind_a: "ctrl+KeyB",
+                    keybind_a_enabled: false,
+                },
+                def: {},
+            };
+
+            register(makeOpts("P", {
+                a: { action: "A", defaultKeys: "ctrl+KeyA", defaultEnabled: true },
+            }, settings));
+
+            expect(getAll()[0].keys).toBe("ctrl+KeyB");
+            expect(getAll()[0].enabled).toBe(false);
+            expect(getAll()[0].defaultKeys).toBe("ctrl+KeyA");
+            expect(getAll()[0].defaultEnabled).toBe(true);
         });
 
         it("re-register replaces existing entries for same plugin", () => {
@@ -99,6 +118,18 @@ describe("_libKeybindRegistry/registry", () => {
             expect(getAll()[0].defaultKeys).toBe("ctrl+KeyA");
         });
 
+        it("persists updated keys back to plugin settings", () => {
+            const settings = {
+                store: { keybind_a: "ctrl+KeyA", keybind_a_enabled: true },
+                def: {},
+            };
+
+            register(makeOpts("P", { a: { action: "A", defaultKeys: "ctrl+KeyA" } }, settings));
+            updateKeys("P.a", "ctrl+KeyB");
+
+            expect(settings.store.keybind_a).toBe("ctrl+KeyB");
+        });
+
         it("does nothing for non-existent id", () => {
             expect(() => updateKeys("nope.nope", "ctrl+KeyX")).not.toThrow();
         });
@@ -109,6 +140,39 @@ describe("_libKeybindRegistry/registry", () => {
             register(makeOpts("P", { a: { action: "A", defaultKeys: "ctrl+KeyA" } }));
             expect(getAll()[0].enabled).toBe(true);
             setEnabled("P.a", false);
+            expect(getAll()[0].enabled).toBe(false);
+        });
+
+        it("persists enabled state back to plugin settings", () => {
+            const settings = {
+                store: { keybind_a: "ctrl+KeyA", keybind_a_enabled: true },
+                def: {},
+            };
+
+            register(makeOpts("P", { a: { action: "A", defaultKeys: "ctrl+KeyA" } }, settings));
+            setEnabled("P.a", false);
+
+            expect(settings.store.keybind_a_enabled).toBe(false);
+        });
+    });
+
+    describe("settings onChange wiring", () => {
+        it("updates registered keybinds when native Vencord settings change", () => {
+            const settings = {
+                store: { keybind_a: "ctrl+KeyA", keybind_a_enabled: true },
+                def: {
+                    keybind_a: {},
+                    keybind_a_enabled: {},
+                },
+            };
+
+            register(makeOpts("P", { a: { action: "A", defaultKeys: "ctrl+KeyA" } }, settings));
+            settings.store.keybind_a = "ctrl+KeyB";
+            settings.def.keybind_a.onChange("ctrl+KeyB");
+            settings.store.keybind_a_enabled = false;
+            settings.def.keybind_a_enabled.onChange(false);
+
+            expect(getAll()[0].keys).toBe("ctrl+KeyB");
             expect(getAll()[0].enabled).toBe(false);
         });
     });

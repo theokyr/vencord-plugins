@@ -14,6 +14,7 @@ import { ColorSetting } from "./controls/ColorSetting";
 import { TriStateToggle } from "./controls/TriStateToggle";
 import { KeybindRecorder } from "./controls/KeybindRecorder";
 import { TextSetting } from "./controls/TextSetting";
+import { ComponentSetting } from "./controls/ComponentSetting";
 
 interface SettingsGroupProps {
     group: Group;
@@ -79,6 +80,9 @@ function SettingControl({ config, settings, pluginName }: {
         case "text":
             return <TextSetting settingKey={config.key} settings={settings} label={label} description={description} anchorId={anchorId} />;
 
+        case "component":
+            return <ComponentSetting settingKey={config.key} settings={settings} label={label} description={description} anchorId={anchorId} />;
+
         default:
             return null;
     }
@@ -91,6 +95,7 @@ function autoDetectControl(optionType: OptionType): string | null {
         case OptionType.STRING: return "text";
         case OptionType.SELECT: return "select";
         case OptionType.SLIDER: return "slider";
+        case OptionType.COMPONENT: return "component";
         default: return null;
     }
 }

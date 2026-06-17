@@ -12,11 +12,16 @@ import definePlugin, { OptionType } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
 import { FluxDispatcher, UserStore } from "@webpack/common";
 
-import { DEFAULT_PLATFORMS, matchPlatform, mergeUserOverrides, type PlatformEntry } from "./providerMap";
+import { DEFAULT_PLATFORMS, matchPlatform, mergeUserOverrides, resolvePlatformUrl, type PlatformEntry } from "./providerMap";
 import { rewriteMessageContent, rewriteUrl, stripTrackingParams } from "./urlRewriter";
 import { ProbeCache, type ProbeResult } from "./probeCache";
+import { chooseWorkingProvider } from "./providerFallback";
+import { applyProviderOrder } from "./providerPriority";
+import { startIncomingEmbedSuppressor } from "./domSuppressor";
 import { RewrittenLink } from "./components/RewrittenLink";
 import { createEmbedAccessory, triggerEmbedRefresh } from "./components/EmbedAccessory";
+import { ProviderPriorityEditor } from "./components/ProviderPriorityEditor";
+import { createEmbedFixSchema } from "./settingsSchema";
 
 import "./style.css";
 
@@ -60,6 +65,25 @@ const settings = definePluginSettings({
     enablePixiv: { type: OptionType.BOOLEAN, description: "Pixiv", default: true },
     enableBluesky: { type: OptionType.BOOLEAN, description: "Bluesky", default: true },
     enableThreads: { type: OptionType.BOOLEAN, description: "Threads", default: true },
+    providerOrder: {
+        type: OptionType.STRING,
+        description: "Internal provider priority order",
+        default: "",
+        hidden: true,
+    },
+    providerPriorities: {
+        type: OptionType.COMPONENT,
+        description: "Provider priority",
+        component: () => (
+            <ProviderPriorityEditor
+                platforms={mergeUserOverrides(DEFAULT_PLATFORMS, settings.store.customProviders)}
+                value={settings.store.providerOrder}
+                onChange={value => {
+                    settings.store.providerOrder = value;
+                }}
+            />
+        ),
+    },
     customProviders: {
         type: OptionType.STRING,
         description: "Custom provider overrides (JSON array)",
@@ -106,10 +130,18 @@ const probeCache = new ProbeCache(24, () => {
 // --- Helpers ---
 
 /**
- * Merge user overrides with defaults, then filter by per-platform toggles.
+ * Merge user overrides with defaults, then apply the persisted provider order.
+ */
+function getConfiguredPlatforms(): PlatformEntry[] {
+    const all = mergeUserOverrides(DEFAULT_PLATFORMS, settings.store.customProviders);
+    return applyProviderOrder(all, settings.store.providerOrder);
+}
+
+/**
+ * Filter configured platforms by per-platform toggles.
  */
 function getActivePlatforms(): PlatformEntry[] {
-    const all = mergeUserOverrides(DEFAULT_PLATFORMS, settings.store.customProviders);
+    const all = getConfiguredPlatforms();
     const toggles: Record<string, boolean> = {
         twitter: settings.store.enableTwitter,
         reddit: settings.store.enableReddit,
@@ -138,34 +170,14 @@ function buildEnabledMap(): Record<string, boolean> {
 }
 
 /**
- * Look up the best cached provider for a platform.
- *
- * probeCache.get() returns a domain string, but rewriteMessageContent expects
- * { domain, label } | null | undefined. We look up the full provider in the
- * active platform list to get the label, falling back to domain-as-label.
- *
- * If the probe cache has no result or all providers scored 0, falls back to
- * the first provider in the static priority list (better than nothing).
+ * Return the first provider in the user-configured priority list.
  */
-function getCachedProvider(platformId: string): { domain: string; label: string } | null {
-    const domain = probeCache.get(platformId);
-
+function getPreferredProvider(platformId: string): { domain: string; label: string } | null {
     const platforms = getActivePlatforms();
     const platform = platforms.find(p => p.id === platformId);
-
-    if (domain) {
-        if (platform) {
-            const provider = platform.providers.find(p => p.domain === domain);
-            if (provider) return { domain: provider.domain, label: provider.label };
-        }
-        return { domain, label: domain };
-    }
-
-    // Fallback: use first provider in static priority when cache has no winner
     if (platform && platform.providers.length > 0) {
-        const fallback = platform.providers[0];
-        console.log(`[EmbedFix] Cache miss for ${platformId}, falling back to ${fallback.domain}`);
-        return { domain: fallback.domain, label: fallback.label };
+        const preferred = platform.providers[0];
+        return { domain: preferred.domain, label: preferred.label };
     }
 
     return null;
@@ -177,67 +189,69 @@ interface PendingEdit {
     channelId: string;
     originalUrl: string;
     cleanUrl: string;
+    sentUrl: string;
     offset: number;
     platformId: string;
     originalContent: string;
 }
 
 const pendingEdits = new Map<string, PendingEdit[]>();
+let stopIncomingEmbedSuppressor: (() => void) | null = null;
 
 /**
- * Probe all providers for each pending platform and edit the message with the
- * best provider. Edits are applied in REVERSE offset order so earlier offsets
- * remain valid after string splicing.
+ * Probe providers in configured priority order for each pending URL and edit
+ * the message once. If every provider fails, the URL falls back to the clean
+ * original URL instead of keeping a broken rewrite.
  */
 async function probeAndEdit(messageId: string, channelId: string, edits: PendingEdit[]) {
     const Native = getNative();
-    if (!Native?.probeAllProviders) return;
+    if (!Native?.probeProvider) return;
 
     const platforms = getActivePlatforms();
+    const replacements: Array<{ offset: number; from: string; to: string }> = [];
+    const originalContent = edits[0]?.originalContent;
+    if (!originalContent) return;
 
     for (const edit of edits) {
         const platform = platforms.find(p => p.id === edit.platformId);
         if (!platform) continue;
 
         try {
-            let path: string;
-            try {
-                const parsed = new URL(edit.cleanUrl);
-                path = parsed.pathname + parsed.hash;
-            } catch {
-                continue;
-            }
-
-            const results = await Native.probeAllProviders(
-                platform.providers.map(p => ({ domain: p.domain })),
-                path,
-            );
-
-            probeCache.set(platform.id, results, path);
-            const bestDomain = probeCache.get(platform.id);
-            if (!bestDomain) continue;
-
             // Check if the edit is still pending (user may have edited the message)
             const stillPending = pendingEdits.get(messageId);
             if (!stillPending) return;
 
-            // Verify the URL is still at the expected offset in the original content
-            const currentContent = edit.originalContent;
-            const urlAtOffset = currentContent.slice(edit.offset, edit.offset + edit.cleanUrl.length);
+            const actualUrl = [edit.sentUrl, edit.cleanUrl, edit.originalUrl].find(candidate => (
+                originalContent.slice(edit.offset, edit.offset + candidate.length) === candidate
+            ));
+            if (!actualUrl) continue;
 
-            if (urlAtOffset !== edit.cleanUrl && urlAtOffset !== edit.originalUrl) continue;
+            const working = await chooseWorkingProvider(platform, edit.cleanUrl, (domain, path) => Native.probeProvider(domain, path));
+            const targetUrl = working
+                ? rewriteUrl(edit.cleanUrl, working.provider.domain)
+                : edit.cleanUrl;
 
-            const actualUrl = urlAtOffset;
-            const rewritten = rewriteUrl(edit.cleanUrl, bestDomain);
-
-            const newContent =
-                currentContent.slice(0, edit.offset) +
-                rewritten +
-                currentContent.slice(edit.offset + actualUrl.length);
-
-            await MessageActions.editMessage(channelId, messageId, { content: newContent });
+            if (targetUrl !== actualUrl) {
+                replacements.push({ offset: edit.offset, from: actualUrl, to: targetUrl });
+            }
         } catch {
             // Probe or edit failed — silently continue
+        }
+    }
+
+    if (replacements.length > 0 && pendingEdits.get(messageId)) {
+        replacements.sort((a, b) => b.offset - a.offset);
+
+        let newContent = originalContent;
+        for (const replacement of replacements) {
+            newContent =
+                newContent.slice(0, replacement.offset) +
+                replacement.to +
+                newContent.slice(replacement.offset + replacement.from.length);
+        }
+
+        if (newContent !== originalContent) {
+            await MessageActions.editMessage(channelId, messageId, { content: newContent });
         }
     }
 
@@ -350,6 +364,14 @@ export default definePlugin({
     description: "Replaces social media URLs with embed-friendly alternatives from third-party providers",
     authors: [{ name: "kamaras", id: 132106519264100352n }],
     settings,
+    settingsAboutComponent() {
+        const { Button } = require("@webpack/common");
+        return (
+            <Button onClick={() => (window as any).__settingsHub?.open("EmbedFix")}>
+                Open Full Settings
+            </Button>
+        );
+    },
 
     patches: [
         {
@@ -381,10 +403,11 @@ export default definePlugin({
 
         const originalUrl = node.target;
         const platforms = getActivePlatforms();
-        const platform = matchPlatform(originalUrl, platforms);
-        if (!platform) return null;
+        const resolved = resolvePlatformUrl(originalUrl, platforms);
+        if (!resolved) return null;
 
-        const provider = getCachedProvider(platform.id);
+        const platform = resolved.platform;
+        const provider = resolved.provider ?? getPreferredProvider(platform.id);
         if (!provider) {
             console.log(`[EmbedFix] Incoming: no provider for ${platform.id}, skipping ${originalUrl}`);
             return null;
@@ -401,7 +424,7 @@ export default definePlugin({
                 title={`${provider.label} embed`}
                 messageId={state.messageId}
                 channelId={state.channelId}
-                onRefresh={() => triggerEmbedRefresh(rewrittenUrl)}
+                onRefresh={context => triggerEmbedRefresh(rewrittenUrl, context)}
             >
                 {rewrittenUrl}
             </RewrittenLink>
@@ -409,6 +432,8 @@ export default definePlugin({
     },
 
     start() {
+        (window as any).__settingsHub?.register(createEmbedFixSchema(settings));
+
         // Restore probe cache from persisted settings
         const saved = settings.store.probeCache;
         if (saved) probeCache.restore(saved);
@@ -423,7 +448,6 @@ export default definePlugin({
             "EmbedFix",
             createEmbedAccessory(
                 getActivePlatforms,
-                probeCache,
                 () => settings.store.rewriteIncoming,
             ),
             4, // position: near embeds
@@ -431,15 +455,22 @@ export default definePlugin({
 
         // Body class for CSS embed suppression
         document.body.classList.add("vc-embedFix-active");
+        stopIncomingEmbedSuppressor = startIncomingEmbedSuppressor(
+            getActivePlatforms,
+            () => settings.store.rewriteIncoming,
+        );
 
         // Pre-warm cache in background
         prewarmCache();
     },
 
     stop() {
+        (window as any).__settingsHub?.unregister("EmbedFix");
         FluxDispatcher.unsubscribe("MESSAGE_CREATE", onMessageCreate);
         FluxDispatcher.unsubscribe("MESSAGE_UPDATE", onMessageUpdate);
         removeMessageAccessory("EmbedFix");
+        stopIncomingEmbedSuppressor?.();
+        stopIncomingEmbedSuppressor = null;
         document.body.classList.remove("vc-embedFix-active");
         pendingEdits.clear();
     },
@@ -453,7 +484,7 @@ export default definePlugin({
         const { content, rewrites, cacheMisses } = rewriteMessageContent(
             msg.content,
             platforms,
-            getCachedProvider,
+            getPreferredProvider,
             enabledMap,
         );
 
@@ -466,17 +497,32 @@ export default definePlugin({
 
         msg.content = content;
 
-        // Queue deferred edits for cache misses
-        if (cacheMisses.length > 0) {
-            const tempKey = `pending_${Date.now()}`;
-            pendingEdits.set(tempKey, cacheMisses.map(m => ({
+        const edits: PendingEdit[] = [
+            ...rewrites.map(r => ({
+                channelId: _channelId,
+                originalUrl: r.original,
+                cleanUrl: r.cleanUrl,
+                sentUrl: r.rewritten,
+                offset: r.offset,
+                platformId: r.platformId,
+                originalContent: content,
+            })),
+            ...cacheMisses.map(m => ({
                 channelId: _channelId,
                 originalUrl: m.url,
                 cleanUrl: m.cleanUrl,
+                sentUrl: m.cleanUrl,
                 offset: m.offset,
                 platformId: m.platformId,
                 originalContent: content,
-            })));
+            })),
+        ];
+
+        // Queue deferred verification for all rewritten URLs so per-link HTTP
+        // failures can fall through to the next provider or the clean original.
+        if (edits.length > 0) {
+            const tempKey = `pending_${Date.now()}`;
+            pendingEdits.set(tempKey, edits);
         }
     },
 
@@ -489,7 +535,7 @@ export default definePlugin({
         const { content } = rewriteMessageContent(
             msg.content,
             platforms,
-            getCachedProvider,
+            getPreferredProvider,
             enabledMap,
         );
 

@@ -12,7 +12,15 @@ import ErrorBoundary from "@components/ErrorBoundary";
 import definePlugin, { OptionType } from "@utils/types";
 import { Message } from "@vencord/discord-types";
 import { SelectedGuildStore, useState } from "@webpack/common";
+import { getHiddenGroupingDecisions, type HiddenGroupingRow } from "./hiddenGrouping";
 import { createMessageHeaderAvatarSchema } from "./settingsSchema";
+
+const AUTHOR_ID_ATTRIBUTE = "data-vc-msg-header-avatar-author-id";
+const FORCE_HEADER_CLASS = "vc-msgHeaderAvatar-forceHeader";
+const COLLAPSE_HEADER_CLASS = "vc-msgHeaderAvatar-collapseHeader";
+
+let hiddenGroupingObserver: MutationObserver | null = null;
+let hiddenGroupingFrame: number | null = null;
 
 export const settings = definePluginSettings({
     size: {
@@ -105,6 +113,62 @@ function InlineAvatarComponent({ message, isReply }: { message: Message; isReply
     );
 }
 
+function messageElementForListItem(item: HTMLLIElement): HTMLElement | null {
+    return item.querySelector<HTMLElement>('[class*="message_"]');
+}
+
+function rowForListItem(item: HTMLLIElement): HiddenGroupingRow {
+    return {
+        authorId: item.getAttribute(AUTHOR_ID_ATTRIBUTE),
+        hidden: item.classList.contains("vc-better-block-ignore-hidden"),
+        groupStart: String(messageElementForListItem(item)?.className ?? "").includes("groupStart_"),
+    };
+}
+
+function syncHiddenGroupingClasses() {
+    const items = Array.from(document.querySelectorAll<HTMLLIElement>(`li[${AUTHOR_ID_ATTRIBUTE}],li.vc-better-block-ignore-hidden`));
+    const decisions = getHiddenGroupingDecisions(items.map(rowForListItem));
+
+    items.forEach((item, index) => {
+        item.classList.toggle(FORCE_HEADER_CLASS, decisions[index] === "forceHeader");
+        item.classList.toggle(COLLAPSE_HEADER_CLASS, decisions[index] === "collapseHeader");
+    });
+}
+
+function scheduleHiddenGroupingSync() {
+    if (hiddenGroupingFrame != null) return;
+
+    hiddenGroupingFrame = requestAnimationFrame(() => {
+        hiddenGroupingFrame = null;
+        syncHiddenGroupingClasses();
+    });
+}
+
+function startHiddenGroupingObserver() {
+    syncHiddenGroupingClasses();
+    hiddenGroupingObserver = new MutationObserver(scheduleHiddenGroupingSync);
+    hiddenGroupingObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ["class", AUTHOR_ID_ATTRIBUTE],
+        childList: true,
+        subtree: true,
+    });
+}
+
+function stopHiddenGroupingObserver() {
+    hiddenGroupingObserver?.disconnect();
+    hiddenGroupingObserver = null;
+
+    if (hiddenGroupingFrame != null) {
+        cancelAnimationFrame(hiddenGroupingFrame);
+        hiddenGroupingFrame = null;
+    }
+
+    document.querySelectorAll(`.${FORCE_HEADER_CLASS},.${COLLAPSE_HEADER_CLASS}`).forEach(item => {
+        item.classList.remove(FORCE_HEADER_CLASS, COLLAPSE_HEADER_CLASS);
+    });
+}
+
 export default definePlugin({
     name: "MessageHeaderAvatar",
     description: "Displays user avatars inline in message headers next to the username",
@@ -131,6 +195,8 @@ export default definePlugin({
         s.setProperty("--vc-msgHeaderAvatar-line-width", settings.store.lineWidth + "px");
         s.setProperty("--vc-msgHeaderAvatar-line-opacity", String(settings.store.lineOpacity));
         s.setProperty("--vc-msgHeaderAvatar-line-color", settings.store.lineColor);
+
+        startHiddenGroupingObserver();
     },
 
     stop() {
@@ -145,9 +211,20 @@ export default definePlugin({
         s.removeProperty("--vc-msgHeaderAvatar-line-width");
         s.removeProperty("--vc-msgHeaderAvatar-line-opacity");
         s.removeProperty("--vc-msgHeaderAvatar-line-color");
+
+        stopHiddenGroupingObserver();
     },
 
     patches: [
+        // Add the author id to message list items so hidden BetterBlockIgnore messages can be
+        // ignored when deciding whether the next visible message should keep its header.
+        {
+            find: "Message must not be a thread starter message",
+            replacement: {
+                match: /"aria-setsize":-1,/,
+                replace: `"${AUTHOR_ID_ATTRIBUTE}":arguments[0]?.message?.author?.id,$&`
+            }
+        },
         // Inject avatar inside the username span's children (handles both messages and replies)
         {
             find: '="SYSTEM_TAG"',

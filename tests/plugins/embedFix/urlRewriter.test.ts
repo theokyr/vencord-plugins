@@ -243,5 +243,17 @@ describe("embedFix/urlRewriter", () => {
             expect(result.rewrites[0].rewritten).not.toContain("s=20");
             expect(result.content).not.toContain("utm_source");
         });
+
+        it("records rewrite offsets in the final rewritten content", () => {
+            const content = "https://x.com/a/status/1 and https://twitter.com/b/status/2";
+            const getProvider = (_platformId: string) => ({ domain: "vxtwitter.com", label: "VxTwitter" });
+            const enabledMap = { twitter: true };
+
+            const result = rewriteMessageContent(content, MOCK_PLATFORMS, getProvider, enabledMap);
+            const secondRewrite = result.rewrites[1];
+
+            expect(result.content.slice(secondRewrite.offset, secondRewrite.offset + secondRewrite.rewritten.length))
+                .toBe(secondRewrite.rewritten);
+        });
     });
 });

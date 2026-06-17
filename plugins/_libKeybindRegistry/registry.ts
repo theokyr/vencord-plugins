@@ -8,12 +8,20 @@ import type {
     RegisteredKeybind, RegistrationOptions, ConflictResolution,
     KeybindDeclaration, LayerHandler, ChordHandler,
 } from "./types";
+import type { DefinedSettings } from "@api/Settings";
 
 const keybinds: RegisteredKeybind[] = [];
+const entrySettings = new Map<string, {
+    settings: DefinedSettings;
+    keysKey: string;
+    enabledKey: string;
+    cleanups: (() => void)[];
+}>();
 const RESOLUTIONS_STORAGE_KEY = "vc-keybindRegistry-resolutions";
 let resolutions: ConflictResolution[];
 try { resolutions = loadResolutions(); } catch { resolutions = []; }
 const listeners = new Set<() => void>();
+const settingChangeHandlers = new WeakMap<object, Set<(value: any) => void>>();
 
 function loadResolutions(): ConflictResolution[] {
     try {
@@ -33,12 +41,52 @@ function notify(): void {
     listeners.forEach(fn => fn());
 }
 
+function readStoredKeys(settings: DefinedSettings | undefined, key: string, fallback: string): string {
+    const value = settings?.store?.[key];
+    return typeof value === "string" ? value : fallback;
+}
+
+function readStoredEnabled(settings: DefinedSettings | undefined, key: string, fallback: boolean): boolean {
+    const value = settings?.store?.[key];
+    return typeof value === "boolean" ? value : fallback;
+}
+
+function addSettingChangeHandler(settings: DefinedSettings, key: string, handler: (value: any) => void): () => void {
+    const opt = (settings.def as Record<string, any> | undefined)?.[key];
+    if (!opt || typeof opt !== "object") return () => {};
+
+    let handlers = settingChangeHandlers.get(opt);
+    if (!handlers) {
+        handlers = new Set();
+        settingChangeHandlers.set(opt, handlers);
+        const original = opt.onChange;
+        opt.onChange = (value: any) => {
+            original?.(value);
+            settingChangeHandlers.get(opt)?.forEach(fn => fn(value));
+        };
+    }
+
+    handlers.add(handler);
+    return () => { handlers?.delete(handler); };
+}
+
+function cleanupEntrySettings(plugin: string): void {
+    for (const [id, meta] of [...entrySettings.entries()]) {
+        if (!id.startsWith(`${plugin}.`)) continue;
+        meta.cleanups.forEach(cleanup => cleanup());
+        entrySettings.delete(id);
+    }
+}
+
 export function register(opts: RegistrationOptions): void {
     // Remove existing entries for this plugin (re-register)
     unregister(opts.plugin, true);
 
     for (const [suffix, decl] of Object.entries(opts.keybinds)) {
         const id = `${opts.plugin}.${suffix}`;
+        const keysKey = `keybind_${suffix}`;
+        const enabledKey = `keybind_${suffix}_enabled`;
+        const defaultEnabled = decl.defaultEnabled !== false;
         const handler = typeof decl.handler === "function"
             ? decl.handler as (e: KeyboardEvent) => void
             : () => {};
@@ -47,10 +95,10 @@ export function register(opts: RegistrationOptions): void {
             id,
             plugin: opts.plugin,
             action: decl.action,
-            keys: decl.defaultKeys,
+            keys: readStoredKeys(opts.settings, keysKey, decl.defaultKeys),
             defaultKeys: decl.defaultKeys,
-            enabled: decl.defaultEnabled !== false,
-            defaultEnabled: decl.defaultEnabled !== false,
+            enabled: readStoredEnabled(opts.settings, enabledKey, defaultEnabled),
+            defaultEnabled,
             handler,
             textInputBehavior: decl.textInputBehavior ?? "block",
         };
@@ -59,12 +107,33 @@ export function register(opts: RegistrationOptions): void {
         (entry as any)._declaration = decl;
 
         keybinds.push(entry);
+
+        if (opts.settings) {
+            entrySettings.set(id, {
+                settings: opts.settings,
+                keysKey,
+                enabledKey,
+                cleanups: [
+                    addSettingChangeHandler(opts.settings, keysKey, value => {
+                        if (typeof value !== "string") return;
+                        entry.keys = value;
+                        notify();
+                    }),
+                    addSettingChangeHandler(opts.settings, enabledKey, value => {
+                        if (typeof value !== "boolean") return;
+                        entry.enabled = value;
+                        notify();
+                    }),
+                ],
+            });
+        }
     }
 
     notify();
 }
 
 export function unregister(plugin: string, silent = false): void {
+    cleanupEntrySettings(plugin);
     const before = keybinds.length;
     for (let i = keybinds.length - 1; i >= 0; i--) {
         if (keybinds[i].plugin === plugin) keybinds.splice(i, 1);
@@ -119,6 +188,8 @@ export function updateKeys(id: string, newKeys: string): void {
     const entry = keybinds.find(k => k.id === id);
     if (entry) {
         entry.keys = newKeys;
+        const meta = entrySettings.get(id);
+        if (meta) meta.settings.store[meta.keysKey] = newKeys;
         notify();
     }
 }
@@ -127,6 +198,8 @@ export function setEnabled(id: string, enabled: boolean): void {
     const entry = keybinds.find(k => k.id === id);
     if (entry) {
         entry.enabled = enabled;
+        const meta = entrySettings.get(id);
+        if (meta) meta.settings.store[meta.enabledKey] = enabled;
         notify();
     }
 }
@@ -138,6 +211,10 @@ export function onChange(fn: () => void): () => void {
 
 /** Test-only: reset all state. */
 export function _reset(): void {
+    for (const meta of entrySettings.values()) {
+        meta.cleanups.forEach(cleanup => cleanup());
+    }
+    entrySettings.clear();
     keybinds.length = 0;
     resolutions = [];
     listeners.clear();

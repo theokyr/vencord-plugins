@@ -49,6 +49,14 @@ export default definePlugin({
     description: "Manage Vencord plugins from inside Discord — browse, install, update, and configure without the terminal",
     authors: [{ name: "kamaras", id: 132106519264100352n }],
     settings,
+    settingsAboutComponent() {
+        const { Button } = require("@webpack/common");
+        return (
+            <Button onClick={() => (window as any).__settingsHub?.open("VenpmGui")}>
+                Open Full Settings
+            </Button>
+        );
+    },
 
     async start() {
         // Register with settingsHub

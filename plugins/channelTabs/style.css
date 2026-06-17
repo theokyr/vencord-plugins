@@ -24,9 +24,12 @@
 /* ─── Tab bar position via flex order ────────────────────────────── */
 
 #vc-channelTabs-container {
-    order: -1; /* top by default — before all Discord content */
+    order: -2; /* top by default — before plugin chrome and Discord content */
     position: relative;
     z-index: 10; /* above settingsHub overlay (z-index: 5) */
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
 }
 
 #vc-channelTabs-container.vc-channelTabs-bottom {
@@ -38,46 +41,6 @@
     border-top: 1px solid rgba(255, 255, 255, 0.06);
     margin-bottom: 0;
     margin-top: var(--vc-channelTabs-bottomMargin, 0px);
-}
-
-/* ─── Sidebar toggle buttons ──────────────────────────────────────── */
-
-.vc-channelTabs-sidebarToggles {
-    display: flex;
-    align-items: center;
-    gap: 1px;
-    flex-shrink: 0;
-    padding: 0 2px;
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
-    margin-right: 2px;
-}
-
-.vc-channelTabs-toggleBtn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    border-radius: var(--vc-channelTabs-tabRadius, 4px);
-    color: rgba(255, 255, 255, 0.3);
-    cursor: pointer;
-    flex-shrink: 0;
-    transition:
-        background var(--vc-anim-speed, 150ms) ease,
-        color var(--vc-anim-speed, 150ms) ease;
-}
-
-.vc-channelTabs-toggleBtn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.7);
-}
-
-.vc-channelTabs-toggleBtn-active {
-    color: var(--brand-500, #5865f2);
-}
-
-.vc-channelTabs-toggleBtn-active:hover {
-    color: var(--brand-400, #7289da);
 }
 
 /* ─── Tab ──────────────────────────────────────────────────────────── */
@@ -321,51 +284,6 @@
     opacity: 0.4;
 }
 
-/* ─── Hide guild sidebar ───────────────────────────────────────────── */
-
-body.vc-channelTabs-hideGuilds [class*="guilds_"] {
-    display: none;
-}
-
-body.vc-channelTabs-hideGuilds [class*="base_"][class*="__"] {
-    grid-template-columns: [start] 0px [guildsEnd] 0px [sidebarEnd] auto [channelsEnd] 1fr [end] !important;
-}
-
-body.vc-channelTabs-hideGuilds #vc-channelTabs-container {
-    margin-left: 0 !important;
-}
-
-/* ─── Hide channel list (keep guilds visible) ─────────────────────── */
-
-body.vc-channelTabs-hideChannels [class*="sidebarList_"] {
-    display: none;
-}
-
-body.vc-channelTabs-hideChannels [class*="sidebarResizeHandle_"] {
-    display: none;
-}
-
-body.vc-channelTabs-hideChannels [class*="base_"][class*="__"] {
-    grid-template-columns: [start] 72px [guildsEnd] 0px [sidebarEnd] 0px [channelsEnd] 1fr [end] !important;
-}
-
-/* When both are hidden */
-body.vc-channelTabs-hideGuilds.vc-channelTabs-hideChannels [class*="base_"][class*="__"] {
-    grid-template-columns: [start] 0px [guildsEnd] 0px [sidebarEnd] 0px [channelsEnd] 1fr [end] !important;
-}
-
-/* Pin the page wrapper to named grid lines. Discord's grid-template-areas has
- * only 3 area-columns ("guildsList channelsList page"), but our overrides
- * above define 4 tracks via line names (start/guildsEnd/sidebarEnd/channelsEnd/
- * end). Without this rule, `grid-area: page` resolves to area-column 3 which
- * lands on the 0px [sidebarEnd→channelsEnd] track while the width-bearing
- * [channelsEnd→end] track sits unnamed — the content area renders at 0 width.
- */
-body.vc-channelTabs-hideGuilds [class*="base_"][class*="__"] [class*="page_"][class*="__"],
-body.vc-channelTabs-hideChannels [class*="base_"][class*="__"] [class*="page_"][class*="__"] {
-    grid-column: channelsEnd / end !important;
-}
-
 /* ─── Context menu icons (left-side) ─────────────────────────────── */
 
 .vc-channelTabs-contextMenu-icon {
@@ -394,228 +312,6 @@ body.vc-channelTabs-hideChannels [class*="base_"][class*="__"] [class*="page_"][
     width: 2px;
     border-radius: 1px;
     background: var(--brand-500, #5865f2);
-}
-
-/* ─── Enriched header ─────────────────────────────────────────────── */
-
-/* Hide the channel header when enriched header is active */
-body.vc-channelTabs-enrichedHeader [class*="subtitleContainer_"] {
-    display: none !important;
-}
-
-/* Sidebar toggles injected into title bar */
-.vc-channelTabs-headerToggles {
-    display: flex;
-    align-items: center;
-    gap: 1px;
-    flex-shrink: 0;
-    padding: 0 2px;
-}
-
-/* Tighter toggle spacing when nav buttons are hidden */
-body.vc-channelTabs-navHidden .vc-channelTabs-headerToggles {
-    padding-left: 0;
-}
-
-.vc-channelTabs-headerToggles .vc-channelTabs-toggleBtn {
-    width: 22px;
-    height: 22px;
-}
-
-/* Divider between injected sections */
-.vc-channelTabs-headerDivider {
-    width: 1px;
-    height: 16px;
-    background: rgba(255, 255, 255, 0.08);
-    flex-shrink: 0;
-    margin: 0 4px;
-}
-
-/* Breadcrumb guild name */
-.vc-channelTabs-headerBreadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 1;
-    min-width: 0;
-    max-width: 200px;
-    color: rgba(255, 255, 255, 0.35);
-    font-size: 13px;
-    overflow: hidden;
-}
-
-.vc-channelTabs-headerBreadcrumb img {
-    width: 16px;
-    height: 16px;
-    border-radius: 4px;
-    flex-shrink: 0;
-}
-
-.vc-channelTabs-headerBreadcrumb span:not(.vc-channelTabs-headerBreadcrumb-separator) {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.vc-channelTabs-headerBreadcrumb-separator {
-    color: rgba(255, 255, 255, 0.15);
-    font-size: 12px;
-    margin: 0 2px;
-    flex-shrink: 0;
-}
-
-/* Nav button styles */
-body.vc-channelTabs-navCompact [class*="backForwardButtons__"] {
-    transform: scale(0.75);
-    margin: 0 -8px;
-}
-
-body.vc-channelTabs-navHidden [class*="leading_"] {
-    display: none !important;
-}
-
-/* Channel info: flex-shrink allowed, but with a floor so it doesn't collapse completely */
-body.vc-channelTabs-enrichedHeader [class*="children__"] {
-    min-width: 80px;
-    flex-shrink: 1;
-    overflow: hidden;
-}
-
-/* Channel name text truncates instead of overflowing the title bar */
-body.vc-channelTabs-enrichedHeader [class*="children__"] [class*="title_"],
-body.vc-channelTabs-enrichedHeader [class*="children__"] [class*="name__"] {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* Hide topic text in enriched header — it's shown in the overflow menu instead */
-body.vc-channelTabs-enrichedHeader [class*="topic__"] {
-    display: none !important;
-}
-
-/* Also hide the topic divider (the SVG separator between channel name and topic) */
-body.vc-channelTabs-enrichedHeader [class*="children__"] > svg {
-    display: none !important;
-}
-
-/* Drag overlay: transparent div covers the entire title bar with app-region: drag.
-   pointer-events: none lets clicks pass through to buttons below.
-   Interactive elements use pointer-events: auto + app-region: no-drag to receive clicks. */
-
-.vc-channelTabs-dragOverlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    -webkit-app-region: drag;
-    pointer-events: none;
-    z-index: 0;
-}
-
-/* All title bar direct children sit above the drag overlay and allow flex shrinking */
-body.vc-channelTabs-enrichedHeader [class*="base_"] > [class*="bar_"]:not([class*="systemBar"]) > * {
-    position: relative;
-    z-index: 1;
-    min-width: 0;
-}
-
-/* The drag overlay itself stays at z-index 0 */
-body.vc-channelTabs-enrichedHeader .vc-channelTabs-dragOverlay {
-    z-index: 0;
-}
-
-/* Interactive elements opt out of drag */
-body.vc-channelTabs-enrichedHeader [role="button"],
-body.vc-channelTabs-enrichedHeader button,
-body.vc-channelTabs-enrichedHeader a[class*="anchor"],
-body.vc-channelTabs-enrichedHeader input,
-body.vc-channelTabs-enrichedHeader [class*="search__"],
-body.vc-channelTabs-enrichedHeader .vc-channelTabs-toggleBtn,
-body.vc-channelTabs-enrichedHeader .vc-channelTabs-overflowBtn,
-body.vc-channelTabs-enrichedHeader [class*="winButton_"] {
-    -webkit-app-region: no-drag;
-}
-
-/* ─── Toolbar overflow ─────────────────────────────────────────────── */
-
-.vc-channelTabs-overflowBtn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 24px;
-    border-radius: 4px;
-    color: rgba(255, 255, 255, 0.4);
-    cursor: pointer;
-    flex-shrink: 0;
-    font-size: 16px;
-    font-weight: bold;
-    letter-spacing: 1px;
-    -webkit-app-region: no-drag;
-    transition: background var(--vc-anim-speed, 150ms) ease, color var(--vc-anim-speed, 150ms) ease;
-}
-
-.vc-channelTabs-overflowBtn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.8);
-}
-
-.vc-channelTabs-overflowMenu {
-    position: fixed;
-    z-index: 99999;
-    background: var(--background-floating, #111214);
-    border-radius: 4px;
-    padding: 6px 4px;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24);
-    min-width: 180px;
-    animation: vc-slideUp var(--vc-anim-speed, 150ms) var(--vc-anim-ease-out, ease-out) both;
-    transform-origin: top right;
-}
-
-.vc-channelTabs-overflowMenuItem {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
-    border-radius: 2px;
-    font-size: 13px;
-    color: var(--interactive-normal, #b5bac1);
-    cursor: pointer;
-    transition: background var(--vc-anim-speed, 150ms) ease, color var(--vc-anim-speed, 150ms) ease;
-}
-
-.vc-channelTabs-overflowMenuItem:hover {
-    background: var(--brand-500, #5865f2);
-    color: #fff;
-}
-
-.vc-channelTabs-overflowMenuItem svg {
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-}
-
-.vc-channelTabs-overflowMenuItem span {
-    flex: 1;
-}
-
-/* Topic shown in overflow menu */
-.vc-channelTabs-overflowTopic {
-    padding: 6px 8px;
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.4);
-    max-width: 300px;
-    line-height: 1.4;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: background var(--vc-anim-speed, 150ms) ease;
-}
-
-.vc-channelTabs-overflowTopic:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: rgba(255, 255, 255, 0.6);
 }
 
 /* ─── Tab open/close animations ──────────────────────────────── */
@@ -674,12 +370,6 @@ body.vc-channelTabs-enrichedHeader [class*="winButton_"] {
 
 .vc-channelTabs-tab-shake {
     animation: vc-channelTabs-shake 0.3s ease;
-}
-
-/* ─── Sidebar toggle grid animation ──────────────────────────── */
-
-body:not(.vc-anim-off) [class*="base_"][class*="__"] {
-    transition: grid-template-columns var(--vc-anim-speed-slow, 250ms) var(--vc-anim-ease-out, ease-out);
 }
 
 /* ─── Group Chip ─────────────────────────────────────────────────────── */

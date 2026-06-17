@@ -5,31 +5,21 @@
 
 import { findComponentByCodeLazy } from "@webpack";
 
-import { matchPlatform, type PlatformEntry } from "../providerMap";
+import { refreshFallbackEmbed, type EmbedData, type RefreshFallbackContext } from "../fallbackEmbed";
+import { resolvePlatformUrl, type PlatformEntry, type ProviderDef } from "../providerMap";
 import { stripTrackingParams, rewriteUrl } from "../urlRewriter";
-import { ProbeCache } from "../probeCache";
 
 // Discord's own Embed class component
 const NativeEmbed = findComponentByCodeLazy("renderSuppressButton");
 
-interface EmbedData {
-    url: string;
-    title: string | null;
-    description: string | null;
-    siteName: string | null;
-    imageUrl: string | null;
-    videoUrl: string | null;
-    videoWidth: number | null;
-    videoHeight: number | null;
-    authorName: string | null;
-    authorUrl: string | null;
-    themeColor: string | null;
-    type: string | null;
-    error?: string;
+interface ResolvedEmbed {
+    rewritten: string;
+    data: EmbedData;
 }
 
 // Per-URL embed data cache (in-memory, not persisted)
 const embedDataCache = new Map<string, EmbedData | "pending">();
+const embedResolutionCache = new Map<string, ResolvedEmbed | "pending">();
 // Track which messages we've already logged for (reduce spam)
 const loggedMessages = new Set<string>();
 // Refresh listeners — called when the user clicks the refresh button on an indicator
@@ -39,10 +29,18 @@ const refreshListeners = new Set<(url: string) => void>();
  * Trigger a re-fetch of embed data for a rewritten URL.
  * Called from the indicator icon click handler.
  */
-export function triggerEmbedRefresh(rewrittenUrl: string) {
+export function triggerEmbedRefresh(rewrittenUrl: string, context: RefreshFallbackContext = {}) {
     console.log(`[EmbedFix] Refresh triggered for ${rewrittenUrl}`);
     embedDataCache.delete(rewrittenUrl);
+    for (const [key, value] of embedResolutionCache.entries()) {
+        if (value !== "pending" && value.rewritten === rewrittenUrl) {
+            embedResolutionCache.delete(key);
+        }
+    }
     refreshListeners.forEach(fn => fn(rewrittenUrl));
+    refreshFallbackEmbed({ rewrittenUrl, ...context }).catch(e => {
+        console.error(`[EmbedFix] Fallback refresh failed: ${rewrittenUrl}`, e);
+    });
 }
 
 const URL_REGEX = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
@@ -107,17 +105,75 @@ function buildSyntheticEmbed(data: EmbedData, rewrittenUrl: string): any {
     return embed;
 }
 
+function isUsableEmbedData(data: EmbedData): boolean {
+    return !data.error && !!(data.title || data.imageUrl || data.videoUrl);
+}
+
+function normalizeHostname(hostname: string): string {
+    return hostname.replace(STRIP_WWW, "");
+}
+
+function collectEmbedUrlCandidates(embed: any): string[] {
+    const candidates = [
+        embed?.url,
+        embed?.rawUrl,
+        embed?.provider?.url,
+        embed?.author?.url,
+    ];
+
+    return candidates.filter((candidate): candidate is string => typeof candidate === "string" && candidate.length > 0);
+}
+
+function urlMatchesDomains(url: string, domains: Set<string>): boolean {
+    try {
+        const hostname = new URL(url).hostname;
+        return domains.has(hostname) || domains.has(normalizeHostname(hostname));
+    } catch {
+        return false;
+    }
+}
+
+async function fetchFirstUsableEmbed(Native: any, cleanUrl: string, providers: ProviderDef[]): Promise<ResolvedEmbed | null> {
+    for (const provider of providers) {
+        const rewritten = rewriteUrl(cleanUrl, provider.domain);
+
+        const cached = embedDataCache.get(rewritten);
+        if (cached && cached !== "pending" && isUsableEmbedData(cached)) {
+            return { rewritten, data: cached };
+        }
+        if (cached === "pending") continue;
+
+        embedDataCache.set(rewritten, "pending");
+        console.log(`[EmbedFix] Fetching embed: ${rewritten}`);
+
+        try {
+            const data = await Native.fetchEmbedData(rewritten) as EmbedData;
+            if (isUsableEmbedData(data)) {
+                console.log(`[EmbedFix] Got embed: ${rewritten} — ${data.title ?? "(no title)"} ${data.videoUrl ? "(video)" : data.imageUrl ? "(image)" : "(text)"}`);
+                embedDataCache.set(rewritten, data);
+                return { rewritten, data };
+            }
+
+            console.log(`[EmbedFix] No usable data: ${rewritten} — ${data.error ?? "missing title/image/video"}`);
+            embedDataCache.delete(rewritten);
+        } catch (e) {
+            console.error(`[EmbedFix] Fetch failed: ${rewritten}`, e);
+            embedDataCache.delete(rewritten);
+        }
+    }
+
+    return null;
+}
+
 function EmbedAccessoryInner({
     message,
     activePlatforms,
-    probeCache,
 }: {
     message: { content: string; id: string; channel_id: string; embeds?: any[] };
     activePlatforms: PlatformEntry[];
-    probeCache: ProbeCache;
 }) {
     const { React } = require("@webpack/common");
-    const [embedData, setEmbedData] = React.useState<Map<string, EmbedData>>(new Map());
+    const [embedData, setEmbedData] = React.useState<Map<string, ResolvedEmbed>>(new Map());
     const [refreshCounter, setRefreshCounter] = React.useState(0);
     const containerRef = React.useRef<HTMLDivElement>(null);
 
@@ -129,7 +185,9 @@ function EmbedAccessoryInner({
             // If this message has this URL, force re-fetch
             setEmbedData(prev => {
                 const next = new Map(prev);
-                next.delete(url);
+                for (const [key, value] of next.entries()) {
+                    if (value.rewritten === url) next.delete(key);
+                }
                 return next;
             });
             setRefreshCounter(c => c + 1);
@@ -139,22 +197,23 @@ function EmbedAccessoryInner({
     }, []);
 
     // Find matching URLs in message content
-    const matchingUrls: { original: string; rewritten: string; platform: PlatformEntry }[] = [];
+    const matchingUrls: { original: string; cleanUrl: string; rewritten: string; platform: PlatformEntry; providers: ProviderDef[] }[] = [];
     const regex = new RegExp(URL_REGEX.source, "g");
     let m: RegExpExecArray | null;
     while ((m = regex.exec(message.content)) !== null) {
-        const platform = matchPlatform(m[1], activePlatforms);
-        if (!platform) continue;
+        const resolved = resolvePlatformUrl(m[1], activePlatforms);
+        if (!resolved) continue;
 
-        let provider = probeCache.get(platform.id);
-        if (!provider && platform.providers.length > 0) {
-            provider = platform.providers[0].domain;
-        }
+        const platform = resolved.platform;
+        const providers = resolved.provider
+            ? [resolved.provider, ...platform.providers.filter(provider => provider.domain !== resolved.provider?.domain)]
+            : platform.providers;
+        const provider = providers[0]?.domain;
         if (!provider) continue;
 
         const cleanUrl = stripTrackingParams(m[1], platform.stripParams ?? []);
         const rewritten = rewriteUrl(cleanUrl, provider);
-        matchingUrls.push({ original: m[1], rewritten, platform });
+        matchingUrls.push({ original: m[1], cleanUrl, rewritten, platform, providers });
     }
 
     if (shouldLog && matchingUrls.length > 0) {
@@ -162,7 +221,9 @@ function EmbedAccessoryInner({
         loggedMessages.add(message.id);
     }
 
-    // Suppress Discord's native embeds for URLs we're replacing
+    // Suppress Discord's native embeds for URLs we're replacing. Discord can
+    // render native embeds after our accessory mounts, so keep watching the
+    // accessories container instead of doing a one-shot scan.
     React.useEffect(() => {
         if (matchingUrls.length === 0 || !containerRef.current) return;
 
@@ -171,45 +232,71 @@ function EmbedAccessoryInner({
             try {
                 const hostname = new URL(original).hostname;
                 originalDomains.add(hostname);
-                originalDomains.add(hostname.replace(STRIP_WWW, ""));
+                originalDomains.add(normalizeHostname(hostname));
             } catch { /* skip */ }
+        }
+        for (const { platform } of matchingUrls) {
+            for (const domain of platform.domains) originalDomains.add(domain);
+            for (const provider of platform.providers) originalDomains.add(provider.domain);
         }
 
         const msgEl = containerRef.current.closest('[id^="message-accessories-"]');
         if (!msgEl) return;
 
-        // Hide native embeds whose links match our platform domains
-        // Discord renders embeds as <article class="embedFull__* embed__*">
-        const nativeEmbeds = msgEl.querySelectorAll('article[class*="embed"]');
-        const hidden: HTMLElement[] = [];
-        for (const embedEl of nativeEmbeds) {
-            // Skip our own synthetic embeds
-            if ((embedEl as HTMLElement).dataset.embedfix) continue;
-
-            const links = embedEl.querySelectorAll('a[href]');
-            for (const link of links) {
-                try {
-                    const hostname = new URL((link as HTMLAnchorElement).href).hostname;
-                    const normalized = hostname.replace(STRIP_WWW, "");
-                    if (originalDomains.has(hostname) || originalDomains.has(normalized)) {
-                        (embedEl as HTMLElement).style.display = "none";
-                        hidden.push(embedEl as HTMLElement);
-                        break;
-                    }
-                } catch { /* skip */ }
+        const suppressedIndexes = new Set<number>();
+        for (const [index, embed] of (message.embeds ?? []).entries()) {
+            if (collectEmbedUrlCandidates(embed).some(url => urlMatchesDomains(url, originalDomains))) {
+                suppressedIndexes.add(index);
             }
         }
 
-        if (hidden.length > 0) {
-            console.log(`[EmbedFix] Suppress: hid ${hidden.length} native embed(s) for msg ${message.id}`);
-        }
+        const hidden = new Set<HTMLElement>();
+        const hideMatchingEmbeds = () => {
+            const nativeEmbeds = Array.from(msgEl.querySelectorAll<HTMLElement>('article[class*="embed"]'))
+                .filter(embedEl => !embedEl.dataset.embedfix);
+
+            nativeEmbeds.forEach((embedEl, index) => {
+                if (hidden.has(embedEl)) return;
+
+                let shouldHide = suppressedIndexes.has(index);
+                if (!shouldHide) {
+                    const links = embedEl.querySelectorAll('a[href]');
+                    for (const link of links) {
+                        if (urlMatchesDomains((link as HTMLAnchorElement).href, originalDomains)) {
+                            shouldHide = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!shouldHide) return;
+
+                embedEl.style.display = "none";
+                hidden.add(embedEl);
+            });
+
+            if (hidden.size > 0) {
+                console.log(`[EmbedFix] Suppress: hid ${hidden.size} native embed(s) for msg ${message.id}`);
+            }
+        };
+
+        hideMatchingEmbeds();
+        const observer = new MutationObserver(hideMatchingEmbeds);
+        observer.observe(msgEl, { childList: true, subtree: true });
+        const timers = [
+            window.setTimeout(hideMatchingEmbeds, 250),
+            window.setTimeout(hideMatchingEmbeds, 1000),
+        ];
 
         return () => {
+            observer.disconnect();
+            timers.forEach(timer => window.clearTimeout(timer));
             for (const el of hidden) el.style.display = "";
         };
-    });
+    }, [message.id, matchingUrls.map(match => match.original).join("|")]);
 
-    // Fetch embed data from provider URLs
+    // Fetch embed data from provider URLs, falling through provider priority on
+    // per-link HTTP errors or missing metadata.
     React.useEffect(() => {
         if (matchingUrls.length === 0) return;
 
@@ -218,45 +305,44 @@ function EmbedAccessoryInner({
 
         let cancelled = false;
 
-        for (const { rewritten } of matchingUrls) {
-            const cached = embedDataCache.get(rewritten);
+        for (const match of matchingUrls) {
+            const cacheKey = match.cleanUrl;
+            const cached = embedResolutionCache.get(cacheKey);
             if (cached && cached !== "pending") {
-                setEmbedData(prev => new Map(prev).set(rewritten, cached));
+                setEmbedData(prev => new Map(prev).set(cacheKey, cached));
                 continue;
             }
             if (cached === "pending") continue;
 
-            embedDataCache.set(rewritten, "pending");
-            console.log(`[EmbedFix] Fetching embed: ${rewritten}`);
-
-            Native.fetchEmbedData(rewritten).then((data: EmbedData) => {
-                if (cancelled) return;
-                if (!data.error && (data.title || data.imageUrl || data.videoUrl)) {
-                    console.log(`[EmbedFix] Got embed: ${rewritten} — ${data.title ?? "(no title)"} ${data.videoUrl ? "(video)" : data.imageUrl ? "(image)" : "(text)"}`);
-                    embedDataCache.set(rewritten, data);
-                    setEmbedData(prev => new Map(prev).set(rewritten, data));
-                } else {
-                    console.log(`[EmbedFix] No usable data: ${rewritten} — ${data.error ?? "missing title/image/video"}`);
-                    embedDataCache.delete(rewritten);
+            embedResolutionCache.set(cacheKey, "pending");
+            fetchFirstUsableEmbed(Native, match.cleanUrl, match.providers).then(resolved => {
+                if (resolved) {
+                    embedResolutionCache.set(cacheKey, resolved);
+                    if (cancelled) return;
+                    setEmbedData(prev => new Map(prev).set(cacheKey, resolved));
+                    return;
                 }
+
+                embedResolutionCache.delete(cacheKey);
+                if (cancelled) return;
             }).catch((e: any) => {
-                console.error(`[EmbedFix] Fetch failed: ${rewritten}`, e);
-                embedDataCache.delete(rewritten);
+                console.error(`[EmbedFix] Provider fallback failed: ${match.cleanUrl}`, e);
+                embedResolutionCache.delete(cacheKey);
             });
         }
 
         return () => { cancelled = true; };
-    }, [message.id, refreshCounter]);
+    }, [message.id, refreshCounter, matchingUrls.map(match => match.cleanUrl).join("|")]);
 
     if (matchingUrls.length === 0) return null;
 
     const embeds = matchingUrls
-        .map(({ rewritten }) => {
-            const data = embedData.get(rewritten);
-            if (!data) return null;
-            const syntheticEmbed = buildSyntheticEmbed(data, rewritten);
+        .map(({ cleanUrl }) => {
+            const resolved = embedData.get(cleanUrl);
+            if (!resolved) return null;
+            const syntheticEmbed = buildSyntheticEmbed(resolved.data, resolved.rewritten);
             return (
-                <div key={rewritten} data-embedfix="true" style={{ marginTop: "4px" }}>
+                <div key={resolved.rewritten} data-embedfix="true" style={{ marginTop: "4px" }}>
                     <NativeEmbed embed={syntheticEmbed} />
                 </div>
             );
@@ -277,7 +363,6 @@ function EmbedAccessoryInner({
  */
 export function createEmbedAccessory(
     getActivePlatforms: () => PlatformEntry[],
-    probeCache: ProbeCache,
     isEnabled: () => boolean,
 ) {
     // Factory function that addMessageAccessory will call with message props
@@ -291,7 +376,7 @@ export function createEmbedAccessory(
         let hasMatch = false;
         let m: RegExpExecArray | null;
         while ((m = regex.exec(message.content)) !== null) {
-            if (matchPlatform(m[1], getActivePlatforms())) {
+            if (resolvePlatformUrl(m[1], getActivePlatforms())) {
                 hasMatch = true;
                 break;
             }
@@ -302,7 +387,6 @@ export function createEmbedAccessory(
             <EmbedAccessoryInner
                 message={message}
                 activePlatforms={getActivePlatforms()}
-                probeCache={probeCache}
             />
         );
     };

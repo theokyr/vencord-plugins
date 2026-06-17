@@ -1011,6 +1011,7 @@ export default definePlugin({
         // Register keybinds with central registry
         window.__keybindRegistry?.register({
             plugin: "HotkeyNav",
+            settings,
             keybinds: {
                 notificationLayer: {
                     action: "Jump to notification by number",

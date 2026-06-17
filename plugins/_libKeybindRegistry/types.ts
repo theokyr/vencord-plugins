@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import type { DefinedSettings } from "@api/Settings";
+
 /** A single registered keybind entry. */
 export interface RegisteredKeybind {
     /** Globally unique ID: "pluginName.actionName" */
@@ -55,6 +57,8 @@ export interface ConflictResolution {
 export interface RegistrationOptions {
     /** Plugin name (must match definePlugin name) */
     plugin: string;
+    /** Plugin settings object containing keybind_<suffix> and keybind_<suffix>_enabled backing settings */
+    settings?: DefinedSettings;
     /** Keybind declarations. Key is the action suffix (e.g., "closeTab"). */
     keybinds: Record<string, KeybindDeclaration>;
 }

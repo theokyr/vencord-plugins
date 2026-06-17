@@ -1,0 +1,327 @@
+/* ─── Sidebar collapse ─────────────────────────────────────────────── */
+
+body.vc-enrichedHeader-hideGuilds [class*="guilds_"] {
+    display: none !important;
+}
+
+body.vc-enrichedHeader-hideGuilds [class^="base__"][class*="__"],
+body.vc-enrichedHeader-hideGuilds [class*=" base__"][class*="__"],
+body.vc-enrichedHeader-active.vc-enrichedHeader-hideGuilds [class^="base__"][class*="__"],
+body.vc-enrichedHeader-active.vc-enrichedHeader-hideGuilds [class*=" base__"][class*="__"] {
+    grid-template-columns: [start] 0px [guildsEnd] 240px [channelsEnd] 1fr [end] !important;
+}
+
+body.vc-enrichedHeader-hideChannels [class*="sidebarList_"] {
+    display: none !important;
+}
+
+body.vc-enrichedHeader-hideChannels [class*="sidebarResizeHandle_"] {
+    display: none !important;
+}
+
+body.vc-enrichedHeader-hideChannels [class^="base__"][class*="__"],
+body.vc-enrichedHeader-hideChannels [class*=" base__"][class*="__"],
+body.vc-enrichedHeader-active.vc-enrichedHeader-hideChannels [class^="base__"][class*="__"],
+body.vc-enrichedHeader-active.vc-enrichedHeader-hideChannels [class*=" base__"][class*="__"] {
+    grid-template-columns: [start] 72px [guildsEnd] 0px [channelsEnd] 1fr [end] !important;
+}
+
+body.vc-enrichedHeader-hideGuilds.vc-enrichedHeader-hideChannels [class^="base__"][class*="__"],
+body.vc-enrichedHeader-hideGuilds.vc-enrichedHeader-hideChannels [class*=" base__"][class*="__"],
+body.vc-enrichedHeader-active.vc-enrichedHeader-hideGuilds.vc-enrichedHeader-hideChannels [class^="base__"][class*="__"],
+body.vc-enrichedHeader-active.vc-enrichedHeader-hideGuilds.vc-enrichedHeader-hideChannels [class*=" base__"][class*="__"] {
+    grid-template-columns: [start] 0px [guildsEnd] 0px [channelsEnd] 1fr [end] !important;
+}
+
+body.vc-enrichedHeader-hideGuilds [class^="base__"] [class^="page__"],
+body.vc-enrichedHeader-hideGuilds [class*=" base__"] [class^="page__"],
+body.vc-enrichedHeader-hideGuilds [class^="base__"] [class*=" page__"],
+body.vc-enrichedHeader-hideGuilds [class*=" base__"] [class*=" page__"],
+body.vc-enrichedHeader-hideChannels [class^="base__"] [class^="page__"],
+body.vc-enrichedHeader-hideChannels [class*=" base__"] [class^="page__"],
+body.vc-enrichedHeader-hideChannels [class^="base__"] [class*=" page__"],
+body.vc-enrichedHeader-hideChannels [class*=" base__"] [class*=" page__"] {
+    grid-column: channelsEnd / end !important;
+}
+
+/* ─── Enriched header ─────────────────────────────────────────────── */
+
+body.vc-enrichedHeader-active [class*="subtitleContainer_"] {
+    display: none !important;
+}
+
+body.vc-enrichedHeader-active [class^="base__"] > [class*="bar_"]:not([class*="systemBar"]),
+body.vc-enrichedHeader-active [class*=" base__"] > [class*="bar_"]:not([class*="systemBar"]) {
+    grid-column: titleBar !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+body.vc-enrichedHeader-navCompact [class*="backForwardButtons__"] {
+    transform: scale(0.75);
+    margin: 0 -8px;
+}
+
+body.vc-enrichedHeader-navHidden [class*="leading_"] {
+    display: none !important;
+}
+
+.vc-enrichedHeader-sidebarToggles {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    flex-shrink: 0;
+    padding: 0 2px;
+}
+
+body.vc-enrichedHeader-navHidden .vc-enrichedHeader-sidebarToggles {
+    padding-left: 0;
+}
+
+.vc-enrichedHeader-sidebarToggles .vc-enrichedHeader-toggleBtn {
+    width: 22px;
+    height: 22px;
+}
+
+.vc-enrichedHeader-toggleBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: var(--interactive-normal, #b5bac1);
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+}
+
+.vc-enrichedHeader-toggleBtn:hover,
+.vc-enrichedHeader-toggleBtn-active {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--interactive-active, #fff);
+}
+
+.vc-enrichedHeader-divider {
+    width: 1px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+    margin: 0 4px;
+}
+
+.vc-enrichedHeader-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 200px;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 13px;
+    overflow: hidden;
+}
+
+.vc-enrichedHeader-breadcrumb img {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.vc-enrichedHeader-breadcrumb span:not(.vc-enrichedHeader-breadcrumbSeparator) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vc-enrichedHeader-breadcrumbSeparator {
+    color: rgba(255, 255, 255, 0.15);
+    font-size: 12px;
+    margin: 0 2px;
+    flex-shrink: 0;
+}
+
+.vc-enrichedHeader-layoutZone,
+.vc-enrichedHeader-titleOverride {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
+}
+
+.vc-enrichedHeader-layoutZone-title,
+.vc-enrichedHeader-layoutZone-afterTitle {
+    flex-shrink: 1;
+}
+
+.vc-enrichedHeader-titleOverride {
+    max-width: 220px;
+    color: var(--header-primary, #f2f3f5);
+    font-size: 13px;
+    font-weight: 600;
+    overflow: hidden;
+}
+
+.vc-enrichedHeader-titleOverride img,
+.vc-enrichedHeader-titleOverride svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.vc-enrichedHeader-titleOverride span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.vc-enrichedHeader-active [class*="children__"] {
+    min-width: 0;
+    flex-shrink: 1;
+    flex-basis: 0;
+    overflow: hidden;
+}
+
+body.vc-enrichedHeader-active [class*="toolbar__"],
+body.vc-enrichedHeader-active [class*="trailing_"] {
+    min-width: 0;
+    flex-shrink: 1;
+    overflow: hidden;
+}
+
+body.vc-enrichedHeader-active [class*="children__"] [class*="title_"],
+body.vc-enrichedHeader-active [class*="children__"] [class*="name__"] {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.vc-enrichedHeader-active [class*="topic__"] {
+    display: none !important;
+}
+
+body.vc-enrichedHeader-active [class*="children__"] > svg {
+    display: none !important;
+}
+
+.vc-enrichedHeader-dragOverlay {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    -webkit-app-region: drag;
+    pointer-events: none;
+    z-index: 0;
+}
+
+body.vc-enrichedHeader-active [class^="base__"] > [class*="bar_"]:not([class*="systemBar"]) > *,
+body.vc-enrichedHeader-active [class*=" base__"] > [class*="bar_"]:not([class*="systemBar"]) > * {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+}
+
+body.vc-enrichedHeader-active .vc-enrichedHeader-dragOverlay {
+    position: absolute !important;
+    z-index: 0;
+}
+
+body.vc-enrichedHeader-active [role="button"],
+body.vc-enrichedHeader-active button,
+body.vc-enrichedHeader-active a[class*="anchor"],
+body.vc-enrichedHeader-active input,
+body.vc-enrichedHeader-active [class*="search__"],
+body.vc-enrichedHeader-active .vc-enrichedHeader-toggleBtn,
+body.vc-enrichedHeader-active .vc-enrichedHeader-overflowBtn,
+body.vc-enrichedHeader-active [class*="winButton_"] {
+    -webkit-app-region: no-drag;
+}
+
+/* ─── Toolbar overflow ─────────────────────────────────────────────── */
+
+.vc-enrichedHeader-overflowBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 24px;
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    flex-shrink: 0;
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    -webkit-app-region: no-drag;
+    transition: background var(--vc-anim-speed, 150ms) ease, color var(--vc-anim-speed, 150ms) ease;
+}
+
+.vc-enrichedHeader-overflowBtn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.vc-enrichedHeader-overflowMenu {
+    position: fixed;
+    z-index: 99999;
+    background: var(--background-floating, #111214);
+    border-radius: 4px;
+    padding: 6px 4px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24);
+    min-width: 180px;
+    animation: vc-slideUp var(--vc-anim-speed, 150ms) var(--vc-anim-ease-out, ease-out) both;
+    transform-origin: top right;
+}
+
+.vc-enrichedHeader-overflowMenuItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 2px;
+    font-size: 13px;
+    color: var(--interactive-normal, #b5bac1);
+    cursor: pointer;
+    transition: background var(--vc-anim-speed, 150ms) ease, color var(--vc-anim-speed, 150ms) ease;
+}
+
+.vc-enrichedHeader-overflowMenuItem:hover {
+    background: var(--brand-500, #5865f2);
+    color: #fff;
+}
+
+.vc-enrichedHeader-overflowMenuItem svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.vc-enrichedHeader-overflowMenuItem span {
+    flex: 1;
+}
+
+.vc-enrichedHeader-overflowTopic {
+    padding: 6px 8px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.4);
+    max-width: 300px;
+    line-height: 1.4;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background var(--vc-anim-speed, 150ms) ease;
+}
+
+.vc-enrichedHeader-overflowTopic:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.vc-enrichedHeader-overflowSeparator {
+    height: 1px;
+    margin: 4px;
+    background: rgba(255, 255, 255, 0.08);
+}

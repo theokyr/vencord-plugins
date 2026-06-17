@@ -23,13 +23,17 @@
 |--------|-------------|
 | **channelTabs** | Quick-access tab bar for channels and DMs |
 | **settingsHub** | Unified settings page for custom plugins |
+| **betterBlockIgnore** | Hide blocked and ignored users more completely |
 | **bsNoMore** | Remove upsell clutter — DM nav, clan tags, quest popups, store UI |
 | **hotkeyNav** | Keyboard-driven navigation with inline keycap hints |
 | **minimalCallBar** | Compact 32px call overlay replacement |
 | **embedFix** | Replaces social media URLs with embed-friendly alternatives |
+| **enrichedHeader** | Moves Discord channel header controls into the title bar |
 | **discordMcp** | MCP bridge — expose Discord to AI agents via the Model Context Protocol |
 | **messageHeaderAvatar** | Displays user avatars inline in message headers next to the username |
 | **venpmGui** | Manage Vencord plugins from inside Discord — browse, install, update, and configure |
+
+**Attribution:** `betterBlockIgnore` is a fork of Vencord's stock `NoBlockedMessages` plugin by Vendicated and contributors, originally authored by rushii, Samu, and jamesbt365. This fork keeps the upstream foundation and adds ignored-user handling, reply and mention filtering, reaction filtering, and settingsHub integration.
 
 See the **[plugin showcase](https://venpm.dev/plugins/kamaras)** for interactive demos and screenshots.
 
@@ -54,6 +58,32 @@ venpm rebuild
 
 See the [venpm docs](https://venpm.dev/guide/getting-started) for full setup instructions.
 
+## DiscordMCP Proxy
+
+The `discordMcp` plugin exposes a running Discord client to MCP-capable AI agents. It has two parts:
+
+- `plugins/discordMcp/` — Vencord userplugin running inside Discord
+- `proxy/` — Node.js MCP stdio server that listens for Discord on `127.0.0.1:21420`
+
+Build the proxy before adding it to an MCP client:
+
+```bash
+cd proxy
+npm install
+npm run build
+```
+
+MCP server command:
+
+```json
+{
+  "command": "node",
+  "args": ["/path/to/vencord-plugins/proxy/dist/index.js"]
+}
+```
+
+If tools report Discord is disconnected, start Discord, enable the `discordMcp` Vencord plugin, and confirm the proxy is running. Rebuilding plugins from an agent should use the DiscordMCP rebuild tool when available; it may refuse while you are in a voice call.
+
 ## Manual Install
 
 For users who already have Vencord set up with userplugins:
@@ -64,6 +94,8 @@ git clone https://github.com/theokyr/vencord-plugins.git
 cd vencord-plugins
 
 # Symlink the plugins you want into your Vencord userplugins directory
+ln -s "$(pwd)/plugins/_libAnimationKit" ~/path/to/Vencord/src/userplugins/_libAnimationKit
+ln -s "$(pwd)/plugins/_libKeybindRegistry" ~/path/to/Vencord/src/userplugins/_libKeybindRegistry
 ln -s "$(pwd)/plugins/channelTabs" ~/path/to/Vencord/src/userplugins/channelTabs
 ln -s "$(pwd)/plugins/settingsHub" ~/path/to/Vencord/src/userplugins/settingsHub
 
@@ -71,7 +103,7 @@ ln -s "$(pwd)/plugins/settingsHub" ~/path/to/Vencord/src/userplugins/settingsHub
 cd ~/path/to/Vencord && pnpm build
 ```
 
-Replace `~/path/to/Vencord` with your actual Vencord source path.
+Replace `~/path/to/Vencord` with your actual Vencord source path. `_lib*` directories are shared build-time modules required by several plugins; venpm installs them transitively, but manual installs must symlink them explicitly when needed.
 
 ### New to Vencord userplugins?
 
@@ -109,4 +141,4 @@ These plugins are provided "as is", without warranty of any kind. The author is 
 
 ## License
 
-[MIT](LICENSE)
+[GPL-3.0-or-later](LICENSE), as indicated by the plugin source SPDX headers.

@@ -17,6 +17,12 @@ export interface PlatformEntry {
     stripParams?: string[];
 }
 
+export interface PlatformUrlMatch {
+    platform: PlatformEntry;
+    provider?: ProviderDef;
+    isProviderDomain: boolean;
+}
+
 export const DEFAULT_PLATFORMS: PlatformEntry[] = [
     {
         id: "twitter",
@@ -99,19 +105,6 @@ function normalizeHostname(hostname: string): string {
 }
 
 /**
- * Build a set of all provider domains across all platforms for anti double-rewrite checks.
- */
-function buildProviderDomainSet(platforms: PlatformEntry[]): Set<string> {
-    const set = new Set<string>();
-    for (const platform of platforms) {
-        for (const provider of platform.providers) {
-            set.add(provider.domain);
-        }
-    }
-    return set;
-}
-
-/**
  * Match a URL string against the platform map.
  *
  * - Strips www/m/mobile/old subdomains before matching.
@@ -122,6 +115,21 @@ export function matchPlatform(
     urlStr: string,
     platforms: PlatformEntry[] = DEFAULT_PLATFORMS,
 ): PlatformEntry | null {
+    const match = resolvePlatformUrl(urlStr, platforms);
+    if (!match || match.isProviderDomain) return null;
+
+    return match.platform;
+}
+
+/**
+ * Resolve either a source URL or an already-rewritten provider URL to its
+ * platform. Use this for incoming display/suppression paths only; outgoing
+ * rewrite scans should keep using matchPlatform() to avoid double rewrites.
+ */
+export function resolvePlatformUrl(
+    urlStr: string,
+    platforms: PlatformEntry[] = DEFAULT_PLATFORMS,
+): PlatformUrlMatch | null {
     let url: URL;
     try {
         url = new URL(urlStr);
@@ -129,17 +137,16 @@ export function matchPlatform(
         return null;
     }
 
-    const providerDomains = buildProviderDomainSet(platforms);
     const normalized = normalizeHostname(url.hostname);
-
-    // Anti double-rewrite: if the hostname is already a provider domain, bail out.
-    if (providerDomains.has(normalized)) {
-        return null;
-    }
 
     for (const platform of platforms) {
         if (platform.domains.includes(normalized)) {
-            return platform;
+            return { platform, isProviderDomain: false };
+        }
+
+        const provider = platform.providers.find(candidate => candidate.domain === normalized);
+        if (provider) {
+            return { platform, provider, isProviderDomain: true };
         }
     }
 

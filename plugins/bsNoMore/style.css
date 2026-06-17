@@ -1,12 +1,12 @@
 /* ── Body class toggles (animated) ─────────────────────────────── */
 
-/* Clan tags — inline spans, use width collapse */
+/* Clan tags — remove the chiplet and its wrapper so flex gaps do not leave a blank slot */
 body.vc-bsNoMore-hideClanTags [class*="clanTagChiplet"] {
-    opacity: 0;
-    width: 0;
-    overflow: hidden;
-    pointer-events: none;
-    transition: opacity var(--vc-anim-speed, 150ms), width var(--vc-anim-speed, 150ms);
+    display: none !important;
+}
+
+body.vc-bsNoMore-hideClanTags :is(a, div, span):has(> [class*="clanTagChiplet"]) {
+    display: none !important;
 }
 
 /* Avatar decorations — positioned overlays, just fade */

@@ -76,8 +76,6 @@ export const MENU_ICONS: Record<string, string> = {
     copy: "M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z",
     tab: "M3 3h18a1 1 0 0 1 1 1v3H2V4a1 1 0 0 1 1-1zm-1 5h20v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8zm3 3v2h4v-2H5zm0 4v2h6v-2H5z",
     settings: "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z",
-    sidebar: "M20 2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM8 20H4V4h4v16zm12 0H10V4h10v16z",
-    channelList: "M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z",
 };
 
 const MenuIcon = ({ d }: { d: string; }) => (
@@ -798,44 +796,5 @@ export function openChildContextMenu(
                 action={() => handlers.onCloseChild(sourceGroupId, child.id)}
             />
         </Menu.ContextMenu>
-    ));
-}
-
-// ─── Bar context menu ────────────────────────────────────────────────────
-
-export function openBarContextMenu(
-    event: React.MouseEvent,
-    hideGuilds: boolean,
-    hideChannels: boolean,
-    onToggleGuilds: () => void,
-    onToggleChannels: () => void,
-    onOpenSettings: () => void,
-) {
-    ContextMenuApi.openContextMenu(event, () => (
-        <Menu.Menu
-            navId="channelTabs-bar-context"
-            onClose={() => FluxDispatcher.dispatch({ type: "CONTEXT_MENU_CLOSE" })}
-            aria-label="Tab Bar Context Menu"
-        >
-            <Menu.MenuItem
-                id="vc-tabbar-toggle-guilds"
-                key="vc-tabbar-toggle-guilds"
-                label={<IconLabel icon={MENU_ICONS.sidebar} text={`${hideGuilds ? "Show" : "Hide"} Server Sidebar`} />}
-                action={onToggleGuilds}
-            />
-            <Menu.MenuItem
-                id="vc-tabbar-toggle-channels"
-                key="vc-tabbar-toggle-channels"
-                label={<IconLabel icon={MENU_ICONS.channelList} text={`${hideChannels ? "Show" : "Hide"} Channel List`} />}
-                action={onToggleChannels}
-            />
-            <Menu.MenuSeparator />
-            <Menu.MenuItem
-                id="vc-tabbar-settings"
-                key="vc-tabbar-settings"
-                label={<IconLabel icon={MENU_ICONS.settings} text="ChannelTabs Settings" />}
-                action={onOpenSettings}
-            />
-        </Menu.Menu>
     ));
 }

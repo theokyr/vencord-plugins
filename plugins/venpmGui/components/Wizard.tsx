@@ -172,7 +172,7 @@ function Step3({ onNext }: { onNext: () => void }) {
                             </span>
                             {showManual && (
                                 <div style={{ marginTop: 8, padding: "8px 12px", background: "rgba(0,0,0,0.2)", borderRadius: 4, fontSize: 13, fontFamily: "monospace" }}>
-                                    npm install -g venpm
+                                    npm install -g @kamaras/venpm
                                 </div>
                             )}
                         </div>
@@ -220,7 +220,7 @@ function Step4({ onComplete }: { onComplete: () => void }) {
             </div>
 
             <p style={{ fontSize: 12, opacity: 0.5, marginTop: 12 }}>
-                Default repository: kamaras-plugins (pre-configured)
+                Default repository: kamaras (pre-configured)
             </p>
 
             <div className="vc-venpmGui-wizard-actions">

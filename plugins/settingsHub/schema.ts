@@ -45,7 +45,7 @@ export interface SettingConfig {
     /** Key in the plugin's settings.store */
     key: string;
     /** Override the auto-detected control type */
-    control?: "toggle" | "slider" | "select" | "color" | "tristate" | "keybind" | "text";
+    control?: "toggle" | "slider" | "select" | "color" | "tristate" | "keybind" | "text" | "component";
     /** Override label (defaults to the OptionType description from definePluginSettings) */
     label?: string;
     /** Override description */

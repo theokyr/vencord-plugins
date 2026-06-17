@@ -7,7 +7,7 @@ function buildHealthItems(venpm: VenpmDetection, env: EnvironmentStatus, repos: 
 
     items.push(venpm.found
         ? { label: "venpm", status: "green", detail: `v${venpm.version}` }
-        : { label: "venpm", status: "red", detail: "Not found", fixHint: "Run: npm install -g venpm" }
+        : { label: "venpm", status: "red", detail: "Not found", fixHint: "Run: npm install -g @kamaras/venpm" }
     );
 
     items.push(env.git

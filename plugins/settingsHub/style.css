@@ -698,16 +698,8 @@ body.vc-settingsHub-open [class*="upperContainer_"] {
     visibility: hidden;
 }
 
-/* Hide relocated channel header elements in the enriched title bar */
-body.vc-settingsHub-open [class*="children__9293f"],
-body.vc-settingsHub-open [class*="toolbar__9293f"],
-body.vc-settingsHub-open .vc-channelTabs-overflowBtn {
-    display: none !important;
-}
-
-/* Hide stale breadcrumb and title — replaced by injected settings label */
-body.vc-settingsHub-open .vc-channelTabs-headerBreadcrumb,
-body.vc-settingsHub-open [class*="title_c38106"] {
+/* Hide stale Discord title only when using the direct fallback label */
+body.vc-settingsHub-open.vc-settingsHub-direct-header [class*="title_c38106"] {
     display: none !important;
 }
 

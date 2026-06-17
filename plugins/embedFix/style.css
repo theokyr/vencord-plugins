@@ -34,3 +34,171 @@
 .vc-embedFix-accessory {
     display: contents;
 }
+
+.vc-embedFix-fallbackEmbed {
+    --vc-embedFix-fallbackColor: var(--brand-500, #5865f2);
+    box-sizing: border-box;
+    display: grid;
+    max-width: 432px;
+    margin-top: 4px;
+    padding: 8px 12px;
+    border-left: 4px solid var(--vc-embedFix-fallbackColor);
+    border-radius: 4px;
+    background: var(--background-secondary, #2b2d31);
+    color: var(--text-normal, #dbdee1);
+}
+
+.vc-embedFix-fallbackBody {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.vc-embedFix-fallbackSource,
+.vc-embedFix-fallbackFooter {
+    color: var(--text-muted, #949ba4);
+    font-size: 0.75rem;
+    line-height: 1.25;
+}
+
+.vc-embedFix-fallbackTitle,
+.vc-embedFix-fallbackVideoLink {
+    color: var(--text-link, #00a8fc);
+    font-weight: 600;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    text-decoration: none;
+}
+
+.vc-embedFix-fallbackTitle:hover,
+.vc-embedFix-fallbackVideoLink:hover {
+    text-decoration: underline;
+}
+
+.vc-embedFix-fallbackDescription {
+    color: var(--text-normal, #dbdee1);
+    font-size: 0.875rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.vc-embedFix-fallbackImage {
+    display: block;
+    max-width: min(100%, 400px);
+    max-height: 300px;
+    border-radius: 4px;
+    object-fit: contain;
+}
+
+.vc-embedFix-priorityEditor {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: min(100%, 720px);
+}
+
+.vc-embedFix-priorityHeader,
+.vc-embedFix-priorityPlatformHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.vc-embedFix-priorityHeader {
+    color: var(--text-muted, #949ba4);
+    font-size: 0.875em;
+}
+
+.vc-embedFix-priorityPlatform {
+    border: 1px solid var(--background-modifier-accent, #3f4147);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.vc-embedFix-priorityPlatformHeader {
+    padding: 8px 10px;
+    background: var(--background-secondary-alt, #2b2d31);
+    color: var(--header-primary, #f2f3f5);
+    font-weight: 700;
+}
+
+.vc-embedFix-priorityList {
+    display: flex;
+    flex-direction: column;
+}
+
+.vc-embedFix-priorityItem {
+    display: grid;
+    grid-template-columns: 18px 28px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 7px 10px;
+    border-top: 1px solid var(--background-modifier-accent, #3f4147);
+    background: var(--background-primary, #313338);
+}
+
+.vc-embedFix-priorityItemDragging {
+    opacity: 0.55;
+}
+
+.vc-embedFix-priorityHandle {
+    color: var(--interactive-muted, #4e5058);
+    cursor: grab;
+    font-weight: 700;
+    letter-spacing: 0;
+    user-select: none;
+}
+
+.vc-embedFix-priorityRank {
+    color: var(--text-muted, #949ba4);
+    font-variant-numeric: tabular-nums;
+}
+
+.vc-embedFix-priorityText {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.vc-embedFix-priorityLabel {
+    color: var(--text-normal, #dbdee1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vc-embedFix-priorityDomain {
+    color: var(--text-muted, #949ba4);
+    font-size: 0.8125em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vc-embedFix-priorityActions {
+    display: flex;
+    gap: 4px;
+}
+
+.vc-embedFix-priorityMove {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 4px;
+    background: var(--background-modifier-hover, #35373c);
+    color: var(--interactive-normal, #b5bac1);
+    cursor: pointer;
+}
+
+.vc-embedFix-priorityMove:hover:not(:disabled) {
+    background: var(--background-modifier-selected, #404249);
+    color: var(--interactive-hover, #dbdee1);
+}
+
+.vc-embedFix-priorityMove:disabled {
+    cursor: default;
+    opacity: 0.35;
+}

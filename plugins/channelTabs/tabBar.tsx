@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { useCallback, useEffect, useRef, ReadStateStore } from "@webpack/common";
-import { openBarContextMenu } from "./contextMenu";
+import { ContextMenuApi, FluxDispatcher, Menu, useCallback, useEffect, useRef, ReadStateStore } from "@webpack/common";
 import { findStoreLazy } from "@webpack";
 import type { Tab } from "./types";
 import { getTabMeta, ROUTE_ICONS } from "./tabMeta";
@@ -36,6 +35,22 @@ const UserGuildSettingsStore = findStoreLazy("UserGuildSettingsStore") as {
     isChannelMuted: (guildId: string | null, channelId: string) => boolean;
 };
 
+function openBarSettingsContextMenu(event: React.MouseEvent, onOpenSettings: () => void) {
+    ContextMenuApi.openContextMenu(event, () => (
+        <Menu.Menu
+            navId="channelTabs-bar-context"
+            onClose={() => FluxDispatcher.dispatch({ type: "CONTEXT_MENU_CLOSE" })}
+            aria-label="Tab Bar Context Menu"
+        >
+            <Menu.MenuItem
+                id="vc-tabbar-settings"
+                key="vc-tabbar-settings"
+                label="ChannelTabs Settings"
+                action={onOpenSettings}
+            />
+        </Menu.Menu>
+    ));
+}
 
 // ─── Phone SVG icon ───────────────────────────────────────────────────────
 
@@ -224,7 +239,7 @@ function TabItem({ tab, index, isActive, showIcon, onActivate, onClose, onPin, o
 
 // ─── TabBar ───────────────────────────────────────────────────────────────
 
-export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClose, onPin, onMove, onContextMenu, hideGuilds, hideChannels, showSidebarToggles, enrichedHeader, onToggleGuilds, onToggleChannels, onSetSidebarMode, onNewTab, onOpenSettings, doubleClickAction, activeChildIndex, maxGroupIcons, groupChipStyle, onToggleGroupCollapsed, onActivateChild, onCloseChild, onMoveChild, onPinChild, onDropToGroup, onDropFromGroup, onGroupContextMenu, onChildContextMenu, onCreateGroup, onAddCurrentTabToGroup, multiSelectIndices, onMultiSelectToggle }: {
+export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClose, onPin, onMove, onContextMenu, onNewTab, onOpenSettings, doubleClickAction, activeChildIndex, maxGroupIcons, groupChipStyle, onToggleGroupCollapsed, onActivateChild, onCloseChild, onMoveChild, onPinChild, onDropToGroup, onDropFromGroup, onGroupContextMenu, onChildContextMenu, onCreateGroup, onAddCurrentTabToGroup, multiSelectIndices, onMultiSelectToggle }: {
     showServerIcon: boolean;
     onActivate: (tab: Tab) => void;
     tabs: Tab[];
@@ -233,13 +248,6 @@ export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClo
     onPin: (i: number) => void;
     onMove: (from: number, to: number) => void;
     onContextMenu: (e: React.MouseEvent, idx: number) => void;
-    hideGuilds: boolean;
-    hideChannels: boolean;
-    showSidebarToggles: boolean;
-    enrichedHeader: boolean;
-    onToggleGuilds: () => void;
-    onToggleChannels: () => void;
-    onSetSidebarMode: (mode: "all" | "guilds" | "channels" | "none") => void;
     onNewTab: () => void;
     onOpenSettings: () => void;
     doubleClickAction: string;
@@ -303,12 +311,12 @@ export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClo
     const onBarContextMenu = useCallback((e: React.MouseEvent) => {
         if ((e.target as HTMLElement).closest(".vc-channelTabs-tab")) return;
         e.preventDefault();
-        openBarContextMenu(e, hideGuilds, hideChannels, onToggleGuilds, onToggleChannels, onOpenSettings);
-    }, [hideGuilds, hideChannels, onToggleGuilds, onToggleChannels, onOpenSettings]);
+        openBarSettingsContextMenu(e, onOpenSettings);
+    }, [onOpenSettings]);
 
     const onBarDoubleClick = useCallback((e: React.MouseEvent) => {
         const t = e.target as HTMLElement;
-        if (t.closest(".vc-channelTabs-tab") || t.closest(".vc-channelTabs-newTab") || t.closest(".vc-channelTabs-sidebarToggles")) return;
+        if (t.closest(".vc-channelTabs-tab") || t.closest(".vc-channelTabs-newTab")) return;
         onNewTab();
     }, [onNewTab]);
 
@@ -332,43 +340,6 @@ export function TabBar({ showServerIcon, onActivate, tabs, activeTabIndex, onClo
                 }
             }}
         >
-            {showSidebarToggles && !enrichedHeader && (() => {
-                const mode = !hideGuilds && !hideChannels ? "all"
-                    : !hideGuilds && hideChannels ? "guilds"
-                    : hideGuilds && !hideChannels ? "channels"
-                    : "none";
-                return (
-                    <div className="vc-channelTabs-sidebarToggles">
-                        <span
-                            className={`vc-channelTabs-toggleBtn${mode === "guilds" ? " vc-channelTabs-toggleBtn-active" : ""}`}
-                            onClick={() => onSetSidebarMode(mode === "guilds" ? "none" : "guilds")}
-                            title="Show guilds only"
-                        >
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                                <path d="M20 2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM8 20H4V4h4v16zm12 0H10V4h10v16z" />
-                            </svg>
-                        </span>
-                        <span
-                            className={`vc-channelTabs-toggleBtn${mode === "all" ? " vc-channelTabs-toggleBtn-active" : ""}`}
-                            onClick={() => onSetSidebarMode(mode === "all" ? "none" : "all")}
-                            title="Show all sidebars"
-                        >
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                                <path d="M20 2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM8 20H4V4h4v16zm6 0h-4V4h4v16zm6 0h-4V4h4v16z" />
-                            </svg>
-                        </span>
-                        <span
-                            className={`vc-channelTabs-toggleBtn${mode === "channels" ? " vc-channelTabs-toggleBtn-active" : ""}`}
-                            onClick={() => onSetSidebarMode(mode === "channels" ? "none" : "channels")}
-                            title="Show channels only"
-                        >
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                                <path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z" />
-                            </svg>
-                        </span>
-                    </div>
-                );
-            })()}
             {tabs.map((tab, i) => {
                 if (isGroupTab(tab)) {
                     const isActive = i === activeTabIndex;

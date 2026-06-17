@@ -17,7 +17,6 @@ import {
     ChannelStore,
     createRoot,
     FluxDispatcher,
-    GuildStore,
     NavigationRouter,
     ReadStateStore,
     SelectedChannelStore,
@@ -58,8 +57,6 @@ import { findByPropsLazy, findLazy } from "@webpack";
 
 const AckUtils = findByPropsLazy("ack") as { ack: (channelId: string, messageId: string) => void; };
 
-/** Overflow triggers when title bar children fill beyond this fraction of the bar width */
-const OVERFLOW_THRESHOLD = 0.9;
 const QuickSwitcherKeybind = findLazy(m => m?.R?.action && m?.R?.binds?.some?.((b: string) => b === "mod+k")) as { R: { action: () => void; }; };
 
 /** Known Discord routes that can be represented as tabs */
@@ -537,58 +534,6 @@ export const settings = definePluginSettings({
         ],
         onChange: notify,
     },
-    showSidebarToggles: {
-        type: OptionType.BOOLEAN,
-        description: "Show sidebar toggle buttons on the left of the tab bar",
-        default: true,
-        onChange: notify,
-    },
-    enrichedHeader: {
-        type: OptionType.BOOLEAN,
-        description: "Enrich title bar with channel header content (saves ~48px)",
-        default: false,
-        restartNeeded: true,
-    },
-    sidebarTogglePosition: {
-        type: OptionType.SELECT,
-        description: "Sidebar toggle position in enriched header",
-        options: [
-            { label: "Left (after nav buttons)", value: "left", default: true },
-            { label: "Right (before trailing icons)", value: "right" },
-        ],
-        restartNeeded: true,
-    },
-    guildNameStyle: {
-        type: OptionType.SELECT,
-        description: "Guild name display in enriched header",
-        options: [
-            { label: "Hidden", value: "none", default: true },
-            { label: "Breadcrumb (Server > #channel)", value: "breadcrumb" },
-        ],
-        restartNeeded: true,
-    },
-    navButtonsStyle: {
-        type: OptionType.SELECT,
-        description: "Back/forward navigation buttons in enriched header",
-        options: [
-            { label: "Show", value: "show", default: true },
-            { label: "Compact (smaller)", value: "compact" },
-            { label: "Hidden", value: "hidden" },
-        ],
-        restartNeeded: true,
-    },
-    hideGuildSidebar: {
-        type: OptionType.BOOLEAN,
-        description: "Hide the guild (server) sidebar",
-        default: false,
-        onChange: (val: boolean) => document.body.classList.toggle("vc-channelTabs-hideGuilds", val),
-    },
-    hideChannelList: {
-        type: OptionType.BOOLEAN,
-        description: "Hide the channel list sidebar",
-        default: false,
-        onChange: (val: boolean) => document.body.classList.toggle("vc-channelTabs-hideChannels", val),
-    },
     fontSize: {
         type: OptionType.NUMBER,
         description: "Tab font size (px)",
@@ -769,16 +714,6 @@ export const settings = definePluginSettings({
     keybind_closeTab_enabled: {
         type: OptionType.BOOLEAN,
         description: "Enable close tab keybind",
-        default: true,
-    },
-    keybind_cycleSidebar: {
-        type: OptionType.STRING,
-        description: "Cycle sidebar visibility",
-        default: "ctrl+Backquote",
-    },
-    keybind_cycleSidebar_enabled: {
-        type: OptionType.BOOLEAN,
-        description: "Enable cycle sidebar keybind",
         default: true,
     },
     keybind_nextTabBracket: {
@@ -1025,76 +960,6 @@ function resetState() {
     if (restoreTimer2) { clearTimeout(restoreTimer2); restoreTimer2 = undefined; }
 }
 
-// ─── Sidebar toggles ────────────────────────────────────────────────────
-
-function toggleGuilds() {
-    settings.store.hideGuildSidebar = !settings.store.hideGuildSidebar;
-    document.body.classList.toggle("vc-channelTabs-hideGuilds", settings.store.hideGuildSidebar);
-    syncHeaderToggles();
-    notify();
-}
-
-function toggleChannels() {
-    settings.store.hideChannelList = !settings.store.hideChannelList;
-    document.body.classList.toggle("vc-channelTabs-hideChannels", settings.store.hideChannelList);
-    syncHeaderToggles();
-    notify();
-}
-
-/** Sync enriched header toggle button classes with current state */
-function syncHeaderToggles() {
-    const container = document.querySelector('.vc-channelTabs-headerToggles');
-    if (!container) return;
-    const mode = getSidebarMode();
-    const btns = container.querySelectorAll('.vc-channelTabs-toggleBtn');
-    // 3 buttons: [guilds] [all] [channels]
-    if (btns[0]) {
-        btns[0].classList.toggle("vc-channelTabs-toggleBtn-active", mode === "guilds");
-        (btns[0] as HTMLElement).title = "Show guilds only";
-    }
-    if (btns[1]) {
-        btns[1].classList.toggle("vc-channelTabs-toggleBtn-active", mode === "all");
-        (btns[1] as HTMLElement).title = "Show all sidebars";
-    }
-    if (btns[2]) {
-        btns[2].classList.toggle("vc-channelTabs-toggleBtn-active", mode === "channels");
-        (btns[2] as HTMLElement).title = "Show channels only";
-    }
-}
-
-/** Get current sidebar mode from the two boolean settings */
-type SidebarMode = "all" | "guilds" | "channels" | "none";
-function getSidebarMode(): SidebarMode {
-    const g = settings.store.hideGuildSidebar;
-    const c = settings.store.hideChannelList;
-    if (!g && !c) return "all";
-    if (!g && c) return "guilds";
-    if (g && !c) return "channels";
-    return "none";
-}
-
-/** Set sidebar mode directly */
-function setSidebarMode(mode: SidebarMode) {
-    settings.store.hideGuildSidebar = mode === "channels" || mode === "none";
-    settings.store.hideChannelList = mode === "guilds" || mode === "none";
-    document.body.classList.toggle("vc-channelTabs-hideGuilds", settings.store.hideGuildSidebar);
-    document.body.classList.toggle("vc-channelTabs-hideChannels", settings.store.hideChannelList);
-    syncHeaderToggles();
-    notify();
-}
-
-/** Cycle: all → guilds only → channels only → none → all */
-function cycleSidebars() {
-    const mode = getSidebarMode();
-    const next: Record<SidebarMode, SidebarMode> = {
-        all: "guilds",
-        guilds: "channels",
-        channels: "none",
-        none: "all",
-    };
-    setSidebarMode(next[mode]);
-}
-
 // ─── React root ──────────────────────────────────────────────────────────
 
 function QuickAccessBar() {
@@ -1141,10 +1006,6 @@ function QuickAccessBar() {
         if (idx !== -1) activateTab(idx);
         navigateTo(tab, prevIndex);
     }, []);
-
-    const onToggleGuilds = useCallback(() => { toggleGuilds(); }, []);
-    const onToggleChannels = useCallback(() => { toggleChannels(); }, []);
-    const onSetSidebarMode = useCallback((mode: SidebarMode) => { setSidebarMode(mode); }, []);
 
     const onContextMenu = useCallback((e: React.MouseEvent, idx: number) => {
         const tab = tabs[idx];
@@ -1224,13 +1085,6 @@ function QuickAccessBar() {
                     onPin={pinTab}
                     onMove={moveTab}
                     onContextMenu={onContextMenu}
-                    hideGuilds={settings.store.hideGuildSidebar}
-                    hideChannels={settings.store.hideChannelList}
-                    showSidebarToggles={settings.store.showSidebarToggles}
-                    enrichedHeader={settings.store.enrichedHeader}
-                    onToggleGuilds={onToggleGuilds}
-                    onToggleChannels={onToggleChannels}
-                    onSetSidebarMode={onSetSidebarMode}
                     onNewTab={openQuickSwitcher}
                     onOpenSettings={openChannelTabsSettings}
                     doubleClickAction={settings.store.doubleClickAction ?? "pin"}
@@ -1267,511 +1121,6 @@ let containerEl: HTMLDivElement | null = null;
 let reactRoot: any = null;
 let retryTimeout: ReturnType<typeof setTimeout> | null = null;
 
-// ─── Enriched header state ──────────────────────────────────────────────
-let enrichedHeaderActive = false;
-let headerObserver: MutationObserver | null = null;
-let relocatedElements: { element: HTMLElement; originalParent: HTMLElement; originalNextSibling: Node | null; }[] = [];
-let injectedElements: HTMLElement[] = [];
-
-function findVisibleTitleBar(): HTMLElement | null {
-    const bars = document.querySelectorAll('[class*="base_"] > [class*="bar_"]');
-    for (const bar of bars) {
-        if (!bar.className.includes("systemBar")) return bar as HTMLElement;
-    }
-    return null;
-}
-
-function findChannelHeaderChildren(): HTMLElement | null {
-    // Always get from upperContainer (the fresh one), not from title bar (stale relocated one)
-    return document.querySelector('[class*="upperContainer__"] > [class*="children__"]') as HTMLElement | null;
-}
-
-function findChannelHeaderToolbar(): HTMLElement | null {
-    return document.querySelector('[class*="upperContainer__"] > [class*="toolbar__"]') as HTMLElement | null;
-}
-
-/** Find toolbar wherever it is — in title bar (after relocation) or upperContainer (before) */
-function findToolbarAnywhere(): HTMLElement | null {
-    // Check title bar first (after relocation)
-    const titleBar = findVisibleTitleBar();
-    if (titleBar) {
-        const inBar = titleBar.querySelector(':scope > [class*="toolbar__"]') as HTMLElement | null;
-        if (inBar) return inBar;
-    }
-    // Fall back to upperContainer (before relocation)
-    return document.querySelector('[class*="upperContainer__"] > [class*="toolbar__"]') as HTMLElement | null;
-}
-
-function createHeaderToggles(): HTMLElement {
-    const container = document.createElement("div");
-    container.className = "vc-channelTabs-headerToggles";
-    const mode = getSidebarMode();
-
-    // Button click handler: clicking the active mode goes to "none", otherwise sets that mode
-    function modeClick(targetMode: SidebarMode) {
-        setSidebarMode(getSidebarMode() === targetMode ? "none" : targetMode);
-    }
-
-    // Guilds-only button (left panel icon)
-    const guildBtn = document.createElement("span");
-    guildBtn.className = `vc-channelTabs-toggleBtn${mode === "guilds" ? " vc-channelTabs-toggleBtn-active" : ""}`;
-    guildBtn.title = "Show guilds only";
-    guildBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM8 20H4V4h4v16zm12 0H10V4h10v16z"/></svg>';
-    guildBtn.addEventListener("click", () => modeClick("guilds"));
-
-    // Show-all button (both panels icon)
-    const allBtn = document.createElement("span");
-    allBtn.className = `vc-channelTabs-toggleBtn${mode === "all" ? " vc-channelTabs-toggleBtn-active" : ""}`;
-    allBtn.title = "Show all sidebars";
-    allBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM8 20H4V4h4v16zm6 0h-4V4h4v16zm6 0h-4V4h4v16z"/></svg>';
-    allBtn.addEventListener("click", () => modeClick("all"));
-
-    // Channels-only button (right panel/list icon)
-    const channelBtn = document.createElement("span");
-    channelBtn.className = `vc-channelTabs-toggleBtn${mode === "channels" ? " vc-channelTabs-toggleBtn-active" : ""}`;
-    channelBtn.title = "Show channels only";
-    channelBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/></svg>';
-    channelBtn.addEventListener("click", () => modeClick("channels"));
-
-    container.appendChild(guildBtn);
-    container.appendChild(allBtn);
-    container.appendChild(channelBtn);
-    return container;
-}
-
-function createBreadcrumb(): HTMLElement | null {
-    if (settings.store.guildNameStyle !== "breadcrumb") return null;
-
-    const guildId = SelectedGuildStore.getGuildId();
-    if (!guildId) return null;
-
-    let guild: any;
-    try { guild = GuildStore.getGuild(guildId); } catch { return null; }
-    if (!guild) return null;
-
-    const container = document.createElement("span");
-    container.className = "vc-channelTabs-headerBreadcrumb";
-
-    if (guild.icon) {
-        const img = document.createElement("img");
-        img.src = `https://cdn.discordapp.com/icons/${guildId}/${guild.icon}.webp?size=32`;
-        img.alt = "";
-        container.appendChild(img);
-    }
-
-    const name = document.createElement("span");
-    name.textContent = guild.name;
-    container.appendChild(name);
-
-    const sep = document.createElement("span");
-    sep.className = "vc-channelTabs-headerBreadcrumb-separator";
-    sep.textContent = "›";
-    container.appendChild(sep);
-
-    return container;
-}
-
-function relocateChannelHeader() {
-    // Clean up any previous relocation
-    undoRelocation();
-
-    const titleBar = findVisibleTitleBar();
-    if (!titleBar) return;
-
-    const titleBarLeading = titleBar.querySelector(':scope > [class*="leading"]') as HTMLElement | null;
-    const titleBarTitle = titleBar.querySelector(':scope > [class*="title_"]') as HTMLElement | null;
-    const titleBarTrailing = titleBar.querySelector(':scope > [class*="trailing"]') as HTMLElement | null;
-
-    const channelChildren = findChannelHeaderChildren();
-    const channelToolbar = findChannelHeaderToolbar();
-
-    // Save original positions for cleanup
-    function savePosition(el: HTMLElement) {
-        relocatedElements.push({
-            element: el,
-            originalParent: el.parentElement!,
-            originalNextSibling: el.nextSibling,
-        });
-    }
-
-    function createDivider(): HTMLElement {
-        const div = document.createElement("div");
-        div.className = "vc-channelTabs-headerDivider";
-        injectedElements.push(div);
-        return div;
-    }
-
-    const toggles = settings.store.showSidebarToggles ? createHeaderToggles() : null;
-    if (toggles) injectedElements.push(toggles);
-
-    const breadcrumb = createBreadcrumb();
-    if (breadcrumb) injectedElements.push(breadcrumb);
-
-    const isLeft = settings.store.sidebarTogglePosition === "left";
-
-    // The insertion reference point: we insert things BEFORE titleBarTitle (or trailing if no title)
-    const insertBeforeRef = titleBarTitle || titleBarTrailing;
-
-    // 1. Insert sidebar toggles after leading
-    if (isLeft && toggles && insertBeforeRef) {
-        titleBar.insertBefore(createDivider(), insertBeforeRef);
-        titleBar.insertBefore(toggles, insertBeforeRef);
-    }
-
-    // 2. Insert breadcrumb (replaces guild name display)
-    if (breadcrumb && insertBeforeRef) {
-        titleBar.insertBefore(createDivider(), insertBeforeRef);
-        titleBar.insertBefore(breadcrumb, insertBeforeRef);
-    }
-
-    // 3. Hide the original title section (guild name) — we show breadcrumb instead (or nothing)
-    if (titleBarTitle) {
-        savePosition(titleBarTitle);
-        titleBarTitle.style.display = "none";
-    }
-
-    // 4. Move channel header children (icon, name, topic) into title bar before trailing
-    if (channelChildren && titleBarTrailing) {
-        savePosition(channelChildren);
-        titleBar.insertBefore(channelChildren, titleBarTrailing);
-    }
-
-    // 5. Move channel header toolbar (threads, pins, members, search) into title bar before trailing
-    if (channelToolbar && titleBarTrailing) {
-        savePosition(channelToolbar);
-        titleBar.insertBefore(channelToolbar, titleBarTrailing);
-    }
-
-    // 6. Right position: toggles go before trailing
-    if (!isLeft && toggles && titleBarTrailing) {
-        titleBar.insertBefore(createDivider(), titleBarTrailing);
-        titleBar.insertBefore(toggles, titleBarTrailing);
-    }
-
-    // Add transparent drag overlay to the title bar
-    titleBar.style.position = "relative";
-    const dragOverlay = document.createElement("div");
-    dragOverlay.className = "vc-channelTabs-dragOverlay";
-    titleBar.appendChild(dragOverlay);
-    injectedElements.push(dragOverlay);
-
-    // Apply body class to trigger CSS (hide channel header)
-    document.body.classList.add("vc-channelTabs-enrichedHeader");
-    enrichedHeaderActive = true;
-
-    // Setup responsive overflow for toolbar
-    setupOverflow();
-}
-
-function undoRelocation() {
-    teardownOverflow();
-
-    // Restore title bar position
-    const titleBar = findVisibleTitleBar();
-    if (titleBar) titleBar.style.position = "";
-
-    // Restore relocated elements to their original positions
-    for (const { element, originalParent, originalNextSibling } of relocatedElements) {
-        element.style.display = "";
-        if (originalNextSibling && originalNextSibling.parentNode === originalParent) {
-            originalParent.insertBefore(element, originalNextSibling);
-        } else {
-            originalParent.appendChild(element);
-        }
-    }
-    relocatedElements = [];
-
-    // Remove injected elements
-    for (const el of injectedElements) {
-        el.remove();
-    }
-    injectedElements = [];
-
-    document.body.classList.remove("vc-channelTabs-enrichedHeader");
-    enrichedHeaderActive = false;
-}
-
-function updateBreadcrumb() {
-    if (!enrichedHeaderActive || settings.store.guildNameStyle !== "breadcrumb") return;
-
-    // Remove old breadcrumb
-    const old = document.querySelector('.vc-channelTabs-headerBreadcrumb');
-    if (old) {
-        injectedElements = injectedElements.filter(el => el !== old);
-        old.remove();
-    }
-
-    const newBreadcrumb = createBreadcrumb();
-    if (!newBreadcrumb) return;
-
-    injectedElements.push(newBreadcrumb);
-
-    // Insert before channel children in title bar
-    const channelChildren = findChannelHeaderChildren();
-    if (channelChildren && channelChildren.parentElement) {
-        channelChildren.parentElement.insertBefore(newBreadcrumb, channelChildren);
-    }
-}
-
-// ─── Toolbar overflow ────────────────────────────────────────────────────
-
-let resizeObserver: ResizeObserver | null = null;
-let overflowBtn: HTMLElement | null = null;
-let overflowMenu: HTMLElement | null = null;
-let overflowCloseHandler: ((e: MouseEvent) => void) | null = null;
-
-function setupOverflow() {
-    const titleBar = findVisibleTitleBar();
-    const toolbar = findToolbarAnywhere();
-    if (!titleBar || !toolbar) return;
-
-    // Create the ... overflow button (initially hidden)
-    overflowBtn = document.createElement("div");
-    overflowBtn.className = "vc-channelTabs-overflowBtn";
-    overflowBtn.textContent = "···";
-    overflowBtn.style.display = "none";
-    overflowBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        toggleOverflowMenu();
-    });
-    injectedElements.push(overflowBtn);
-
-    // Insert overflow button right after toolbar
-    if (toolbar.nextSibling) {
-        titleBar.insertBefore(overflowBtn, toolbar.nextSibling);
-    } else {
-        titleBar.appendChild(overflowBtn);
-    }
-
-    // Observe title bar width changes
-    resizeObserver = new ResizeObserver(() => {
-        requestAnimationFrame(() => updateOverflow());
-    });
-    resizeObserver.observe(titleBar);
-
-    // Initial check
-    updateOverflow();
-}
-
-function updateOverflow() {
-    const titleBar = findVisibleTitleBar();
-    const toolbar = findToolbarAnywhere();
-    if (!titleBar || !toolbar || !overflowBtn) return;
-
-    const toolbarItems = Array.from(toolbar.children) as HTMLElement[];
-
-    // Show all items and hide overflow btn to measure true widths
-    toolbarItems.forEach(item => { item.style.display = ""; });
-    overflowBtn.style.display = "none";
-
-    // Measure everything in a single read pass (no interleaved writes)
-    const barWidth = titleBar.getBoundingClientRect().width;
-    const threshold = barWidth * OVERFLOW_THRESHOLD;
-
-    // Measure each title bar child width
-    const childWidths = new Map<HTMLElement, number>();
-    let totalWidth = 0;
-    for (const child of Array.from(titleBar.children) as HTMLElement[]) {
-        if (child.style.display === "none") continue;
-        const w = child.getBoundingClientRect().width;
-        childWidths.set(child, w);
-        totalWidth += w;
-    }
-
-    // Measure individual toolbar item widths
-    const itemWidths = toolbarItems.map(item => item.getBoundingClientRect().width);
-
-    // If everything fits, no overflow needed
-    if (totalWidth <= threshold) {
-        if (overflowMenu) { overflowMenu.remove(); overflowMenu = null; }
-        return;
-    }
-
-    // Show overflow button and account for its width
-    overflowBtn.style.display = "";
-    const btnWidth = overflowBtn.getBoundingClientRect().width;
-    totalWidth += btnWidth;
-
-    // Single write pass: hide toolbar items from the end until things fit
-    for (let i = toolbarItems.length - 1; i >= 0; i--) {
-        toolbarItems[i].style.display = "none";
-        totalWidth -= itemWidths[i];
-        if (totalWidth <= threshold) break;
-    }
-
-    // Second pass: flex-shrinkable elements may have re-expanded after items
-    // were hidden. Batch-hide remaining items, then single re-measure.
-    const measureTotal = () => {
-        let sum = 0;
-        for (const child of Array.from(titleBar.children) as HTMLElement[]) {
-            if (child.style.display === "none") continue;
-            sum += child.getBoundingClientRect().width;
-        }
-        return sum;
-    };
-    let actualTotal = measureTotal();
-    while (actualTotal > threshold) {
-        let hid = false;
-        for (let i = toolbarItems.length - 1; i >= 0; i--) {
-            if (toolbarItems[i].style.display === "none") continue;
-            toolbarItems[i].style.display = "none";
-            hid = true;
-            break;
-        }
-        if (!hid) break; // nothing left to hide
-        actualTotal = measureTotal();
-    }
-}
-
-function toggleOverflowMenu() {
-    if (overflowMenu) {
-        overflowMenu.remove();
-        overflowMenu = null;
-        return;
-    }
-
-    const toolbar = findToolbarAnywhere();
-    if (!toolbar || !overflowBtn) return;
-
-    overflowMenu = document.createElement("div");
-    overflowMenu.className = "vc-channelTabs-overflowMenu";
-
-    // Position below the overflow button
-    const btnRect = overflowBtn.getBoundingClientRect();
-    overflowMenu.style.top = `${btnRect.bottom + 4}px`;
-    overflowMenu.style.right = `${window.innerWidth - btnRect.right}px`;
-
-    // Add channel topic as first menu item if it exists (hidden via CSS in enriched header)
-    const topicEl = document.querySelector('[class*="topic__"]') as HTMLElement | null;
-    if (topicEl) {
-        const topicText = topicEl.textContent?.trim();
-        if (topicText) {
-            const topicItem = document.createElement("div");
-            topicItem.className = "vc-channelTabs-overflowTopic";
-            topicItem.textContent = topicText;
-            topicItem.addEventListener("click", (e) => {
-                e.stopPropagation();
-                topicEl.click();
-                overflowMenu?.remove();
-                overflowMenu = null;
-            });
-            overflowMenu.appendChild(topicItem);
-
-            const sep = document.createElement("div");
-            sep.className = "vc-channelTabs-contextMenu-separator";
-            overflowMenu.appendChild(sep);
-        }
-    }
-
-    // Build menu items from hidden toolbar items
-    const toolbarItems = Array.from(toolbar.children) as HTMLElement[];
-    for (const item of toolbarItems) {
-        if (item.style.display === "none") {
-            const label = item.getAttribute('aria-label')
-                || item.querySelector('[aria-label]')?.getAttribute('aria-label') || '';
-
-            const menuItem = document.createElement("div");
-            menuItem.className = "vc-channelTabs-overflowMenuItem";
-
-            // For search items, use a simple search icon instead of cloning the full search UI
-            const isSearch = (typeof item.className === "string" && item.className.includes("search"));
-            if (isSearch) {
-                menuItem.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a1 1 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 7-7 7 7 0 0 1-7 7Z"/></svg>';
-            } else {
-                // Extract the SVG icon from the original item
-                const svg = item.querySelector('svg');
-                if (svg) {
-                    const iconClone = svg.cloneNode(true) as SVGElement;
-                    iconClone.setAttribute("width", "18");
-                    iconClone.setAttribute("height", "18");
-                    menuItem.appendChild(iconClone);
-                }
-            }
-
-            // Add label text
-            const labelSpan = document.createElement("span");
-            labelSpan.textContent = label || (isSearch ? "Search" : "");
-            if (labelSpan.textContent) menuItem.appendChild(labelSpan);
-
-            menuItem.addEventListener("click", (e) => {
-                e.stopPropagation();
-                // Trigger click on the original hidden item
-                (item.querySelector('[role="button"], button, a') as HTMLElement)?.click?.()
-                    || item.click();
-                overflowMenu?.remove();
-                overflowMenu = null;
-            });
-            overflowMenu.appendChild(menuItem);
-        }
-    }
-
-    document.body.appendChild(overflowMenu);
-
-    // Close on outside click
-    if (overflowCloseHandler) document.removeEventListener("mousedown", overflowCloseHandler);
-    overflowCloseHandler = (e: MouseEvent) => {
-        if (overflowMenu && !overflowMenu.contains(e.target as Node) && e.target !== overflowBtn) {
-            overflowMenu.remove();
-            overflowMenu = null;
-            if (overflowCloseHandler) { document.removeEventListener("mousedown", overflowCloseHandler); overflowCloseHandler = null; }
-        }
-    };
-    document.addEventListener("mousedown", overflowCloseHandler);
-}
-
-function teardownOverflow() {
-    if (overflowCloseHandler) { document.removeEventListener("mousedown", overflowCloseHandler); overflowCloseHandler = null; }
-    if (resizeObserver) {
-        resizeObserver.disconnect();
-        resizeObserver = null;
-    }
-    if (overflowMenu) {
-        overflowMenu.remove();
-        overflowMenu = null;
-    }
-    // Restore hidden toolbar items
-    const toolbar = findToolbarAnywhere();
-    if (toolbar) {
-        Array.from(toolbar.children).forEach((item) => {
-            (item as HTMLElement).style.display = "";
-        });
-    }
-    overflowBtn = null;
-}
-
-function setupHeaderObserver() {
-    if (headerObserver) return;
-
-    // Observe the page_ container (narrower than base_) for channel header changes
-    const page = document.querySelector('[class*="page_"]');
-    if (!page) return;
-
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-    headerObserver = new MutationObserver(() => {
-        if (!enrichedHeaderActive) return;
-        if (debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            debounceTimer = null;
-            const freshChildren = findChannelHeaderChildren();
-            if (!freshChildren) return;
-            // Skip if header children are already relocated into the title bar
-            const titleBar = findVisibleTitleBar();
-            if (titleBar?.contains(freshChildren)) return;
-            relocateChannelHeader();
-        }, 150);
-    });
-
-    headerObserver.observe(page, { childList: true, subtree: true });
-}
-
-function teardownHeaderObserver() {
-    if (headerObserver) {
-        headerObserver.disconnect();
-        headerObserver = null;
-    }
-}
-
 function repositionTabBar() {
     if (!containerEl) return;
     // CSS order handles actual positioning — just toggle the class
@@ -1787,6 +1136,15 @@ let pageChildObserver: MutationObserver | null = null;
 /** Original inline height values of page_ children, for restoration in removeUI. */
 const originalPageChildHeights = new WeakMap<HTMLElement, string>();
 
+const FIXED_PAGE_CHROME_CHILD_IDS = new Set([
+    "vc-channelTabs-container",
+    "vc-minimalCallBar-root",
+]);
+
+function isFixedPageChromeChild(child: HTMLElement) {
+    return FIXED_PAGE_CHROME_CHILD_IDS.has(child.id);
+}
+
 /**
  * Apply flex properties to page_ children so they share space with the tab bar.
  * Discord's wrapper divs often have inline `height: 100%` / `width: 100%` which
@@ -1795,7 +1153,11 @@ const originalPageChildHeights = new WeakMap<HTMLElement, string>();
  */
 function applyPageChildFlex(page: HTMLElement) {
     for (const child of Array.from(page.children) as HTMLElement[]) {
-        if (child.id === "vc-channelTabs-container") continue;
+        if (isFixedPageChromeChild(child)) {
+            child.style.flex = "";
+            child.style.minHeight = "";
+            continue;
+        }
         // Save original height for restoration
         if (!originalPageChildHeights.has(child)) {
             originalPageChildHeights.set(child, child.style.height);
@@ -1894,8 +1256,6 @@ function onChannelSelect(data: { channelId: string | null; guildId: string | nul
         }
     }
 
-    // Update breadcrumb if enriched header is active
-    updateBreadcrumb();
 }
 
 function onUnreadUpdate() { notify(); }
@@ -1957,6 +1317,7 @@ const plugin = definePlugin({
         // Register keybinds with central registry
         window.__keybindRegistry?.register({
             plugin: "ChannelTabs",
+            settings,
             keybinds: {
                 nextTab: {
                     action: "Next tab",
@@ -1981,12 +1342,6 @@ const plugin = definePlugin({
                         if (tabs[activeTabIndex]?.pinned) shakeTab(activeTabIndex);
                         else animatedCloseTab(activeTabIndex, closeTab);
                     },
-                },
-                cycleSidebar: {
-                    action: "Cycle sidebar visibility",
-                    defaultKeys: "ctrl+Backquote",
-                    defaultEnabled: true,
-                    handler: () => cycleSidebars(),
                 },
                 nextTabBracket: {
                     action: "Next tab (bracket)",
@@ -2046,24 +1401,6 @@ const plugin = definePlugin({
         patchNavigation();
         injectUI();
 
-        // Apply sidebar visibility settings
-        document.body.classList.toggle("vc-channelTabs-hideGuilds", settings.store.hideGuildSidebar);
-        document.body.classList.toggle("vc-channelTabs-hideChannels", settings.store.hideChannelList);
-
-        // Enriched header — DOM relocation
-        if (settings.store.enrichedHeader) {
-            // Apply nav button style
-            const navStyle = settings.store.navButtonsStyle;
-            if (navStyle === "compact") document.body.classList.add("vc-channelTabs-navCompact");
-            else if (navStyle === "hidden") document.body.classList.add("vc-channelTabs-navHidden");
-
-            // Delay to ensure Discord's UI is fully rendered
-            setTimeout(() => {
-                relocateChannelHeader();
-                setupHeaderObserver();
-            }, 1000);
-        }
-
         FluxDispatcher.subscribe("CHANNEL_SELECT", onChannelSelect);
         FluxDispatcher.subscribe("MESSAGE_CREATE", onMessageCreate);
         FluxDispatcher.subscribe("CHANNEL_ACK", onUnreadUpdate);
@@ -2104,14 +1441,10 @@ const plugin = definePlugin({
         if (saveTimeout) { clearTimeout(saveTimeout); saveTimeout = null; }
         saveTabs(); // flush pending save
 
-        teardownHeaderObserver();
-        if (enrichedHeaderActive) undoRelocation();
-
         unpatchNavigation();
         removeUI();
         resetState();
         resetTabBarState();
-        document.body.classList.remove("vc-channelTabs-hideGuilds", "vc-channelTabs-hideChannels", "vc-channelTabs-navCompact", "vc-channelTabs-navHidden");
 
         logger.info("ChannelTabs stopped");
     },

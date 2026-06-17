@@ -7,27 +7,38 @@
       "version": "0.2.1",
       "description": "Shared animation presets, CSS variables, and keyframes for custom plugins",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
-      "license": "MIT",
+      "license": "GPL-3.0-or-later",
       "source": {
         "git": "https://github.com/theokyr/vencord-plugins.git",
         "path": "plugins/_libAnimationKit"
       }
     },
     "_libKeybindRegistry": {
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "Shared keybind registration, conflict resolution, and keyboard dispatch",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
-      "license": "MIT",
+      "license": "GPL-3.0-or-later",
       "source": {
         "git": "https://github.com/theokyr/vencord-plugins.git",
         "path": "plugins/_libKeybindRegistry"
+      }
+    },
+    "betterBlockIgnore": {
+      "version": "0.1.2",
+      "description": "Fork of Vencord NoBlockedMessages that hides blocked and ignored users more completely: messages, replies, mentions, and reactions",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "GPL-3.0-or-later",
+      "optionalDependencies": ["settingsHub"],
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/betterBlockIgnore"
       }
     },
     "bsNoMore": {
       "version": "0.2.1",
       "description": "Remove upsell clutter — compacts DM nav, hides clan tags, avatar decorations, quest popups, and store UI",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
-      "license": "MIT",
+      "license": "GPL-3.0-or-later",
       "dependencies": ["_libAnimationKit"],
       "optionalDependencies": ["settingsHub"],
       "source": {
@@ -36,10 +47,10 @@
       }
     },
     "channelTabs": {
-      "version": "0.4.1",
+      "version": "0.5.0",
       "description": "Quick-access tab bar for channels and DMs",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
-      "license": "MIT",
+      "license": "GPL-3.0-or-later",
       "dependencies": ["_libAnimationKit"],
       "optionalDependencies": ["settingsHub", "_libKeybindRegistry"],
       "source": {
@@ -47,21 +58,34 @@
         "path": "plugins/channelTabs"
       }
     },
-    "embedFix": {
+    "enrichedHeader": {
       "version": "0.1.0",
+      "description": "Moves Discord channel header controls into the title bar and exposes a typed header layout API",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "GPL-3.0-or-later",
+      "dependencies": ["_libAnimationKit"],
+      "optionalDependencies": ["settingsHub", "_libKeybindRegistry"],
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/enrichedHeader"
+      }
+    },
+    "embedFix": {
+      "version": "0.2.0",
       "description": "Replaces social media URLs with embed-friendly alternatives from third-party providers",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
-      "license": "MIT",
+      "license": "GPL-3.0-or-later",
+      "optionalDependencies": ["settingsHub"],
       "source": {
         "git": "https://github.com/theokyr/vencord-plugins.git",
         "path": "plugins/embedFix"
       }
     },
     "discordMcp": {
-      "version": "0.2.1",
+      "version": "0.2.3",
       "description": "MCP bridge — expose Discord to AI agents via the Model Context Protocol",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
-      "license": "MIT",
+      "license": "GPL-3.0-or-later",
       "dependencies": ["_libAnimationKit"],
       "optionalDependencies": ["settingsHub"],
       "source": {
@@ -70,10 +94,10 @@
       }
     },
     "hotkeyNav": {
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "Keyboard-driven navigation to notifications, DMs, and servers with inline keycap hints",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
-      "license": "MIT",
+      "license": "GPL-3.0-or-later",
       "dependencies": ["_libAnimationKit"],
       "optionalDependencies": ["settingsHub", "_libKeybindRegistry"],
       "source": {
@@ -82,10 +106,10 @@
       }
     },
     "messageHeaderAvatar": {
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "Displays user avatars inline in message headers next to the username",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
-      "license": "MIT",
+      "license": "GPL-3.0-or-later",
       "dependencies": ["_libAnimationKit"],
       "optionalDependencies": ["settingsHub"],
       "source": {
@@ -94,10 +118,10 @@
       }
     },
     "minimalCallBar": {
-      "version": "0.2.0",
+      "version": "0.2.2",
       "description": "Replaces the large DM/Group DM call overlay with a compact 32px bar",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
-      "license": "MIT",
+      "license": "GPL-3.0-or-later",
       "dependencies": ["_libAnimationKit"],
       "optionalDependencies": ["settingsHub", "channelTabs", "_libKeybindRegistry"],
       "source": {
@@ -106,22 +130,22 @@
       }
     },
     "settingsHub": {
-      "version": "0.3.1",
+      "version": "0.3.4",
       "description": "Unified settings page for custom plugins",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
-      "license": "MIT",
+      "license": "GPL-3.0-or-later",
       "dependencies": ["_libAnimationKit", "_libKeybindRegistry"],
-      "optionalDependencies": ["channelTabs"],
+      "optionalDependencies": ["channelTabs", "enrichedHeader"],
       "source": {
         "git": "https://github.com/theokyr/vencord-plugins.git",
         "path": "plugins/settingsHub"
       }
     },
     "venpmGui": {
-      "version": "0.2.1",
+      "version": "0.2.3",
       "description": "Manage Vencord plugins from inside Discord — browse, install, update, and configure without the terminal",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
-      "license": "MIT",
+      "license": "GPL-3.0-or-later",
       "dependencies": ["_libAnimationKit"],
       "optionalDependencies": ["settingsHub"],
       "source": {

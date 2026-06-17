@@ -5,7 +5,7 @@
  */
 
 import type { DefinedSettings } from "@api/Settings";
-import { Button } from "@webpack/common";
+import { Button, useState } from "@webpack/common";
 
 let settings: DefinedSettings;
 
@@ -51,18 +51,21 @@ const PERM_DEFAULTS: Record<string, string> = {
 // ─── Read & State section — custom render with preset buttons ──────────
 
 function ReadStateSection() {
+    const [, rerender] = useState(0);
     (window as any).__settingsHub?.useSettingsReactive(settings);
 
     function applyPreset(value: string) {
         for (const key of ALL_PERM_KEYS) {
             settings.store[key] = value as any;
         }
+        rerender(n => n + 1);
     }
 
     function resetDefaults() {
         for (const key of ALL_PERM_KEYS) {
             settings.store[key] = PERM_DEFAULTS[key] as any;
         }
+        rerender(n => n + 1);
     }
 
     return (
@@ -222,12 +225,6 @@ export function createDiscordMcpSchema(s: DefinedSettings): any {
                             control: "select",
                             label: "Prompt Timeout",
                             description: "How long to wait before auto-denying (0 = wait forever)",
-                        },
-                        {
-                            key: "promptAnimation",
-                            label: "Prompt Animation",
-                            description: "How the permission prompt appears",
-                            tags: ["animation", "prompt", "fade", "slide"],
                         },
                     ],
                 },

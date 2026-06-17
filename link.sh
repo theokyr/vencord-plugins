@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Install all plugins from this repo into Vencord via venpm (per-plugin local symlinks),
-# rebuild Vencord, and restart Discord if it was running.
+# Install all plugins from this repo into Vencord, rebuild Vencord, and restart
+# Discord if it was running.
 #
-# For development: each plugin is symlinked individually, so other userplugins
-# (installed via venpm from remote repos) coexist without conflict.
+# By default, Linux uses per-plugin local symlinks via venpm. macOS copies
+# plugins because esbuild resolves directory symlinks to their real path, which
+# breaks Vencord's tsconfig path aliases during build.
 set -euo pipefail
 
 # Ensure pnpm and venpm are in PATH
@@ -12,12 +13,19 @@ set -euo pipefail
 VENCORD_DIR="${VENCORD_DIR:-$HOME/src/extern/Vencord}"
 USERPLUGINS_DIR="$VENCORD_DIR/src/userplugins"
 PLUGINS_DIR="$(cd "$(dirname "$0")/plugins" && pwd)"
+LINK_MODE="${LINK_MODE:-auto}"
+
+if [ "$LINK_MODE" = "auto" ] && [ "$(uname -s)" = "Darwin" ]; then
+    LINK_MODE="copy"
+elif [ "$LINK_MODE" = "auto" ]; then
+    LINK_MODE="symlink"
+fi
 
 # Check venpm is available
 if ! command -v venpm &>/dev/null; then
     echo "ERROR: venpm not found. Install it first:"
     echo "  cd ~/src/venpm && node scripts/setup.mjs"
-    echo "  OR: npm install -g venpm"
+    echo "  OR: npm install -g @kamaras/venpm"
     exit 1
 fi
 
@@ -46,6 +54,15 @@ for plugin_dir in "$PLUGINS_DIR"/*/; do
 
     dest="$USERPLUGINS_DIR/$plugin_name"
 
+    # macOS/esbuild resolves directory symlinks to their real path, which moves
+    # userplugins outside Vencord and breaks Vencord's tsconfig path aliases.
+    if [ "$LINK_MODE" = "copy" ]; then
+        [ -e "$dest" ] && rm -rf "$dest"
+        cp -R "${plugin_dir%/}" "$dest"
+        echo "  $plugin_name: copied"
+        continue
+    fi
+
     # If already correctly symlinked, skip
     if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$plugin_dir" -o "$(readlink "$dest")" = "${plugin_dir%/}" ]; then
         echo "  $plugin_name: already linked"
@@ -53,7 +70,9 @@ for plugin_dir in "$PLUGINS_DIR"/*/; do
     fi
 
     # Remove stale link or directory
-    [ -e "$dest" ] && rm -rf "$dest"
+    if [ -e "$dest" ] || [ -L "$dest" ]; then
+        rm -rf "$dest"
+    fi
 
     venpm install "$plugin_name" --local "$plugin_dir" --no-build --yes 2>/dev/null || {
         # Fallback: direct symlink if venpm fails (e.g., no config yet)
@@ -68,7 +87,12 @@ echo "Building Vencord..."
 (cd "$VENCORD_DIR" && pnpm build)
 
 # Copy build output to deployed Vencord location
-DEPLOYED_DIR="$HOME/.config/Vencord/dist"
+if [ "$(uname -s)" = "Darwin" ]; then
+    DEPLOYED_DIR="$HOME/Library/Application Support/Vencord/dist"
+else
+    DEPLOYED_DIR="$HOME/.config/Vencord/dist"
+fi
+
 if [ -d "$DEPLOYED_DIR" ]; then
     echo "Deploying to $DEPLOYED_DIR..."
     cp "$VENCORD_DIR/dist/renderer.js" "$DEPLOYED_DIR/renderer.js"
@@ -77,6 +101,8 @@ if [ -d "$DEPLOYED_DIR" ]; then
     cp "$VENCORD_DIR/dist/renderer.css.map" "$DEPLOYED_DIR/renderer.css.map"
     cp "$VENCORD_DIR/dist/patcher.js" "$DEPLOYED_DIR/patcher.js"
     cp "$VENCORD_DIR/dist/patcher.js.map" "$DEPLOYED_DIR/patcher.js.map"
+else
+    echo "Deploy target not found: $DEPLOYED_DIR"
 fi
 
 if [ "$discord_was_running" = true ]; then

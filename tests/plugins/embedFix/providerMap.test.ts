@@ -3,6 +3,7 @@ import {
     DEFAULT_PLATFORMS,
     matchPlatform,
     mergeUserOverrides,
+    resolvePlatformUrl,
     type PlatformEntry,
 } from "../../../plugins/embedFix/providerMap";
 
@@ -80,6 +81,25 @@ describe("embedFix/providerMap", () => {
         it("returns null for another provider domain (ddinstagram)", () => {
             const result = matchPlatform("https://ddinstagram.com/p/abc");
             expect(result).toBeNull();
+        });
+    });
+
+    describe("resolvePlatformUrl", () => {
+        it("resolves provider domains for incoming embed handling without changing matchPlatform behavior", () => {
+            const result = resolvePlatformUrl("https://vxtwitter.com/user/status/123");
+
+            expect(result?.platform.id).toBe("twitter");
+            expect(result?.provider?.domain).toBe("vxtwitter.com");
+            expect(result?.isProviderDomain).toBe(true);
+            expect(matchPlatform("https://vxtwitter.com/user/status/123")).toBeNull();
+        });
+
+        it("resolves source domains as non-provider matches", () => {
+            const result = resolvePlatformUrl("https://x.com/user/status/456");
+
+            expect(result?.platform.id).toBe("twitter");
+            expect(result?.provider).toBeUndefined();
+            expect(result?.isProviderDomain).toBe(false);
         });
     });
 

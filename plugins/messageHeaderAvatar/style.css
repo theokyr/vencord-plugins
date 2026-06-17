@@ -26,6 +26,23 @@ body.vc-msgHeaderAvatar-hideConsecutiveNames [class*="message_"]:not([class*="gr
     display: none;
 }
 
+/* Hidden BetterBlockIgnore messages are ignored when deciding whether visible headers collapse. */
+body.vc-msgHeaderAvatar-hideConsecutive li.vc-msgHeaderAvatar-forceHeader [class*="message_"] .vc-msgHeaderAvatar-icon:not(.vc-msgHeaderAvatar-reply) {
+    display: inline-block;
+}
+
+body.vc-msgHeaderAvatar-hideConsecutiveNames li.vc-msgHeaderAvatar-forceHeader [class*="message_"] [class*="username_"] {
+    display: inline;
+}
+
+body.vc-msgHeaderAvatar-hideConsecutive li.vc-msgHeaderAvatar-collapseHeader [class*="message_"] .vc-msgHeaderAvatar-icon:not(.vc-msgHeaderAvatar-reply) {
+    display: none;
+}
+
+body.vc-msgHeaderAvatar-hideConsecutiveNames li.vc-msgHeaderAvatar-collapseHeader [class*="message_"] [class*="username_"] {
+    display: none;
+}
+
 /* Hide clan tags / server identity badges */
 body.vc-msgHeaderAvatar-hideClanTags [class*="clanTagChiplet"] {
     display: none;

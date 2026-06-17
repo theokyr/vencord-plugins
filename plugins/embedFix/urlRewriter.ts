@@ -33,7 +33,14 @@ export interface UrlMatch {
 
 export interface RewriteResult {
     content: string;
-    rewrites: { original: string; rewritten: string; platformId: string }[];
+    rewrites: {
+        original: string;
+        rewritten: string;
+        cleanUrl: string;
+        offset: number;
+        platformId: string;
+        providerDomain: string;
+    }[];
     cacheMisses: { url: string; cleanUrl: string; offset: number; platformId: string }[];
 }
 
@@ -199,33 +206,46 @@ export function rewriteMessageContent(
         }
     }
 
-    // Apply replacements in REVERSE offset order so earlier offsets stay valid
-    replacements.sort((a, b) => b.offset - a.offset);
+    // Rebuild forward so recorded offsets point at the final rewritten content.
+    replacements.sort((a, b) => a.offset - b.offset);
 
-    let result = content;
+    let result = "";
+    let cursor = 0;
 
     for (const r of replacements) {
-        const before = result.slice(0, r.offset);
-        const after = result.slice(r.offset + r.original.length);
-        result = before + r.replacement + after;
+        result += content.slice(cursor, r.offset);
+        const finalOffset = result.length;
+        result += r.replacement;
+        cursor = r.offset + r.original.length;
 
         if (r.isRewrite) {
+            const providerDomain = (() => {
+                try {
+                    return new URL(r.replacement).hostname;
+                } catch {
+                    return "";
+                }
+            })();
+
             rewrites.push({
                 original: r.original,
                 rewritten: r.replacement,
+                cleanUrl: r.cleanUrl,
+                offset: finalOffset,
                 platformId: r.platformId,
+                providerDomain,
             });
         } else {
-            // Recalculate offset after previous replacements — since we process
-            // in reverse, the offset in the NEW string is the same as before
             cacheMisses.push({
                 url: r.original,
                 cleanUrl: r.cleanUrl,
-                offset: r.offset,
+                offset: finalOffset,
                 platformId: r.platformId,
             });
         }
     }
 
-    return { content: result, rewrites, cacheMisses };
+    result += content.slice(cursor);
+
+    return { content: replacements.length > 0 ? result : content, rewrites, cacheMisses };
 }
