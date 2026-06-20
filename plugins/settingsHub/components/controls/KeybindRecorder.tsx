@@ -77,7 +77,7 @@ export function RecordModal({ modalProps, onSave, title }: {
                     <div className="vc-settingsHub-recorder-keys">
                         {keys.length > 0
                             ? keys.map((k, i) => <Keycap key={i} label={k} />)
-                            : <span style={{ color: "#949ba4" }}>Waiting...</span>
+                            : <span style={{ color: "var(--text-muted)" }}>Waiting...</span>
                         }
                     </div>
                 </div>

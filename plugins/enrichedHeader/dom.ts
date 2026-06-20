@@ -19,12 +19,13 @@ interface RelocatedElement {
     originalParent: HTMLElement;
     originalNextSibling: Node | null;
     originalDisplay: string;
+    discardOnRelocate: boolean;
 }
 
 const HEADER_REFRESH_DELAY = 150;
 
 function findVisibleTitleBar(): HTMLElement | null {
-    const bars = document.querySelectorAll('[class*="base_"] > [class*="bar_"]');
+    const bars = document.querySelectorAll('[class*="base_"] > [class*="bar"]');
     for (const bar of Array.from(bars)) {
         if (typeof bar.className === "string" && !bar.className.includes("systemBar")) {
             return bar as HTMLElement;
@@ -34,17 +35,11 @@ function findVisibleTitleBar(): HTMLElement | null {
 }
 
 function findChannelHeaderChildren(): HTMLElement | null {
-    return document.querySelector('[class*="upperContainer__"] > [class*="children__"]') as HTMLElement | null;
+    return document.querySelector('[class*="upperContainer_"] > [class*="children_"]') as HTMLElement | null;
 }
 
 function findChannelHeaderToolbar(): HTMLElement | null {
-    return document.querySelector('[class*="upperContainer__"] > [class*="toolbar__"]') as HTMLElement | null;
-}
-
-function createDragOverlay(): HTMLElement {
-    const dragOverlay = document.createElement("div");
-    dragOverlay.className = "vc-enrichedHeader-dragOverlay";
-    return dragOverlay;
+    return document.querySelector('[class*="upperContainer_"] > [class*="toolbar_"]') as HTMLElement | null;
 }
 
 export function createHeaderDomController(options: HeaderDomControllerOptions = {}): HeaderDomController {
@@ -57,7 +52,7 @@ export function createHeaderDomController(options: HeaderDomControllerOptions = 
     let injectedElements: HTMLElement[] = [];
     const overflowController: HeaderOverflowController = createHeaderOverflowController();
 
-    function savePosition(element: HTMLElement) {
+    function savePosition(element: HTMLElement, options: { discardOnRelocate?: boolean; } = {}) {
         const originalParent = element.parentElement;
         if (!originalParent) return;
 
@@ -66,6 +61,7 @@ export function createHeaderDomController(options: HeaderDomControllerOptions = 
             originalParent,
             originalNextSibling: element.nextSibling,
             originalDisplay: element.style.display,
+            discardOnRelocate: options.discardOnRelocate ?? false,
         });
     }
 
@@ -107,51 +103,7 @@ export function createHeaderDomController(options: HeaderDomControllerOptions = 
         observer = null;
     }
 
-    function relocate() {
-        undo();
-
-        const nextTitleBar = findVisibleTitleBar();
-        if (!nextTitleBar) return;
-
-        titleBar = nextTitleBar;
-        originalTitleBarPosition = titleBar.style.position;
-
-        const titleBarTitle = titleBar.querySelector(':scope > [class*="title_"]') as HTMLElement | null;
-        const titleBarTrailing = titleBar.querySelector(':scope > [class*="trailing"]') as HTMLElement | null;
-        const channelChildren = findChannelHeaderChildren();
-        const channelToolbar = findChannelHeaderToolbar();
-
-        options.renderLayout?.(titleBar);
-
-        if (titleBarTitle) {
-            savePosition(titleBarTitle);
-            titleBarTitle.style.display = "none";
-        }
-
-        // move channel header children into the visible title bar; never move the title bar into the channel header.
-        if (channelChildren) {
-            savePosition(channelChildren);
-            insertBeforeTrailing(channelChildren, titleBar, titleBarTrailing);
-        }
-
-        if (channelToolbar) {
-            savePosition(channelToolbar);
-            insertBeforeTrailing(channelToolbar, titleBar, titleBarTrailing);
-            overflowController.setup(titleBar, channelToolbar);
-        }
-
-        titleBar.style.position = "relative";
-        const dragOverlay = createDragOverlay();
-        titleBar.appendChild(dragOverlay);
-        injectedElements.push(dragOverlay);
-
-        document.body.classList.add("vc-enrichedHeader-active");
-        active = true;
-        setupObserver();
-        options.onRelocated?.();
-    }
-
-    function undo() {
+    function resetRelocation(resetOptions: { restoreChannelElements: boolean; }) {
         teardownObserver();
         overflowController.teardown();
         options.teardownLayout?.();
@@ -161,8 +113,12 @@ export function createHeaderDomController(options: HeaderDomControllerOptions = 
         }
         injectedElements = [];
 
-        for (const { element, originalParent, originalNextSibling, originalDisplay } of relocatedElements) {
+        for (const { element, originalParent, originalNextSibling, originalDisplay, discardOnRelocate } of relocatedElements) {
             element.style.display = originalDisplay;
+            if (!resetOptions.restoreChannelElements && discardOnRelocate) {
+                element.remove();
+                continue;
+            }
             if (originalNextSibling?.parentNode === originalParent) {
                 originalParent.insertBefore(element, originalNextSibling);
             } else {
@@ -181,6 +137,51 @@ export function createHeaderDomController(options: HeaderDomControllerOptions = 
         active = false;
     }
 
+    function relocate(relocateOptions: { restoreChannelElements?: boolean; } = {}) {
+        resetRelocation({ restoreChannelElements: relocateOptions.restoreChannelElements ?? true });
+
+        const nextTitleBar = findVisibleTitleBar();
+        if (!nextTitleBar) return;
+
+        titleBar = nextTitleBar;
+        originalTitleBarPosition = titleBar.style.position;
+
+        const titleBarTitle = titleBar.querySelector(':scope > [class*="title"]') as HTMLElement | null;
+        const titleBarTrailing = titleBar.querySelector(':scope > [class*="trailing"]') as HTMLElement | null;
+        const channelChildren = findChannelHeaderChildren();
+        const channelToolbar = findChannelHeaderToolbar();
+
+        if (titleBarTitle) {
+            savePosition(titleBarTitle);
+            titleBarTitle.style.display = "none";
+        }
+
+        // move channel header children into the visible title bar; never move the title bar into the channel header.
+        if (channelChildren) {
+            savePosition(channelChildren, { discardOnRelocate: true });
+            insertBeforeTrailing(channelChildren, titleBar, titleBarTrailing);
+        }
+
+        if (channelToolbar) {
+            savePosition(channelToolbar, { discardOnRelocate: true });
+            insertBeforeTrailing(channelToolbar, titleBar, titleBarTrailing);
+            overflowController.setup(titleBar, channelToolbar);
+        }
+
+        options.renderLayout?.(titleBar);
+
+        titleBar.style.position = "relative";
+
+        document.body.classList.add("vc-enrichedHeader-active");
+        active = true;
+        setupObserver();
+        options.onRelocated?.();
+    }
+
+    function undo() {
+        resetRelocation({ restoreChannelElements: true });
+    }
+
     function refresh() {
         if (!active) return;
 
@@ -188,13 +189,19 @@ export function createHeaderDomController(options: HeaderDomControllerOptions = 
         if (!currentTitleBar) return;
 
         if (titleBar !== currentTitleBar) {
-            relocate();
+            relocate({ restoreChannelElements: false });
             return;
         }
 
         const freshChildren = findChannelHeaderChildren();
         if (freshChildren && !currentTitleBar.contains(freshChildren)) {
-            relocate();
+            relocate({ restoreChannelElements: false });
+            return;
+        }
+
+        const freshToolbar = findChannelHeaderToolbar();
+        if (freshToolbar && !currentTitleBar.contains(freshToolbar)) {
+            relocate({ restoreChannelElements: false });
             return;
         }
 

@@ -6,8 +6,8 @@
     display: flex;
     width: 100%;
     height: 100%;
-    background: var(--background-primary, #313338);
-    color: var(--text-normal, #dbdee1);
+    background: var(--background-base-low, var(--background-primary, #313338));
+    color: var(--text-default, var(--text-normal, #dbdee1));
     font-family: var(--font-primary, 'gg sans', 'Noto Sans', Helvetica, Arial, sans-serif);
     font-size: 100%;
     overflow: hidden;
@@ -18,7 +18,7 @@
 .vc-settingsHub-sidebar {
     width: 218px;
     min-width: 218px;
-    background: var(--background-secondary, #2b2d31);
+    background: var(--background-base-lowest, var(--background-secondary, #2b2d31));
     padding: 12px 8px;
     display: flex;
     flex-direction: column;
@@ -27,11 +27,11 @@
 }
 
 .vc-settingsHub-search {
-    background: var(--background-tertiary, #1e1f22);
-    border: none;
+    background: var(--input-background-default, var(--background-tertiary, #1e1f22));
+    border: 1px solid var(--input-border-default, transparent);
     border-radius: 4px;
     padding: 6px 8px;
-    color: var(--text-muted, #949ba4);
+    color: var(--input-placeholder-text-default, var(--text-muted, #949ba4));
     font-size: 0.8125em;
     margin-bottom: 8px;
     display: flex;
@@ -44,20 +44,20 @@
     background: none;
     border: none;
     outline: none;
-    color: var(--text-normal, #dbdee1);
+    color: var(--input-text-default, var(--text-default, var(--text-normal, #dbdee1)));
     font-size: inherit;
     width: 100%;
     padding: 0;
 }
 
 .vc-settingsHub-search input::placeholder {
-    color: var(--text-muted, #949ba4);
+    color: var(--input-placeholder-text-default, var(--text-muted, #949ba4));
 }
 
 .vc-settingsHub-search svg {
     width: 14px;
     height: 14px;
-    fill: var(--text-muted, #949ba4);
+    fill: var(--input-icon-default, var(--text-muted, #949ba4));
     flex-shrink: 0;
 }
 
@@ -66,7 +66,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    color: var(--channels-default, #949ba4);
+    color: var(--text-subtle, var(--channels-default, #949ba4));
     padding: 8px 8px 4px;
 }
 
@@ -76,20 +76,20 @@
     gap: 8px;
     padding: 6px 10px;
     border-radius: 4px;
-    color: var(--interactive-normal, #b5bac1);
+    color: var(--interactive-text-default, var(--interactive-normal, #b5bac1));
     cursor: pointer;
     font-size: 0.875em;
     user-select: none;
 }
 
 .vc-settingsHub-nav-item:hover {
-    background: var(--background-modifier-hover, #35373c);
-    color: var(--interactive-hover, #dbdee1);
+    background: var(--interactive-background-hover, var(--background-mod-subtle, var(--background-modifier-hover, #35373c)));
+    color: var(--interactive-text-hover, var(--interactive-hover, #dbdee1));
 }
 
 .vc-settingsHub-nav-item.vc-settingsHub-active {
-    background: var(--background-modifier-selected, #404249);
-    color: var(--interactive-active, #fff);
+    background: var(--interactive-background-selected, var(--background-mod-strong, var(--background-modifier-selected, #404249)));
+    color: var(--interactive-text-active, var(--interactive-active, #fff));
 }
 
 .vc-settingsHub-nav-item svg {
@@ -102,19 +102,19 @@
 .vc-settingsHub-nav-sub {
     padding: 4px 10px 4px 36px;
     font-size: 0.8125em;
-    color: var(--channels-default, #949ba4);
+    color: var(--text-subtle, var(--channels-default, #949ba4));
     border-radius: 4px;
     cursor: pointer;
     user-select: none;
 }
 
 .vc-settingsHub-nav-sub:hover {
-    background: var(--background-modifier-hover, #35373c);
-    color: var(--interactive-hover, #b5bac1);
+    background: var(--interactive-background-hover, var(--background-mod-subtle, var(--background-modifier-hover, #35373c)));
+    color: var(--interactive-text-hover, var(--interactive-hover, #b5bac1));
 }
 
 .vc-settingsHub-nav-sub.vc-settingsHub-active {
-    color: var(--interactive-active, #fff);
+    color: var(--interactive-text-active, var(--interactive-active, #fff));
     border-left: 2px solid var(--brand-500, #5865f2);
     margin-left: 28px;
     padding-left: 6px;
@@ -122,7 +122,7 @@
 
 .vc-settingsHub-sidebar-divider {
     height: 1px;
-    background: var(--background-modifier-accent, #3f4147);
+    background: var(--border-subtle, var(--background-modifier-accent, #3f4147));
     margin: 8px 10px;
 }
 
@@ -145,12 +145,12 @@
 }
 
 .vc-settingsHub-search-result:hover {
-    background: var(--background-modifier-hover, #35373c);
+    background: var(--interactive-background-hover, var(--background-mod-subtle, var(--background-modifier-hover, #35373c)));
 }
 
 .vc-settingsHub-search-result-label {
     font-size: 0.875em;
-    color: var(--text-normal, #dbdee1);
+    color: var(--text-default, var(--text-normal, #dbdee1));
 }
 
 .vc-settingsHub-search-result-plugin {
@@ -163,6 +163,7 @@
 .vc-settingsHub-content {
     flex: 1;
     padding: 32px 40px 32px 32px;
+    background: var(--background-base-low, var(--background-primary, #313338));
     overflow-y: auto;
     overflow-x: hidden;
     min-width: 0;
@@ -176,19 +177,19 @@
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    border: 2px solid var(--interactive-normal, #5c5f66);
+    border: 2px solid var(--border-strong, var(--interactive-normal, #5c5f66));
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--interactive-normal, #b5bac1);
+    color: var(--interactive-icon-default, var(--interactive-normal, #b5bac1));
     cursor: pointer;
     background: none;
     z-index: 1;
 }
 
 .vc-settingsHub-close-btn:hover {
-    border-color: var(--interactive-hover, #dbdee1);
-    color: var(--interactive-hover, #dbdee1);
+    border-color: var(--border-focus, var(--interactive-hover, #dbdee1));
+    color: var(--interactive-icon-hover, var(--interactive-hover, #dbdee1));
 }
 
 .vc-settingsHub-close-btn svg {
@@ -204,7 +205,7 @@
 .vc-settingsHub-plugin-name {
     font-size: 1.25em;
     font-weight: 700;
-    color: var(--header-primary, #f2f3f5);
+    color: var(--text-strong, var(--header-primary, #f2f3f5));
     margin: 0;
 }
 
@@ -216,7 +217,7 @@
 
 .vc-settingsHub-plugin-divider {
     height: 1px;
-    background: var(--background-modifier-accent, #3f4147);
+    background: var(--border-subtle, var(--background-modifier-accent, #3f4147));
     margin: 40px 0;
 }
 
@@ -225,7 +226,7 @@
 .vc-settingsHub-section-heading {
     font-size: 1em;
     font-weight: 700;
-    color: var(--header-primary, #f2f3f5);
+    color: var(--text-strong, var(--header-primary, #f2f3f5));
     margin: 24px 0 12px;
 }
 
@@ -236,14 +237,14 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    color: var(--channels-default, #949ba4);
+    color: var(--text-subtle, var(--channels-default, #949ba4));
     margin: 20px 0 8px;
 }
 
 /* ─── Preview pane ────────────────────────────────────── */
 
 .vc-settingsHub-preview {
-    background: var(--background-secondary, #2b2d31);
+    background: var(--card-secondary-bg, var(--background-surface-high, var(--background-secondary, #2b2d31)));
     border-radius: 8px;
     padding: 16px;
     margin-bottom: 24px;
@@ -254,12 +255,12 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    color: var(--channels-default, #949ba4);
+    color: var(--text-subtle, var(--channels-default, #949ba4));
     margin-bottom: 10px;
 }
 
 .vc-settingsHub-preview-area {
-    background: var(--background-tertiary, #1e1f22);
+    background: var(--background-surface-highest, var(--background-tertiary, #1e1f22));
     border-radius: 6px;
     padding: 12px;
     min-height: 48px;
@@ -272,7 +273,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 16px 0;
-    border-bottom: 1px solid var(--background-modifier-accent, #3f4147);
+    border-bottom: 1px solid var(--border-subtle, var(--background-modifier-accent, #3f4147));
     gap: 16px;
     overflow: hidden;
 }
@@ -293,7 +294,7 @@
 .vc-settingsHub-setting-label {
     font-size: 1em;
     font-weight: 500;
-    color: var(--header-primary, #f2f3f5);
+    color: var(--text-strong, var(--header-primary, #f2f3f5));
     line-height: 1.375;
 }
 
@@ -312,7 +313,7 @@
 /* ─── Pulse highlight (search result) ─────────────────── */
 
 @keyframes vc-settingsHub-pulse {
-    0% { background: var(--brand-500, #5865f2)33; }
+    0% { background: var(--brand-30a, color-mix(in srgb, var(--brand-500, #5865f2) 30%, transparent)); }
     100% { background: transparent; }
 }
 
@@ -350,7 +351,7 @@
     appearance: none;
     width: 100%;
     height: 6px;
-    background: var(--background-modifier-accent, #3f4147);
+    background: var(--background-mod-normal, var(--background-modifier-accent, #3f4147));
     border-radius: 3px;
     outline: none;
     cursor: pointer;
@@ -362,7 +363,7 @@
     height: 14px;
     border-radius: 50%;
     background: var(--brand-500, #5865f2);
-    border: 2px solid var(--background-primary, #313338);
+    border: 2px solid var(--background-base-low, var(--background-primary, #313338));
     cursor: grab;
 }
 
@@ -376,7 +377,7 @@
     height: 14px;
     border-radius: 50%;
     background: var(--brand-500, #5865f2);
-    border: 2px solid var(--background-primary, #313338);
+    border: 2px solid var(--background-base-low, var(--background-primary, #313338));
     cursor: grab;
 }
 
@@ -384,7 +385,7 @@
 
 .vc-settingsHub-tristate {
     display: flex;
-    background: var(--background-tertiary, #1e1f22);
+    background: var(--input-background-default, var(--background-tertiary, #1e1f22));
     border-radius: 4px;
     overflow: hidden;
     font-size: 0.75em;
@@ -395,28 +396,28 @@
     padding: 6px 12px;
     white-space: nowrap;
     cursor: pointer;
-    color: var(--text-muted, #949ba4);
+    color: var(--interactive-text-default, var(--text-muted, #949ba4));
     transition: background var(--vc-anim-speed, 150ms), color var(--vc-anim-speed, 150ms);
     user-select: none;
 }
 
 .vc-settingsHub-tristate-seg:hover {
-    color: var(--text-normal, #dbdee1);
+    color: var(--interactive-text-hover, var(--text-default, var(--text-normal, #dbdee1)));
 }
 
 .vc-settingsHub-tristate-seg.vc-settingsHub-deny-active {
-    background: #ed4245;
-    color: #fff;
+    background: var(--status-danger, #ed4245);
+    color: var(--text-overlay-light, #fff);
 }
 
 .vc-settingsHub-tristate-seg.vc-settingsHub-prompt-active {
-    background: #fee75c;
-    color: #1e1f22;
+    background: var(--status-warning-background, var(--status-warning, #fee75c));
+    color: var(--status-warning-text, var(--text-overlay-dark, #1e1f22));
 }
 
 .vc-settingsHub-tristate-seg.vc-settingsHub-allow-active {
-    background: #57f287;
-    color: #1e1f22;
+    background: var(--status-positive-background, var(--status-positive, #57f287));
+    color: var(--status-positive-text, var(--text-overlay-light, #fff));
 }
 
 /* ─── Keycap badges ───────────────────────────────────── */
@@ -428,12 +429,12 @@
     min-width: 22px;
     height: 22px;
     padding: 0 6px;
-    background: var(--background-secondary, #2b2d31);
-    border: 1px solid var(--background-modifier-accent, #4f545c);
+    background: var(--background-surface-high, var(--background-secondary, #2b2d31));
+    border: 1px solid var(--border-subtle, var(--background-modifier-accent, #4f545c));
     border-radius: 4px;
     font-size: 0.6875em;
     font-weight: 600;
-    color: var(--text-normal, #dbdee1);
+    color: var(--text-default, var(--text-normal, #dbdee1));
     font-family: 'gg mono', 'Source Code Pro', Consolas, monospace;
     line-height: 1;
 }
@@ -451,9 +452,9 @@
 }
 
 .vc-settingsHub-keybind-edit {
-    background: var(--background-modifier-accent, #4f545c);
+    background: var(--background-mod-normal, var(--background-modifier-accent, #4f545c));
     border: none;
-    color: var(--text-normal, #dbdee1);
+    color: var(--interactive-text-default, var(--text-default, var(--text-normal, #dbdee1)));
     padding: 3px 10px;
     border-radius: 4px;
     font-size: 0.6875em;
@@ -463,7 +464,8 @@
 }
 
 .vc-settingsHub-keybind-edit:hover {
-    background: var(--background-modifier-hover, #5c5f66);
+    background: var(--interactive-background-hover, var(--background-mod-strong, var(--background-modifier-hover, #5c5f66)));
+    color: var(--interactive-text-hover, var(--interactive-hover, #fff));
 }
 
 /* ─── Keybind recorder modal ──────────────────────────── */
@@ -478,7 +480,7 @@
 
 .vc-settingsHub-recorder-prompt {
     font-size: 1em;
-    color: var(--text-normal, #dbdee1);
+    color: var(--text-default, var(--text-normal, #dbdee1));
 }
 
 .vc-settingsHub-recorder-keys {
@@ -500,7 +502,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 0;
-    border-bottom: 1px solid var(--background-modifier-accent, #3f4147);
+    border-bottom: 1px solid var(--border-subtle, var(--background-modifier-accent, #3f4147));
     gap: 16px;
 }
 
@@ -516,7 +518,7 @@
 .vc-settingsHub-keybind-action-name {
     font-size: 0.875em;
     font-weight: 500;
-    color: var(--header-primary, #f2f3f5);
+    color: var(--text-strong, var(--header-primary, #f2f3f5));
 }
 
 .vc-settingsHub-keybind-action-desc {
@@ -590,58 +592,58 @@
 /* ─── Nitro Theme Adaptation ──────────────────────────── */
 
 .vc-settingsHub-themed .vc-settingsHub-sidebar {
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--background-base-lowest, var(--background-secondary, #2b2d31));
     backdrop-filter: blur(12px);
 }
 
 .vc-settingsHub-themed .vc-settingsHub-content {
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--background-base-low, var(--background-primary, #313338));
     backdrop-filter: blur(8px);
 }
 
 .vc-settingsHub-themed .vc-settingsHub-search {
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--input-background-default, var(--background-surface-highest, var(--background-tertiary, #1e1f22)));
 }
 
 .vc-settingsHub-themed .vc-settingsHub-nav-item:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--interactive-background-hover, var(--background-mod-subtle, var(--background-modifier-hover, #35373c)));
 }
 
 .vc-settingsHub-themed .vc-settingsHub-nav-item.vc-settingsHub-active {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--interactive-background-selected, var(--background-mod-strong, var(--background-modifier-selected, #404249)));
 }
 
 .vc-settingsHub-themed .vc-settingsHub-nav-sub:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--interactive-background-hover, var(--background-mod-subtle, var(--background-modifier-hover, #35373c)));
 }
 
 .vc-settingsHub-themed .vc-settingsHub-setting-row {
-    border-bottom-color: rgba(255, 255, 255, 0.06);
+    border-bottom-color: var(--border-subtle, var(--background-modifier-accent, #3f4147));
 }
 
 .vc-settingsHub-themed .vc-settingsHub-preview {
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--card-secondary-bg, var(--background-surface-high, var(--background-secondary, #2b2d31)));
 }
 
 .vc-settingsHub-themed .vc-settingsHub-preview-area {
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--background-surface-highest, var(--background-tertiary, #1e1f22));
 }
 
 .vc-settingsHub-themed .vc-settingsHub-plugin-divider {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--border-subtle, var(--background-modifier-accent, #3f4147));
 }
 
 .vc-settingsHub-themed .vc-settingsHub-group-label {
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-subtle, var(--channels-default, #949ba4));
 }
 
 .vc-settingsHub-themed .vc-settingsHub-tristate {
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--input-background-default, var(--background-surface-highest, var(--background-tertiary, #1e1f22)));
 }
 
 .vc-settingsHub-themed .vc-settingsHub-keycap {
-    background: rgba(0, 0, 0, 0.3);
-    border-color: rgba(255, 255, 255, 0.1);
+    background: var(--background-surface-high, var(--background-secondary, #2b2d31));
+    border-color: var(--border-subtle, var(--background-modifier-accent, #4f545c));
 }
 
 /* ─── Content fade-in on plugin switch ────────────────── */
@@ -675,7 +677,7 @@
     flex: 1;
     min-height: 0;
     display: flex;
-    background: var(--background-primary, #313338);
+    background: var(--background-base-low, var(--background-primary, #313338));
 }
 
 .vc-settingsHub-themed .vc-settingsHub-route-container {
@@ -690,6 +692,12 @@
 body.vc-settingsHub-open [class*="page_"] > :not(#vc-channelTabs-container):not(.vc-settingsHub-route-container) {
     visibility: hidden !important;
     position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+    contain: size layout style !important;
     pointer-events: none !important;
 }
 
@@ -709,7 +717,7 @@ body.vc-settingsHub-open.vc-settingsHub-direct-header [class*="title_c38106"] {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--header-primary, #f2f3f5);
+    color: var(--text-strong, var(--header-primary, #f2f3f5));
     font-size: 1em;
     font-weight: 600;
     white-space: nowrap;
@@ -747,7 +755,7 @@ body.vc-settingsHub-open.vc-settingsHub-direct-header [class*="title_c38106"] {
     bottom: 2px;
     width: calc(100% / 3 - 2px);
     border-radius: 4px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--background-mod-strong, var(--background-modifier-selected, #404249));
     transition: transform var(--vc-anim-speed, 150ms) var(--vc-anim-ease-spring, ease-out);
     pointer-events: none;
     z-index: 0;

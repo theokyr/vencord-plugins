@@ -6,6 +6,13 @@ const css = readFileSync(resolve(__dirname, "../../plugins/enrichedHeader/style.
 const indexSource = readFileSync(resolve(__dirname, "../../plugins/enrichedHeader/index.tsx"), "utf8");
 const domSource = readFileSync(resolve(__dirname, "../../plugins/enrichedHeader/dom.ts"), "utf8");
 const overflowSource = readFileSync(resolve(__dirname, "../../plugins/enrichedHeader/overflow.ts"), "utf8");
+const settingsSchemaSource = readFileSync(resolve(__dirname, "../../plugins/enrichedHeader/settingsSchema.tsx"), "utf8");
+
+function blockFor(selector: string) {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = css.match(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`));
+    return match?.[1] ?? "";
+}
 
 describe("EnrichedHeader extraction", () => {
     it("exports the DOM controller API", () => {
@@ -32,7 +39,6 @@ describe("EnrichedHeader extraction", () => {
             "vc-enrichedHeader-active",
             "vc-enrichedHeader-hideGuilds",
             "vc-enrichedHeader-hideChannels",
-            "vc-enrichedHeader-dragOverlay",
             "vc-enrichedHeader-sidebarToggles",
             "vc-enrichedHeader-toggleBtn",
             "vc-enrichedHeader-breadcrumb",
@@ -56,8 +62,12 @@ describe("EnrichedHeader extraction", () => {
         expect(css).toContain("[start] 72px [guildsEnd] 0px [channelsEnd] 1fr [end]");
         expect(css).toContain("[start] 0px [guildsEnd] 0px [channelsEnd] 1fr [end]");
         expect(css).not.toContain("[sidebarEnd]");
+        expect(css).toContain('[class^="base_"]');
+        expect(css).toContain('[class*=" base_"]');
         expect(css).toContain("grid-column: titleBar !important");
         expect(css).toContain("width: 100% !important");
+        expect(css).not.toContain('[class^="base__"]');
+        expect(css).not.toContain('[class*=" base__"]');
     });
 
     it("documents and implements title-bar relocation direction", () => {
@@ -67,14 +77,14 @@ describe("EnrichedHeader extraction", () => {
     });
 
     it("finds the visible Discord title bar and excludes the system bar", () => {
-        expect(domSource).toContain('[class*="base_"] > [class*="bar_"]');
+        expect(domSource).toContain('[class*="base_"] > [class*="bar"]');
         expect(domSource).toContain("systemBar");
         expect(domSource).toMatch(/!bar\.className\.includes\("systemBar"\)|className\.includes\("systemBar"\)/);
     });
 
     it("queries fresh channel header children and toolbar from upperContainer", () => {
-        expect(domSource).toContain('[class*="upperContainer__"] > [class*="children__"]');
-        expect(domSource).toContain('[class*="upperContainer__"] > [class*="toolbar__"]');
+        expect(domSource).toContain('[class*="upperContainer_"] > [class*="children_"]');
+        expect(domSource).toContain('[class*="upperContainer_"] > [class*="toolbar_"]');
         expect(domSource).toContain("function findChannelHeaderChildren");
         expect(domSource).toContain("function findChannelHeaderToolbar");
     });
@@ -102,6 +112,12 @@ describe("EnrichedHeader extraction", () => {
     it("adds and removes the enrichedHeader active body class", () => {
         expect(domSource).toContain('document.body.classList.add("vc-enrichedHeader-active")');
         expect(domSource).toContain('document.body.classList.remove("vc-enrichedHeader-active")');
+    });
+
+    it("keeps the enriched title bar out of Electron native drag regions", () => {
+        expect(css).toMatch(/> \[class\*="bar_"\]:not\(\[class\*="systemBar"\]\) \{[\s\S]*?-webkit-app-region: no-drag;/);
+        expect(css).not.toMatch(/vc-enrichedHeader-dragOverlay[\s\S]*?-webkit-app-region: drag;/);
+        expect(css).not.toMatch(/>\s*\*\s*\{[\s\S]*?-webkit-app-region: drag;/);
     });
 
     it("owns core breadcrumb and title override layout items", () => {
@@ -140,12 +156,44 @@ describe("EnrichedHeader extraction", () => {
         expect(overflowSource).toContain('[class*="topic__"]');
         expect(overflowSource).toContain("vc-enrichedHeader-overflowTopic");
         expect(overflowSource).toContain("getToolbarItems()");
-        expect(overflowSource).toContain('item.style.display !== "none"');
+        expect(overflowSource).toContain("hiddenToolbarItems.has(item)");
         expect(overflowSource).toContain("vc-enrichedHeader-overflowMenuItem");
     });
 
     it("tears down overflow and restores hidden toolbar items", () => {
         expect(overflowSource).toContain("function teardownOverflow");
         expect(overflowSource).toContain('style.display = ""');
+    });
+
+    it("prefers Discord visual-refresh theme tokens for custom header chrome", () => {
+        expect(css).toContain("var(--interactive-background-hover, var(--background-mod-subtle");
+        expect(css).toContain("var(--interactive-text-default, var(--interactive-normal");
+        expect(css).toContain("var(--interactive-text-hover, var(--interactive-hover");
+        expect(css).toContain("var(--text-subtle, var(--text-muted");
+        expect(css).toContain("var(--border-subtle, var(--background-modifier-accent");
+        expect(css).toContain("var(--background-surface-high, var(--background-floating");
+        expect(css).not.toContain("rgba(255, 255, 255, 0.08)");
+        expect(css).not.toContain("rgba(255, 255, 255, 0.35)");
+        expect(css).not.toContain("rgba(255, 255, 255, 0.4)");
+    });
+
+    it("uses the same Discord tokens in the settings preview", () => {
+        expect(settingsSchemaSource).toContain("--background-surface-highest");
+        expect(settingsSchemaSource).toContain("--background-surface-high");
+        expect(settingsSchemaSource).toContain("--interactive-text-default");
+        expect(settingsSchemaSource).toContain("--text-subtle");
+        expect(settingsSchemaSource).not.toContain("--text-muted, #80848e");
+    });
+
+    it("resets native title-bar button chrome and color inheritance", () => {
+        const toggleButton = blockFor(".vc-enrichedHeader-toggleBtn");
+
+        expect(css).toContain("--vc-enrichedHeader-titlebar-text");
+        expect(css).toContain("--vc-enrichedHeader-titlebar-icon");
+        expect(css).toContain("> [class*=\"children_\"]");
+        expect(toggleButton).toContain("appearance: none");
+        expect(toggleButton).toContain("background: transparent");
+        expect(toggleButton).toContain("border: 0");
+        expect(toggleButton).toContain("padding: 0");
     });
 });

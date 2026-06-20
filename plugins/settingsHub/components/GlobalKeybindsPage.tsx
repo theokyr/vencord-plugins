@@ -109,7 +109,7 @@ function KeybindRow({ kb, hasConflict, conflicts, reg }: {
                     <div className="vc-settingsHub-keybind-action-name">
                         {hasConflict && (
                             <span
-                                style={{ color: "#f0a020", cursor: "pointer", marginRight: 6 }}
+                                style={{ color: "var(--text-feedback-warning, var(--status-warning))", cursor: "pointer", marginRight: 6 }}
                                 title="Conflict \u2014 click to resolve"
                                 onClick={() => setShowConflict(!showConflict)}
                             >
@@ -158,8 +158,8 @@ function ConflictResolver({ keysCombo, entries, reg }: {
     return (
         <div style={{
             padding: "8px 16px", marginLeft: 16, marginBottom: 8,
-            background: "var(--background-secondary, #2b2d31)",
-            borderRadius: 8, borderLeft: "3px solid #f0a020",
+            background: "var(--card-secondary-bg, var(--background-surface-high, var(--background-secondary, #2b2d31)))",
+            borderRadius: 8, borderLeft: "3px solid var(--border-feedback-warning, var(--status-warning))",
         }}>
             <div style={{ color: "var(--text-muted)", fontSize: 12, marginBottom: 8 }}>
                 Multiple actions bound to this key. Pick which one fires:

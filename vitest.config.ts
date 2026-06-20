@@ -10,6 +10,8 @@ export default defineConfig({
             "@utils/Logger": resolve(__dirname, "tests/__mocks__/vencord.ts"),
             "@utils/types": resolve(__dirname, "tests/__mocks__/vencord.ts"),
             "@api/Settings": resolve(__dirname, "tests/__mocks__/vencord.ts"),
+            "@api/Notifications": resolve(__dirname, "tests/__mocks__/notifications.ts"),
+            "@webpack/common": resolve(__dirname, "tests/__mocks__/webpackCommon.ts"),
             "@webpack": resolve(__dirname, "tests/__mocks__/webpack.ts"),
             // _libAnimationKit CSS — vitest can't load CSS, stub it
             "../_libAnimationKit/animations.css": resolve(__dirname, "tests/__mocks__/empty.ts"),

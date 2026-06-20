@@ -1,0 +1,429 @@
+.vc-vipNotifications-manager {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: 12px;
+    color: var(--text-normal, #dbdee1);
+}
+
+.vc-vipNotifications-manager-compact {
+    gap: 10px;
+    padding: 8px 0 0;
+}
+
+.vc-vipNotifications-managerHeader,
+.vc-vipNotifications-sectionHeader,
+.vc-vipNotifications-detailHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+}
+
+.vc-vipNotifications-managerHeader {
+    padding-bottom: 2px;
+}
+
+.vc-vipNotifications-title,
+.vc-vipNotifications-sectionTitle,
+.vc-vipNotifications-detailTitle,
+.vc-vipNotifications-subsectionTitle {
+    overflow: hidden;
+    color: var(--header-primary, #f2f3f5);
+    font-weight: 700;
+    line-height: 20px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vc-vipNotifications-title {
+    font-size: 16px;
+}
+
+.vc-vipNotifications-sectionTitle,
+.vc-vipNotifications-detailTitle {
+    font-size: 14px;
+}
+
+.vc-vipNotifications-subsectionTitle {
+    margin-top: 2px;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.vc-vipNotifications-subtitle,
+.vc-vipNotifications-sectionSubtitle {
+    margin-top: 2px;
+    overflow: hidden;
+    color: var(--text-muted, #949ba4);
+    font-size: 12px;
+    line-height: 16px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vc-vipNotifications-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+    border-radius: 8px;
+    background: var(--background-secondary-alt, rgba(255, 255, 255, 0.04));
+}
+
+.vc-vipNotifications-manager-compact .vc-vipNotifications-section {
+    gap: 8px;
+    padding: 8px;
+}
+
+.vc-vipNotifications-summaryGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    min-width: 0;
+}
+
+.vc-vipNotifications-diagnosticsPanel .vc-vipNotifications-summaryGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.vc-vipNotifications-summaryItem {
+    min-width: 0;
+    padding: 8px;
+    border-radius: 6px;
+    background: var(--background-modifier-hover, rgba(255, 255, 255, 0.06));
+}
+
+.vc-vipNotifications-summaryItem span,
+.vc-vipNotifications-summaryItem strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vc-vipNotifications-summaryItem span {
+    color: var(--text-muted, #949ba4);
+    font-size: 11px;
+    line-height: 14px;
+}
+
+.vc-vipNotifications-summaryItem strong {
+    margin-top: 2px;
+    color: var(--text-normal, #dbdee1);
+    font-size: 13px;
+    line-height: 18px;
+}
+
+.vc-vipNotifications-diagnosticsList {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.vc-vipNotifications-diagnostic {
+    min-width: 0;
+    padding: 7px 8px;
+    border-radius: 6px;
+    background: rgba(250, 166, 26, 0.12);
+    color: var(--text-normal, #dbdee1);
+    font-size: 12px;
+    line-height: 16px;
+    overflow-wrap: anywhere;
+}
+
+.vc-vipNotifications-diagnostic-ok {
+    background: rgba(35, 165, 90, 0.14);
+}
+
+.vc-vipNotifications-diagnostic-error {
+    background: rgba(237, 66, 69, 0.14);
+}
+
+.vc-vipNotifications-diagnostic-warning {
+    background: rgba(250, 166, 26, 0.12);
+}
+
+.vc-vipNotifications-editorGrid {
+    display: grid;
+    grid-template-columns: minmax(150px, 0.8fr) minmax(0, 2fr);
+    gap: 10px;
+    min-width: 0;
+}
+
+.vc-vipNotifications-manager-compact .vc-vipNotifications-editorGrid {
+    grid-template-columns: 1fr;
+}
+
+.vc-vipNotifications-listPane,
+.vc-vipNotifications-detailPane,
+.vc-vipNotifications-ruleItems {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.vc-vipNotifications-listItem,
+.vc-vipNotifications-ruleMain {
+    width: 100%;
+    min-width: 0;
+    padding: 7px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: var(--background-modifier-hover, rgba(255, 255, 255, 0.05));
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+.vc-vipNotifications-listItem:hover,
+.vc-vipNotifications-ruleMain:hover {
+    background: var(--background-modifier-selected, rgba(255, 255, 255, 0.08));
+}
+
+.vc-vipNotifications-listItemSelected,
+.vc-vipNotifications-ruleItemSelected .vc-vipNotifications-ruleMain {
+    border-color: var(--brand-500, #5865f2);
+    background: rgba(88, 101, 242, 0.14);
+}
+
+.vc-vipNotifications-listItemTitle,
+.vc-vipNotifications-listItemMeta {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vc-vipNotifications-listItemTitle {
+    color: var(--text-normal, #dbdee1);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 18px;
+}
+
+.vc-vipNotifications-listItemMeta {
+    margin-top: 1px;
+    color: var(--text-muted, #949ba4);
+    font-size: 11px;
+    line-height: 15px;
+}
+
+.vc-vipNotifications-detailPane {
+    padding: 8px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.vc-vipNotifications-detailActions,
+.vc-vipNotifications-ruleActions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+}
+
+.vc-vipNotifications-formGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    min-width: 0;
+}
+
+.vc-vipNotifications-manager-compact .vc-vipNotifications-formGrid {
+    grid-template-columns: 1fr;
+}
+
+.vc-vipNotifications-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.vc-vipNotifications-fieldLabel {
+    overflow: hidden;
+    color: var(--text-muted, #949ba4);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 14px;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.vc-vipNotifications-fieldNote {
+    color: var(--text-muted, #949ba4);
+    font-size: 11px;
+    line-height: 14px;
+}
+
+.vc-vipNotifications-input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 7px 8px;
+    border: 1px solid var(--input-border, rgba(255, 255, 255, 0.14));
+    border-radius: 4px;
+    background: var(--input-background, rgba(0, 0, 0, 0.18));
+    color: var(--text-normal, #dbdee1);
+    font: inherit;
+    font-size: 13px;
+    line-height: 18px;
+}
+
+.vc-vipNotifications-input:focus {
+    border-color: var(--brand-500, #5865f2);
+    outline: none;
+}
+
+.vc-vipNotifications-toggleGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 10px;
+    min-width: 0;
+}
+
+.vc-vipNotifications-manager-compact .vc-vipNotifications-toggleGrid {
+    grid-template-columns: 1fr;
+}
+
+.vc-vipNotifications-toggleField,
+.vc-vipNotifications-miniToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    color: var(--text-normal, #dbdee1);
+    font-size: 12px;
+    line-height: 16px;
+}
+
+.vc-vipNotifications-toggleField span,
+.vc-vipNotifications-miniToggle span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vc-vipNotifications-smallButton,
+.vc-vipNotifications-iconButton {
+    min-width: 28px;
+    min-height: 28px;
+    padding: 4px 8px;
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+    border-radius: 4px;
+    background: var(--background-modifier-hover, rgba(255, 255, 255, 0.06));
+    color: var(--text-normal, #dbdee1);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    line-height: 16px;
+}
+
+.vc-vipNotifications-iconButton {
+    width: 28px;
+    padding: 0;
+    text-align: center;
+}
+
+.vc-vipNotifications-smallButton:hover:not(:disabled),
+.vc-vipNotifications-iconButton:hover:not(:disabled) {
+    background: var(--background-modifier-selected, rgba(255, 255, 255, 0.1));
+}
+
+.vc-vipNotifications-smallButton:disabled,
+.vc-vipNotifications-iconButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.vc-vipNotifications-dangerButton:not(:disabled) {
+    color: var(--text-danger, #fa777c);
+}
+
+.vc-vipNotifications-ruleItem {
+    display: grid;
+    grid-template-columns: 20px 28px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 5px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.06);
+}
+
+.vc-vipNotifications-ruleItemDragging {
+    border-color: var(--brand-500, #5865f2);
+    background: rgba(88, 101, 242, 0.18);
+    opacity: 0.72;
+}
+
+.vc-vipNotifications-dragHandle,
+.vc-vipNotifications-ruleRank {
+    color: var(--text-muted, #949ba4);
+    font-size: 12px;
+    line-height: 16px;
+    text-align: center;
+}
+
+.vc-vipNotifications-dragHandle {
+    cursor: grab;
+    letter-spacing: 1px;
+}
+
+.vc-vipNotifications-ruleMain {
+    padding: 6px 7px;
+}
+
+.vc-vipNotifications-emptyState {
+    padding: 10px;
+    border-radius: 6px;
+    background: var(--background-modifier-hover, rgba(255, 255, 255, 0.05));
+    color: var(--text-muted, #949ba4);
+    font-size: 12px;
+    line-height: 16px;
+}
+
+@media (max-width: 720px) {
+    .vc-vipNotifications-summaryGrid,
+    .vc-vipNotifications-diagnosticsPanel .vc-vipNotifications-summaryGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .vc-vipNotifications-editorGrid,
+    .vc-vipNotifications-formGrid,
+    .vc-vipNotifications-toggleGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .vc-vipNotifications-managerHeader,
+    .vc-vipNotifications-sectionHeader,
+    .vc-vipNotifications-detailHeader {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .vc-vipNotifications-ruleItem {
+        grid-template-columns: 20px minmax(0, 1fr);
+    }
+
+    .vc-vipNotifications-ruleRank {
+        display: none;
+    }
+
+    .vc-vipNotifications-ruleActions {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+        padding-left: 26px;
+    }
+}

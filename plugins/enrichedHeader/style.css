@@ -4,10 +4,10 @@ body.vc-enrichedHeader-hideGuilds [class*="guilds_"] {
     display: none !important;
 }
 
-body.vc-enrichedHeader-hideGuilds [class^="base__"][class*="__"],
-body.vc-enrichedHeader-hideGuilds [class*=" base__"][class*="__"],
-body.vc-enrichedHeader-active.vc-enrichedHeader-hideGuilds [class^="base__"][class*="__"],
-body.vc-enrichedHeader-active.vc-enrichedHeader-hideGuilds [class*=" base__"][class*="__"] {
+body.vc-enrichedHeader-hideGuilds [class^="base_"],
+body.vc-enrichedHeader-hideGuilds [class*=" base_"],
+body.vc-enrichedHeader-active.vc-enrichedHeader-hideGuilds [class^="base_"],
+body.vc-enrichedHeader-active.vc-enrichedHeader-hideGuilds [class*=" base_"] {
     grid-template-columns: [start] 0px [guildsEnd] 240px [channelsEnd] 1fr [end] !important;
 }
 
@@ -19,28 +19,28 @@ body.vc-enrichedHeader-hideChannels [class*="sidebarResizeHandle_"] {
     display: none !important;
 }
 
-body.vc-enrichedHeader-hideChannels [class^="base__"][class*="__"],
-body.vc-enrichedHeader-hideChannels [class*=" base__"][class*="__"],
-body.vc-enrichedHeader-active.vc-enrichedHeader-hideChannels [class^="base__"][class*="__"],
-body.vc-enrichedHeader-active.vc-enrichedHeader-hideChannels [class*=" base__"][class*="__"] {
+body.vc-enrichedHeader-hideChannels [class^="base_"],
+body.vc-enrichedHeader-hideChannels [class*=" base_"],
+body.vc-enrichedHeader-active.vc-enrichedHeader-hideChannels [class^="base_"],
+body.vc-enrichedHeader-active.vc-enrichedHeader-hideChannels [class*=" base_"] {
     grid-template-columns: [start] 72px [guildsEnd] 0px [channelsEnd] 1fr [end] !important;
 }
 
-body.vc-enrichedHeader-hideGuilds.vc-enrichedHeader-hideChannels [class^="base__"][class*="__"],
-body.vc-enrichedHeader-hideGuilds.vc-enrichedHeader-hideChannels [class*=" base__"][class*="__"],
-body.vc-enrichedHeader-active.vc-enrichedHeader-hideGuilds.vc-enrichedHeader-hideChannels [class^="base__"][class*="__"],
-body.vc-enrichedHeader-active.vc-enrichedHeader-hideGuilds.vc-enrichedHeader-hideChannels [class*=" base__"][class*="__"] {
+body.vc-enrichedHeader-hideGuilds.vc-enrichedHeader-hideChannels [class^="base_"],
+body.vc-enrichedHeader-hideGuilds.vc-enrichedHeader-hideChannels [class*=" base_"],
+body.vc-enrichedHeader-active.vc-enrichedHeader-hideGuilds.vc-enrichedHeader-hideChannels [class^="base_"],
+body.vc-enrichedHeader-active.vc-enrichedHeader-hideGuilds.vc-enrichedHeader-hideChannels [class*=" base_"] {
     grid-template-columns: [start] 0px [guildsEnd] 0px [channelsEnd] 1fr [end] !important;
 }
 
-body.vc-enrichedHeader-hideGuilds [class^="base__"] [class^="page__"],
-body.vc-enrichedHeader-hideGuilds [class*=" base__"] [class^="page__"],
-body.vc-enrichedHeader-hideGuilds [class^="base__"] [class*=" page__"],
-body.vc-enrichedHeader-hideGuilds [class*=" base__"] [class*=" page__"],
-body.vc-enrichedHeader-hideChannels [class^="base__"] [class^="page__"],
-body.vc-enrichedHeader-hideChannels [class*=" base__"] [class^="page__"],
-body.vc-enrichedHeader-hideChannels [class^="base__"] [class*=" page__"],
-body.vc-enrichedHeader-hideChannels [class*=" base__"] [class*=" page__"] {
+body.vc-enrichedHeader-hideGuilds [class^="base_"] [class^="page_"],
+body.vc-enrichedHeader-hideGuilds [class*=" base_"] [class^="page_"],
+body.vc-enrichedHeader-hideGuilds [class^="base_"] [class*=" page_"],
+body.vc-enrichedHeader-hideGuilds [class*=" base_"] [class*=" page_"],
+body.vc-enrichedHeader-hideChannels [class^="base_"] [class^="page_"],
+body.vc-enrichedHeader-hideChannels [class*=" base_"] [class^="page_"],
+body.vc-enrichedHeader-hideChannels [class^="base_"] [class*=" page_"],
+body.vc-enrichedHeader-hideChannels [class*=" base_"] [class*=" page_"] {
     grid-column: channelsEnd / end !important;
 }
 
@@ -50,17 +50,22 @@ body.vc-enrichedHeader-active [class*="subtitleContainer_"] {
     display: none !important;
 }
 
-body.vc-enrichedHeader-active [class^="base__"] > [class*="bar_"]:not([class*="systemBar"]),
-body.vc-enrichedHeader-active [class*=" base__"] > [class*="bar_"]:not([class*="systemBar"]) {
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]),
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) {
+    --vc-enrichedHeader-titlebar-text: var(--text-default, var(--header-primary, #f2f3f5));
+    --vc-enrichedHeader-titlebar-muted: var(--text-subtle, var(--text-muted, #949ba4));
+    --vc-enrichedHeader-titlebar-icon: var(--interactive-icon-default, var(--interactive-text-default, var(--interactive-normal, #b5bac1)));
     grid-column: titleBar !important;
     width: 100% !important;
     min-width: 0 !important;
     max-width: none !important;
     box-sizing: border-box;
     overflow: hidden;
+    color: var(--vc-enrichedHeader-titlebar-text);
+    -webkit-app-region: no-drag;
 }
 
-body.vc-enrichedHeader-navCompact [class*="backForwardButtons__"] {
+body.vc-enrichedHeader-navCompact [class*="backForwardButtons"] {
     transform: scale(0.75);
     margin: 0 -8px;
 }
@@ -87,25 +92,33 @@ body.vc-enrichedHeader-navHidden .vc-enrichedHeader-sidebarToggles {
 }
 
 .vc-enrichedHeader-toggleBtn {
+    appearance: none;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0;
+    border: 0;
     border-radius: 4px;
-    color: var(--interactive-normal, #b5bac1);
+    background: transparent;
+    color: var(--vc-enrichedHeader-titlebar-icon, var(--interactive-text-default, var(--interactive-normal, #b5bac1)));
     cursor: pointer;
     -webkit-app-region: no-drag;
 }
 
-.vc-enrichedHeader-toggleBtn:hover,
+.vc-enrichedHeader-toggleBtn:hover {
+    background: var(--interactive-background-hover, var(--background-mod-subtle, var(--background-modifier-hover, #35373c)));
+    color: var(--interactive-text-hover, var(--interactive-hover, #dbdee1));
+}
+
 .vc-enrichedHeader-toggleBtn-active {
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--interactive-active, #fff);
+    background: var(--interactive-background-selected, var(--background-mod-strong, var(--background-modifier-selected, #404249)));
+    color: var(--interactive-text-active, var(--interactive-active, #fff));
 }
 
 .vc-enrichedHeader-divider {
     width: 1px;
     height: 16px;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--border-subtle, var(--background-modifier-accent, #3f4147));
     flex-shrink: 0;
     margin: 0 4px;
 }
@@ -117,7 +130,7 @@ body.vc-enrichedHeader-navHidden .vc-enrichedHeader-sidebarToggles {
     flex-shrink: 1;
     min-width: 0;
     max-width: 200px;
-    color: rgba(255, 255, 255, 0.35);
+    color: var(--text-subtle, var(--text-muted, #949ba4));
     font-size: 13px;
     overflow: hidden;
 }
@@ -136,7 +149,7 @@ body.vc-enrichedHeader-navHidden .vc-enrichedHeader-sidebarToggles {
 }
 
 .vc-enrichedHeader-breadcrumbSeparator {
-    color: rgba(255, 255, 255, 0.15);
+    color: var(--interactive-muted, var(--text-muted, #72767d));
     font-size: 12px;
     margin: 0 2px;
     flex-shrink: 0;
@@ -159,7 +172,7 @@ body.vc-enrichedHeader-navHidden .vc-enrichedHeader-sidebarToggles {
 
 .vc-enrichedHeader-titleOverride {
     max-width: 220px;
-    color: var(--header-primary, #f2f3f5);
+    color: var(--text-strong, var(--header-primary, #f2f3f5));
     font-size: 13px;
     font-weight: 600;
     overflow: hidden;
@@ -178,63 +191,81 @@ body.vc-enrichedHeader-navHidden .vc-enrichedHeader-sidebarToggles {
     white-space: nowrap;
 }
 
-body.vc-enrichedHeader-active [class*="children__"] {
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="children_"],
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="children_"] {
     min-width: 0;
     flex-shrink: 1;
     flex-basis: 0;
     overflow: hidden;
+    color: var(--vc-enrichedHeader-titlebar-text);
 }
 
-body.vc-enrichedHeader-active [class*="toolbar__"],
-body.vc-enrichedHeader-active [class*="trailing_"] {
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="toolbar_"],
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="toolbar_"],
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="trailing_"],
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="trailing_"] {
     min-width: 0;
     flex-shrink: 1;
     overflow: hidden;
+    color: var(--vc-enrichedHeader-titlebar-icon);
 }
 
-body.vc-enrichedHeader-active [class*="children__"] [class*="title_"],
-body.vc-enrichedHeader-active [class*="children__"] [class*="name__"] {
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="children_"] [class*="title"],
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="children_"] [class*="title"],
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="children_"] [class*="name"],
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="children_"] [class*="name"] {
+    color: var(--vc-enrichedHeader-titlebar-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-body.vc-enrichedHeader-active [class*="topic__"] {
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="children_"] [role="button"],
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="children_"] [role="button"],
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="children_"] [class*="activity"],
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="children_"] [class*="activity"] {
+    color: inherit;
+}
+
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) [class*="topic_"],
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) [class*="topic_"] {
     display: none !important;
 }
 
-body.vc-enrichedHeader-active [class*="children__"] > svg {
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="children_"] > svg,
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) > [class*="children_"] > svg {
     display: none !important;
 }
 
-.vc-enrichedHeader-dragOverlay {
-    position: absolute !important;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    -webkit-app-region: drag;
-    pointer-events: none;
-    z-index: 0;
-}
-
-body.vc-enrichedHeader-active [class^="base__"] > [class*="bar_"]:not([class*="systemBar"]) > *,
-body.vc-enrichedHeader-active [class*=" base__"] > [class*="bar_"]:not([class*="systemBar"]) > * {
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) > *,
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) > * {
     position: relative;
-    z-index: 1;
+    z-index: 2;
     min-width: 0;
+    -webkit-app-region: no-drag;
 }
 
-body.vc-enrichedHeader-active .vc-enrichedHeader-dragOverlay {
-    position: absolute !important;
-    z-index: 0;
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) > * *,
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) > * * {
+    -webkit-app-region: no-drag;
 }
 
-body.vc-enrichedHeader-active [role="button"],
-body.vc-enrichedHeader-active button,
-body.vc-enrichedHeader-active a[class*="anchor"],
-body.vc-enrichedHeader-active input,
-body.vc-enrichedHeader-active [class*="search__"],
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) [role="button"],
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) [role="button"],
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) button,
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) button,
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) a[class*="anchor"],
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) a[class*="anchor"],
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) input,
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) input,
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) [aria-label="Search"][role="combobox"],
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) [aria-label="Search"][role="combobox"],
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) [aria-label="Search"][role="textbox"],
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) [aria-label="Search"][role="textbox"],
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) [class*="search"],
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) [class*="search"],
+body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]) [class*="searchBar"],
+body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) [class*="searchBar"],
 body.vc-enrichedHeader-active .vc-enrichedHeader-toggleBtn,
 body.vc-enrichedHeader-active .vc-enrichedHeader-overflowBtn,
 body.vc-enrichedHeader-active [class*="winButton_"] {
@@ -250,7 +281,7 @@ body.vc-enrichedHeader-active [class*="winButton_"] {
     width: 32px;
     height: 24px;
     border-radius: 4px;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--interactive-icon-default, var(--interactive-text-default, var(--interactive-normal, #b5bac1)));
     cursor: pointer;
     flex-shrink: 0;
     font-size: 16px;
@@ -261,14 +292,15 @@ body.vc-enrichedHeader-active [class*="winButton_"] {
 }
 
 .vc-enrichedHeader-overflowBtn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.8);
+    background: var(--interactive-background-hover, var(--background-mod-subtle, var(--background-modifier-hover, #35373c)));
+    color: var(--interactive-icon-hover, var(--interactive-text-hover, var(--interactive-hover, #dbdee1)));
 }
 
 .vc-enrichedHeader-overflowMenu {
     position: fixed;
     z-index: 99999;
-    background: var(--background-floating, #111214);
+    background: var(--background-surface-high, var(--background-floating, #111214));
+    border: 1px solid var(--border-subtle, var(--background-modifier-accent, transparent));
     border-radius: 4px;
     padding: 6px 4px;
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24);
@@ -284,14 +316,14 @@ body.vc-enrichedHeader-active [class*="winButton_"] {
     padding: 6px 8px;
     border-radius: 2px;
     font-size: 13px;
-    color: var(--interactive-normal, #b5bac1);
+    color: var(--interactive-text-default, var(--interactive-normal, #b5bac1));
     cursor: pointer;
     transition: background var(--vc-anim-speed, 150ms) ease, color var(--vc-anim-speed, 150ms) ease;
 }
 
 .vc-enrichedHeader-overflowMenuItem:hover {
-    background: var(--brand-500, #5865f2);
-    color: #fff;
+    background: var(--interactive-accent-background-hover, var(--brand-500, #5865f2));
+    color: var(--interactive-text-active, var(--interactive-active, #fff));
 }
 
 .vc-enrichedHeader-overflowMenuItem svg {
@@ -307,7 +339,7 @@ body.vc-enrichedHeader-active [class*="winButton_"] {
 .vc-enrichedHeader-overflowTopic {
     padding: 6px 8px;
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--text-muted, #949ba4);
     max-width: 300px;
     line-height: 1.4;
     cursor: pointer;
@@ -316,12 +348,12 @@ body.vc-enrichedHeader-active [class*="winButton_"] {
 }
 
 .vc-enrichedHeader-overflowTopic:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: rgba(255, 255, 255, 0.6);
+    background: var(--interactive-background-hover, var(--background-mod-subtle, var(--background-modifier-hover, #35373c)));
+    color: var(--text-default, var(--text-normal, #dbdee1));
 }
 
 .vc-enrichedHeader-overflowSeparator {
     height: 1px;
     margin: 4px;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--border-subtle, var(--background-modifier-accent, #3f4147));
 }

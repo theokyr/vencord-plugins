@@ -90,6 +90,21 @@ function findSettingsObject(source: string): string {
 interface SettingDefInfo {
     key: string;
     hidden: boolean;
+    component: boolean;
+}
+
+const nativeOnlyComponentSettings: Record<string, Set<string>> = {
+    vipNotifications: new Set(["manager"]),
+};
+
+function shouldExposeInSettingsHub(plugin: string, def: SettingDefInfo): boolean {
+    if (def.hidden)
+        return false;
+
+    if (def.component && nativeOnlyComponentSettings[plugin]?.has(def.key))
+        return false;
+
+    return !def.key.startsWith("keybind_");
 }
 
 function settingDefs(plugin: string): SettingDefInfo[] {
@@ -104,6 +119,7 @@ function settingDefs(plugin: string): SettingDefInfo[] {
             defs.push({
                 key: match[1],
                 hidden: /\bhidden:\s*true\b/.test(block),
+                component: /\btype:\s*(?:OptionType\.COMPONENT|6)\b/.test(block),
             });
         }
     }
@@ -194,9 +210,8 @@ describe("settingsHub plugin integration", () => {
     it("exposes every visible non-keybind setting in settingsHub", () => {
         for (const plugin of settingsPlugins) {
             const visibleKeys = settingDefs(plugin)
-                .filter(def => !def.hidden)
+                .filter(def => shouldExposeInSettingsHub(plugin, def))
                 .map(def => def.key)
-                .filter(key => !key.startsWith("keybind_"));
             const exposedKeys = schemaKeys(plugin);
             const missingKeys = visibleKeys.filter(key => !exposedKeys.has(key));
 

@@ -25,6 +25,11 @@ function makeHeaderPreview(settings: DefinedSettings) {
         const compactNav = s.navButtonsStyle === "compact";
         const togglesLeft = s.sidebarTogglePosition === "left";
         const showBreadcrumb = enabled && s.guildNameStyle === "breadcrumb";
+        const previewBase = "var(--background-surface-highest, var(--background-tertiary, #1e1f22))";
+        const previewSurface = "var(--background-surface-high, var(--background-secondary, #2b2d31))";
+        const previewText = "var(--text-default, var(--text-normal, #dbdee1))";
+        const previewSubtle = "var(--text-subtle, var(--text-muted, #949ba4))";
+        const previewInteractive = "var(--interactive-text-default, var(--interactive-normal, var(--text-subtle, #80848e)))";
 
         const buttonSize = compactNav ? 22 : 28;
         const iconButton: React.CSSProperties = {
@@ -34,8 +39,8 @@ function makeHeaderPreview(settings: DefinedSettings) {
             alignItems: "center",
             justifyContent: "center",
             borderRadius: "4px",
-            background: "var(--background-tertiary, #1e1f22)",
-            color: "var(--text-muted, #80848e)",
+            background: previewBase,
+            color: previewInteractive,
             flexShrink: 0,
         };
 
@@ -46,8 +51,8 @@ function makeHeaderPreview(settings: DefinedSettings) {
             alignItems: "center",
             justifyContent: "center",
             borderRadius: "4px",
-            background: "var(--background-tertiary, #1e1f22)",
-            color: "var(--text-muted, #80848e)",
+            background: previewBase,
+            color: previewInteractive,
             flexShrink: 0,
         };
 
@@ -66,7 +71,7 @@ function makeHeaderPreview(settings: DefinedSettings) {
         ) : null;
 
         return (
-            <div style={{ padding: "12px 16px", background: "var(--background-tertiary, #1e1f22)", borderRadius: "6px" }}>
+            <div style={{ padding: "12px 16px", background: previewBase, borderRadius: "6px" }}>
                 <div style={{
                     minHeight: 42,
                     display: "flex",
@@ -74,8 +79,8 @@ function makeHeaderPreview(settings: DefinedSettings) {
                     gap: 6,
                     padding: "6px 10px",
                     borderRadius: 6,
-                    background: "var(--background-secondary, #2b2d31)",
-                    color: "var(--text-normal, #dbdee1)",
+                    background: previewSurface,
+                    color: previewText,
                     overflow: "hidden",
                 }}>
                     {showNav && (
@@ -89,12 +94,12 @@ function makeHeaderPreview(settings: DefinedSettings) {
                         </div>
                     )}
                     {togglesLeft && toggles}
-                    {showBreadcrumb && <span style={{ color: "var(--text-muted, #80848e)", whiteSpace: "nowrap" }}>Server ›</span>}
+                    {showBreadcrumb && <span style={{ color: previewSubtle, whiteSpace: "nowrap" }}>Server ›</span>}
                     <strong style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
                         {enabled ? "# general" : "Standard Discord header"}
                     </strong>
                     {!togglesLeft && toggles}
-                    <div style={{ display: "flex", gap: 8, marginLeft: "auto", color: "var(--text-muted, #80848e)", flexShrink: 0 }}>
+                    <div style={{ display: "flex", gap: 8, marginLeft: "auto", color: previewSubtle, flexShrink: 0 }}>
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 13.73 14l.27.28v.79l5 4.99L20.49 19l-4.99-5Zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14Z" /></svg>
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z" /></svg>
                     </div>

@@ -34,6 +34,17 @@
         "path": "plugins/betterBlockIgnore"
       }
     },
+    "betterRes": {
+      "version": "0.1.0",
+      "description": "Unlocks Discord stream quality choices and adds lower/custom resolutions and frame rates",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "GPL-3.0-or-later",
+      "optionalDependencies": ["settingsHub"],
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/betterRes"
+      }
+    },
     "bsNoMore": {
       "version": "0.2.1",
       "description": "Remove upsell clutter — compacts DM nav, hides clan tags, avatar decorations, quest popups, and store UI",
@@ -151,6 +162,17 @@
       "source": {
         "git": "https://github.com/theokyr/vencord-plugins.git",
         "path": "plugins/venpmGui"
+      }
+    },
+    "vipNotifications": {
+      "version": "0.1.0",
+      "description": "VIP notification rules that can alert through Discord notification restrictions",
+      "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
+      "license": "GPL-3.0-or-later",
+      "optionalDependencies": ["settingsHub"],
+      "source": {
+        "git": "https://github.com/theokyr/vencord-plugins.git",
+        "path": "plugins/vipNotifications"
       }
     }
   }
