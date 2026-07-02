@@ -70,6 +70,15 @@ describe("EnrichedHeader extraction", () => {
         expect(css).not.toContain('[class*=" base__"]');
     });
 
+    it("normalizes platform title-bar start padding without breaking macOS window controls", () => {
+        expect(css).toContain("--vc-enrichedHeader-edge-padding: var(--space-8, 8px)");
+        expect(css).toContain(".platform-linux body.vc-enrichedHeader-active");
+        expect(css).toContain(".platform-win body.vc-enrichedHeader-active");
+        expect(css).toContain('.platform-osx body.vc-enrichedHeader-active [data-fullscreen="true"]');
+        expect(css).toContain("padding-inline-start: var(--vc-enrichedHeader-edge-padding) !important");
+        expect(css).not.toContain('.platform-osx body.vc-enrichedHeader-active [data-fullscreen="false"]');
+    });
+
     it("documents and implements title-bar relocation direction", () => {
         expect(domSource).toContain("move channel header children into the visible title bar");
         expect(domSource).toContain("function findVisibleTitleBar");

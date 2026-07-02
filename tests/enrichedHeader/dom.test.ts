@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHeaderDomController } from "../../plugins/enrichedHeader/dom";
 
 class TestResizeObserver {
@@ -16,6 +16,10 @@ describe("createHeaderDomController", () => {
             cb(0);
             return 0;
         });
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     function setupHeaderDom() {
@@ -176,5 +180,47 @@ describe("createHeaderDomController", () => {
 
         expect(titleBar.contains(freshToolbar)).toBe(true);
         expect(oldToolbar.isConnected).toBe(false);
+    });
+
+    it("ignores unrelated page subtree mutations", async () => {
+        vi.useFakeTimers();
+        setupHeaderDom();
+        const renderLayout = vi.fn();
+        const controller = createHeaderDomController({ renderLayout });
+
+        controller.relocate();
+        expect(renderLayout).toHaveBeenCalledTimes(1);
+
+        const page = document.querySelector(".page__test")!;
+        const unrelated = document.createElement("div");
+        unrelated.className = "messageList__test";
+        unrelated.appendChild(document.createElement("span"));
+        page.appendChild(unrelated);
+
+        await Promise.resolve();
+        vi.advanceTimersByTime(200);
+
+        expect(renderLayout).toHaveBeenCalledTimes(1);
+    });
+
+    it("refreshes when Discord rerenders channel header nodes", async () => {
+        vi.useFakeTimers();
+        setupHeaderDom();
+        const renderLayout = vi.fn();
+        const controller = createHeaderDomController({ renderLayout });
+        const upperContainer = document.querySelector(".upperContainer__test")!;
+
+        controller.relocate();
+        expect(renderLayout).toHaveBeenCalledTimes(1);
+
+        const freshChildren = document.createElement("div");
+        freshChildren.className = "children__fresh";
+        freshChildren.textContent = "Fresh channel";
+        upperContainer.appendChild(freshChildren);
+
+        await Promise.resolve();
+        vi.advanceTimersByTime(200);
+
+        expect(renderLayout).toHaveBeenCalledTimes(2);
     });
 });

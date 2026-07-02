@@ -55,6 +55,7 @@ body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="s
     --vc-enrichedHeader-titlebar-text: var(--text-default, var(--header-primary, #f2f3f5));
     --vc-enrichedHeader-titlebar-muted: var(--text-subtle, var(--text-muted, #949ba4));
     --vc-enrichedHeader-titlebar-icon: var(--interactive-icon-default, var(--interactive-text-default, var(--interactive-normal, #b5bac1)));
+    --vc-enrichedHeader-edge-padding: var(--space-8, 8px);
     grid-column: titleBar !important;
     width: 100% !important;
     min-width: 0 !important;
@@ -63,6 +64,15 @@ body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="s
     overflow: hidden;
     color: var(--vc-enrichedHeader-titlebar-text);
     -webkit-app-region: no-drag;
+}
+
+.platform-linux body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]),
+.platform-linux body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]),
+.platform-win body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]),
+.platform-win body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]),
+.platform-osx body.vc-enrichedHeader-active [data-fullscreen="true"][class^="base_"] > [class*="bar_"]:not([class*="systemBar"]),
+.platform-osx body.vc-enrichedHeader-active [data-fullscreen="true"][class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) {
+    padding-inline-start: var(--vc-enrichedHeader-edge-padding) !important;
 }
 
 body.vc-enrichedHeader-navCompact [class*="backForwardButtons"] {

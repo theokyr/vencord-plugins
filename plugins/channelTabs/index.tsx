@@ -34,6 +34,12 @@ import { openTabContextMenu, openGroupContextMenu, openChildContextMenu, initNat
 import type { Tab, ChannelTab, RouteTab } from "./types";
 import { isGroupTab, type GroupTab } from "./types";
 import { GroupNamePrompt } from "./groupNamePrompt";
+import {
+    channelPayloadTouchesOpenTabs,
+    presencePayloadTouchesOpenDmTabs,
+    tabListContainsChannel,
+    voicePayloadTouchesOpenTabs,
+} from "./eventFilters";
 
 import {
     createGroup as _createGroup,
@@ -239,9 +245,9 @@ function openRouteTab(path: string, navigate = false) {
     if (navigate) navigateTo(tabs[activeTabIndex]);
 }
 
-function openTabBackground(channelId: string, guildId: string | null) {
+function openTabBackground(channelId: string, guildId: string | null): boolean {
     const existing = tabs.findIndex(t => t.type === "channel" && t.channelId === channelId);
-    if (existing !== -1) return;
+    if (existing !== -1) return false;
 
     tabs.push({
         type: "channel",
@@ -252,6 +258,7 @@ function openTabBackground(channelId: string, guildId: string | null) {
     });
     notify();
     scheduleSave();
+    return true;
 }
 
 function closeTab(index: number) {
@@ -1258,28 +1265,41 @@ function onChannelSelect(data: { channelId: string | null; guildId: string | nul
 
 }
 
-function onUnreadUpdate() { notify(); }
+function onChannelScopedUpdate(data: any) {
+    if (channelPayloadTouchesOpenTabs(tabs, data)) notify();
+}
+
+function onPresenceUpdate(data: any) {
+    if (presencePayloadTouchesOpenDmTabs(tabs, data, id => ChannelStore.getChannel(id))) notify();
+}
+
+function onVoiceStateUpdate(data: any) {
+    if (voicePayloadTouchesOpenTabs(tabs, data)) notify();
+}
 
 function onMessageCreate(data: { message: { author: { id: string; }; mentions?: { id: string; }[]; }; channelId: string; }) {
+    const channelId = data.channelId ?? (data as any).message?.channel_id;
+    let openedTab = false;
+
     try {
         const currentUserId = UserStore.getCurrentUser()?.id;
         if (!currentUserId || data.message.author.id === currentUserId) {
-            notify();
+            if (tabListContainsChannel(tabs, channelId)) notify();
             return;
         }
 
-        const channel = ChannelStore.getChannel(data.channelId);
+        const channel = channelId ? ChannelStore.getChannel(channelId) : null;
         if (channel) {
             if (settings.store.autoOpenDMs && channel.isDM?.()) {
-                openTabBackground(data.channelId, null);
+                openedTab = openTabBackground(channelId, null);
             }
             if (settings.store.autoOpenMentions && data.message.mentions?.some(u => u.id === currentUserId)) {
-                openTabBackground(data.channelId, channel.guild_id ?? null);
+                openedTab = openTabBackground(channelId, channel.guild_id ?? null) || openedTab;
             }
         }
     } catch { }
 
-    notify();
+    if (!openedTab && tabListContainsChannel(tabs, channelId)) notify();
 }
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -1403,12 +1423,12 @@ const plugin = definePlugin({
 
         FluxDispatcher.subscribe("CHANNEL_SELECT", onChannelSelect);
         FluxDispatcher.subscribe("MESSAGE_CREATE", onMessageCreate);
-        FluxDispatcher.subscribe("CHANNEL_ACK", onUnreadUpdate);
-        FluxDispatcher.subscribe("PRESENCE_UPDATES", onUnreadUpdate);
-        FluxDispatcher.subscribe("TYPING_START", onUnreadUpdate);
-        FluxDispatcher.subscribe("TYPING_STOP", onUnreadUpdate);
-        FluxDispatcher.subscribe("VOICE_STATE_UPDATES", onUnreadUpdate);
-        FluxDispatcher.subscribe("CALL_UPDATE", onUnreadUpdate);
+        FluxDispatcher.subscribe("CHANNEL_ACK", onChannelScopedUpdate);
+        FluxDispatcher.subscribe("PRESENCE_UPDATES", onPresenceUpdate);
+        FluxDispatcher.subscribe("TYPING_START", onChannelScopedUpdate);
+        FluxDispatcher.subscribe("TYPING_STOP", onChannelScopedUpdate);
+        FluxDispatcher.subscribe("VOICE_STATE_UPDATES", onVoiceStateUpdate);
+        FluxDispatcher.subscribe("CALL_UPDATE", onChannelScopedUpdate);
         // Open current channel/route if no tabs restored
         if (tabs.length === 0) {
             const ch = SelectedChannelStore.getChannelId();
@@ -1432,12 +1452,12 @@ const plugin = definePlugin({
         (window as any).__settingsHub?.unregister("ChannelTabs");
         FluxDispatcher.unsubscribe("CHANNEL_SELECT", onChannelSelect);
         FluxDispatcher.unsubscribe("MESSAGE_CREATE", onMessageCreate);
-        FluxDispatcher.unsubscribe("CHANNEL_ACK", onUnreadUpdate);
-        FluxDispatcher.unsubscribe("PRESENCE_UPDATES", onUnreadUpdate);
-        FluxDispatcher.unsubscribe("TYPING_START", onUnreadUpdate);
-        FluxDispatcher.unsubscribe("TYPING_STOP", onUnreadUpdate);
-        FluxDispatcher.unsubscribe("VOICE_STATE_UPDATES", onUnreadUpdate);
-        FluxDispatcher.unsubscribe("CALL_UPDATE", onUnreadUpdate);
+        FluxDispatcher.unsubscribe("CHANNEL_ACK", onChannelScopedUpdate);
+        FluxDispatcher.unsubscribe("PRESENCE_UPDATES", onPresenceUpdate);
+        FluxDispatcher.unsubscribe("TYPING_START", onChannelScopedUpdate);
+        FluxDispatcher.unsubscribe("TYPING_STOP", onChannelScopedUpdate);
+        FluxDispatcher.unsubscribe("VOICE_STATE_UPDATES", onVoiceStateUpdate);
+        FluxDispatcher.unsubscribe("CALL_UPDATE", onChannelScopedUpdate);
         if (saveTimeout) { clearTimeout(saveTimeout); saveTimeout = null; }
         saveTabs(); // flush pending save
 

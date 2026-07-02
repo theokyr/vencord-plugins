@@ -23,6 +23,7 @@ interface RelocatedElement {
 }
 
 const HEADER_REFRESH_DELAY = 150;
+const HEADER_RELEVANT_SELECTOR = '[class*="upperContainer_"], [class*="children_"], [class*="toolbar_"]';
 
 function findVisibleTitleBar(): HTMLElement | null {
     const bars = document.querySelectorAll('[class*="base_"] > [class*="bar"]');
@@ -40,6 +41,31 @@ function findChannelHeaderChildren(): HTMLElement | null {
 
 function findChannelHeaderToolbar(): HTMLElement | null {
     return document.querySelector('[class*="upperContainer_"] > [class*="toolbar_"]') as HTMLElement | null;
+}
+
+function isHeaderElement(element: Element): boolean {
+    return element.matches(HEADER_RELEVANT_SELECTOR);
+}
+
+function nodeContainsHeader(node: Node): boolean {
+    return node instanceof Element
+        && (isHeaderElement(node) || Boolean(node.querySelector(HEADER_RELEVANT_SELECTOR)));
+}
+
+function mutationTouchesHeader(records: MutationRecord[]): boolean {
+    for (const record of records) {
+        if (record.target instanceof Element && isHeaderElement(record.target)) return true;
+
+        for (const node of Array.from(record.addedNodes)) {
+            if (nodeContainsHeader(node)) return true;
+        }
+
+        for (const node of Array.from(record.removedNodes)) {
+            if (nodeContainsHeader(node)) return true;
+        }
+    }
+
+    return false;
 }
 
 export function createHeaderDomController(options: HeaderDomControllerOptions = {}): HeaderDomController {
@@ -85,8 +111,9 @@ export function createHeaderDomController(options: HeaderDomControllerOptions = 
         const page = document.querySelector('[class*="page_"]');
         if (!page) return;
 
-        observer = new MutationObserver(() => {
+        observer = new MutationObserver(records => {
             if (!active) return;
+            if (!mutationTouchesHeader(records)) return;
             clearRefreshTimer();
             refreshTimer = setTimeout(() => {
                 refreshTimer = null;
