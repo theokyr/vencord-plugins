@@ -21,17 +21,19 @@
 
 | Plugin | Description |
 |--------|-------------|
+| **betterBlockIgnore** | Fork of Vencord NoBlockedMessages that hides blocked and ignored users more completely: messages, replies, mentions, and reactions |
+| **betterRes** | Unlocks Discord stream quality choices and adds lower/custom resolutions and frame rates |
+| **bsNoMore** | Remove upsell clutter — compacts DM nav, hides clan tags, avatar decorations, quest popups, and store UI |
 | **channelTabs** | Quick-access tab bar for channels and DMs |
-| **settingsHub** | Unified settings page for custom plugins |
-| **betterBlockIgnore** | Hide blocked and ignored users more completely |
-| **bsNoMore** | Remove upsell clutter — DM nav, clan tags, quest popups, store UI |
-| **hotkeyNav** | Keyboard-driven navigation with inline keycap hints |
-| **minimalCallBar** | Compact 32px call overlay replacement |
-| **embedFix** | Replaces social media URLs with embed-friendly alternatives |
-| **enrichedHeader** | Moves Discord channel header controls into the title bar |
 | **discordMcp** | MCP bridge — expose Discord to AI agents via the Model Context Protocol |
+| **embedFix** | Replaces social media URLs with embed-friendly alternatives from third-party providers |
+| **enrichedHeader** | Moves Discord channel header controls into the title bar and exposes a typed header layout API |
+| **hotkeyNav** | Keyboard-driven navigation to notifications, DMs, and servers with inline keycap hints |
 | **messageHeaderAvatar** | Displays user avatars inline in message headers next to the username |
-| **venpmGui** | Manage Vencord plugins from inside Discord — browse, install, update, and configure |
+| **minimalCallBar** | Replaces the large DM/Group DM call overlay with a compact 32px bar |
+| **settingsHub** | Unified settings page for custom plugins |
+| **venpmGui** | Manage Vencord plugins from inside Discord — browse, install, update, and configure without the terminal |
+| **vipNotifications** | VIP notification rules that can alert through Discord notification restrictions |
 
 **Attribution:** `betterBlockIgnore` is a fork of Vencord's stock `NoBlockedMessages` plugin by Vendicated and contributors, originally authored by rushii, Samu, and jamesbt365. This fork keeps the upstream foundation and adds ignored-user handling, reply and mention filtering, reaction filtering, and settingsHub integration.
 
