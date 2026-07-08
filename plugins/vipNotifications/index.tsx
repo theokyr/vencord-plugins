@@ -317,34 +317,42 @@ export default definePlugin({
     patches: [
         {
             find: ".SUPPRESS_NOTIFICATIONS))return!1",
+            group: true,
             replacement: [
                 {
-                    match: /\|\|y\.NO\.getSetting\(\)(?=\|\|!i\.ignoreNoMessagesSetting&&M\.Ay\.allowNoMessages\(n\))/,
-                    replace: "||!i.ignoreStreamerMode&&y.NO.getSetting()",
+                    match: /\|\|(\i)\.(\i)\.getSetting\(\)(?=\|\|!(\i)\.ignoreNoMessagesSetting&&\i\.\i\.allowNoMessages\(\i\))/,
+                    replace: (_, streamerModeStore, streamerModeExport, options) =>
+                        `||!${options}.ignoreStreamerMode&&${streamerModeStore}.${streamerModeExport}.getSetting()`,
                 },
                 {
-                    match: /!K\(l,u,o,\{ignoreStatus:s,ignoreSameUser:H\.MRS\.SELF_MENTIONABLE_SYSTEM\.has\(e\.type\)\}\)/,
-                    replace: "!K(l,u,o,{ignoreStatus:s||w.A.getStatus()===H.clD.DND&&$self.shouldBypassNativeGate(e,t,\"status\"),ignoreStreamerMode:y.NO.getSetting()&&$self.shouldBypassNativeGate(e,t,\"streamerMode\"),ignoreNoMessagesSetting:M.Ay.allowNoMessages(o)&&$self.shouldBypassNativeGate(e,t,\"noMessages\"),ignoreSameUser:H.MRS.SELF_MENTIONABLE_SYSTEM.has(e.type)})",
+                    match: /!(\i)\((\i),(\i),(\i),\{ignoreStatus:(\i),ignoreSameUser:(\i)\.(\i)\.SELF_MENTIONABLE_SYSTEM\.has\((\i)\.type\)\}\)/,
+                    replace: (_, canNotify, currentUser, author, channel, ignoreStatus, constants, selfMentionableSystemExport, message) =>
+                        `!${canNotify}(${currentUser},${author},${channel},{ignoreStatus:${ignoreStatus}||$self.shouldBypassNativeGate(${message},${channel}.id,"status"),ignoreStreamerMode:$self.shouldBypassNativeGate(${message},${channel}.id,"streamerMode"),ignoreNoMessagesSetting:$self.shouldBypassNativeGate(${message},${channel}.id,"noMessages"),ignoreSameUser:${constants}.${selfMentionableSystemExport}.SELF_MENTIONABLE_SYSTEM.has(${message}.type)})`,
                 },
                 {
-                    match: /!r&&d\(o\.id\)/,
-                    replace: "!r&&d(o.id)&&!$self.shouldBypassNativeGate(e,t,\"selectedChannel\")",
+                    match: /!(\i)&&(\i)\((\i)\.id\)/,
+                    replace: (_, includeSelectedChannel, isSelectedChannel, channel) =>
+                        `!${includeSelectedChannel}&&${isSelectedChannel}(${channel}.id)&&!$self.shouldBypassNativeGate(arguments[0],${channel}.id,"selectedChannel")`,
                 },
                 {
-                    match: /if\(T\.A\.isMuted\(o\.id\)\)return!1;/,
-                    replace: "if(T.A.isMuted(o.id)&&!$self.shouldBypassNativeGate(e,t,\"muted\"))return!1;",
+                    match: /if\((\i)\.(\i)\.isMuted\((\i)\.id\)\)return!1;/,
+                    replace: (_, mutedStore, mutedStoreExport, channel) =>
+                        `if(${mutedStore}.${mutedStoreExport}.isMuted(${channel}.id)&&!$self.shouldBypassNativeGate(arguments[0],${channel}.id,"muted"))return!1;`,
                 },
                 {
-                    match: /return t!==Y\.CP\.NO_MESSAGES&&\(t===Y\.CP\.ALL_MESSAGES\|\|\(0,A\.bG\)\(\{rawMessage:e,userId:l\.id,suppressEveryone:!1,suppressRoles:!1\}\)\)/,
-                    replace: "return $self.claimNativeDesktop(e,o.id,t!==Y.CP.NO_MESSAGES&&(t===Y.CP.ALL_MESSAGES||(0,A.bG)({rawMessage:e,userId:l.id,suppressEveryone:!1,suppressRoles:!1})))",
+                    match: /let (\i)=\(0,(\i)\.(\i)\)\((\i)\);return \1!==(\i)\.(\i)\.NO_MESSAGES&&\(\1===\5\.\6\.ALL_MESSAGES\|\|\(0,(\i)\.(\i)\)\(\{rawMessage:(\i),userId:(\i)\.id,suppressEveryone:!1,suppressRoles:!1\}\)\)/,
+                    replace: (_, messageSetting, getMessageSetting, getMessageSettingExport, channel, notificationSettingTypes, notificationSettingTypesExport, mentionUtils, mentionUtilsExport, message, currentUser) =>
+                        `let ${messageSetting}=(0,${getMessageSetting}.${getMessageSettingExport})(${channel});return $self.claimNativeDesktop(${message},${channel}.id,${messageSetting}!==${notificationSettingTypes}.${notificationSettingTypesExport}.NO_MESSAGES&&(${messageSetting}===${notificationSettingTypes}.${notificationSettingTypesExport}.ALL_MESSAGES||(0,${mentionUtils}.${mentionUtilsExport})({rawMessage:${message},userId:${currentUser}.id,suppressEveryone:!1,suppressRoles:!1})))`,
                 },
                 {
-                    match: /if\(M\.Ay\.allowAllMessages\(o\)&&t\)return!0;/,
-                    replace: "if(M.Ay.allowAllMessages(o)&&t)return $self.claimNativeDesktop(e,o.id,!0);",
+                    match: /if\((\i)\.(\i)\.allowAllMessages\((\i)\)&&(\i)\)return!0;/,
+                    replace: (_, notificationSettings, notificationSettingsExport, channel, canNotifyChannel) =>
+                        `if(${notificationSettings}.${notificationSettingsExport}.allowAllMessages(${channel})&&${canNotifyChannel})return $self.claimNativeDesktop(arguments[0],${channel}.id,!0);`,
                 },
                 {
-                    match: /return\(0,A\.bG\)\(\{rawMessage:e,userId:l\.id,suppressEveryone:n,suppressRoles:i\}\)/,
-                    replace: "return $self.claimNativeDesktop(e,o.id,(0,A.bG)({rawMessage:e,userId:l.id,suppressEveryone:n,suppressRoles:i}))",
+                    match: /let (\i)=(\i)\.(\i)\.isSuppressEveryoneEnabled\((\i)\.getGuildId\(\)\),(\i)=\2\.\3\.isSuppressRolesEnabled\(\4\.getGuildId\(\)\);return\(0,(\i)\.(\i)\)\(\{rawMessage:(\i),userId:(\i)\.id,suppressEveryone:\1,suppressRoles:\5\}\)/,
+                    replace: (_, suppressEveryone, notificationSettings, notificationSettingsExport, channel, suppressRoles, mentionUtils, mentionUtilsExport, message, currentUser) =>
+                        `let ${suppressEveryone}=${notificationSettings}.${notificationSettingsExport}.isSuppressEveryoneEnabled(${channel}.getGuildId()),${suppressRoles}=${notificationSettings}.${notificationSettingsExport}.isSuppressRolesEnabled(${channel}.getGuildId());return $self.claimNativeDesktop(${message},${channel}.id,(0,${mentionUtils}.${mentionUtilsExport})({rawMessage:${message},userId:${currentUser}.id,suppressEveryone:${suppressEveryone},suppressRoles:${suppressRoles}}))`,
                 },
             ],
         },

@@ -70,7 +70,7 @@
       }
     },
     "enrichedHeader": {
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "Moves Discord channel header controls into the title bar and exposes a typed header layout API",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "GPL-3.0-or-later",
@@ -165,7 +165,7 @@
       }
     },
     "vipNotifications": {
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "VIP notification rules that can alert through Discord notification restrictions",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "GPL-3.0-or-later",

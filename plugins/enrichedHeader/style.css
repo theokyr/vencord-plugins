@@ -70,8 +70,8 @@ body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="s
 .platform-linux body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]),
 .platform-win body.vc-enrichedHeader-active [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]),
 .platform-win body.vc-enrichedHeader-active [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]),
-.platform-osx body.vc-enrichedHeader-active [data-fullscreen="true"][class^="base_"] > [class*="bar_"]:not([class*="systemBar"]),
-.platform-osx body.vc-enrichedHeader-active [data-fullscreen="true"][class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) {
+.platform-osx body.vc-enrichedHeader-active.vc-enrichedHeader-macosWindowFullscreen [class^="base_"] > [class*="bar_"]:not([class*="systemBar"]),
+.platform-osx body.vc-enrichedHeader-active.vc-enrichedHeader-macosWindowFullscreen [class*=" base_"] > [class*="bar_"]:not([class*="systemBar"]) {
     padding-inline-start: var(--vc-enrichedHeader-edge-padding) !important;
 }
 

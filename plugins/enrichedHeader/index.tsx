@@ -32,6 +32,7 @@ import {
     getSidebarMode,
     setSidebarMode,
 } from "./sidebar";
+import { createMacosWindowFullscreenController, type MacosWindowFullscreenController } from "./windowState";
 
 type LayoutRegistry = ReturnType<typeof createHeaderLayoutRegistry>;
 type SidebarTogglePosition = "left" | "right";
@@ -64,6 +65,7 @@ interface DiscordGuild {
 const layoutRegistry: LayoutRegistry = createHeaderLayoutRegistry();
 const subscriptions = new Map<string, (ctx: HeaderContext) => void>();
 let domController: HeaderDomController | null = null;
+let macosWindowFullscreenController: MacosWindowFullscreenController | null = null;
 let coreSidebarRegistration: HeaderRegistration | null = null;
 let coreBreadcrumbRegistration: HeaderRegistration | null = null;
 let renderGeneration = 0;
@@ -408,6 +410,9 @@ export default definePlugin({
         applySidebarClasses(getSettingsStore());
         applyNavClasses();
 
+        macosWindowFullscreenController = createMacosWindowFullscreenController();
+        macosWindowFullscreenController.start();
+
         domController = createHeaderDomController({
             renderLayout,
             teardownLayout,
@@ -442,6 +447,8 @@ export default definePlugin({
 
         domController?.undo();
         domController = null;
+        macosWindowFullscreenController?.stop();
+        macosWindowFullscreenController = null;
         teardownLayout();
         clearSidebarClasses();
         clearNavClasses();
