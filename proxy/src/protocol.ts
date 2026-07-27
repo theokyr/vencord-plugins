@@ -86,6 +86,10 @@ export const TIMEOUTS = {
     toolCall: 10_000,
     eval: 30_000,
     prompt: 60_000,
+    /** A rebuild kills Discord, runs a full Vencord build, and relaunches it. */
+    rebuild: 300_000,
+    /** How long the client may take to drop its socket once the rebuild starts. */
+    rebuildDisconnect: 90_000,
 } as const;
 
 // ─── Tool names ────────────────────────────────────────────────────────

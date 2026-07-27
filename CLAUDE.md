@@ -206,13 +206,19 @@ cd ~/src/vencord-plugins/proxy && npm install && npm run build
 
 | Context | Command | Notes |
 |---------|---------|-------|
-| **Agent** | `discord_rebuild_plugins` MCP tool | Preferred from agent context |
-| **Agent (fallback)** | `venpm rebuild` | If MCP tool unavailable or returns symlink error |
+| **Agent** | `discord_rebuild_plugins` MCP tool | Preferred — the proxy waits for the bridge to reconnect and reports `verified: true` |
+| **Agent (fallback)** | `venpm rebuild --restart --yes` | Verifies the restart itself; non-zero exit if Discord does not come back |
 | **Human (terminal)** | `venpm rebuild` | Preferred — builds, deploys, restarts Discord |
-| **Human (terminal)** | `./link.sh` | Alternative — also installs local symlinks first |
+| **Human (terminal)** | `./link.sh` | Alternative — installs local symlinks first, then delegates to `venpm rebuild` |
 | **Never** | `pnpm build` directly | Does not deploy; leaves dist/ out of sync |
+| **Never** | launching Discord from a shell yourself | `nohup discord &` / `setsid discord` — see below |
 
-**Agent rules:** See the [Agent Rules](#agent-rules) section. Agents should prefer `discord_rebuild_plugins` MCP tool, falling back to `venpm rebuild` when the MCP tool is unavailable.
+**Both paths are verified.** Neither reports success on a spawn alone:
+
+- `venpm rebuild --restart` proves the *process* came back: it waits for a Discord process to appear and to still be alive after a settle window, and quotes `~/.local/state/venpm/discord-launch.log` when it isn't. A failed restart is `RESTART_FAILED` (exit 3), distinct from a build failure.
+- `discord_rebuild_plugins` proves the *new bundle loaded*: the proxy waits for the plugin's WebSocket to drop and then re-handshake. Only the newly built plugin code can send that handshake. Returns `{verified: true, downtimeMs}`, or an explicit error naming the launch log.
+
+**Never launch Discord from an agent shell.** Agent and CI shells inherit a broken display environment (`DISPLAY=""` plus a stale `WAYLAND_DISPLAY`), so a manual `nohup discord &` either dies instantly with "Missing X server or $DISPLAY" or, if forced onto the wrong backend, crash-loops the GPU process and hangs on "Starting...". It also leaves orphaned processes. `venpm` handles this by importing the desktop session's real environment from `systemctl --user show-environment`; run `venpm doctor` to see which display a restart will use.
 
 **Voice call auto-deny:** If the user is in a voice channel or call, `discord_rebuild_plugins` returns an auto-deny error. Agents MUST respect this rejection. Do NOT attempt to bypass it via `discord_eval`, shell commands, or any other workaround. Inform the user and wait for them to leave the call.
 
@@ -299,6 +305,45 @@ window.__channelTabs?.unregisterRoute("@@myPlugin");
 
 Currently 5 consumer plugins are migrated to the settingsHub API.
 
+## channelTabs Plugin
+
+IDE-style tab bar for channels, DMs and virtual routes. It owns the virtual tab API documented above, so settingsHub and venpmGui depend on it being loaded.
+
+### Architecture
+
+- **Immutable tab state** — every mutation goes through `applyTabState`, and the group operations in `groupState.ts` are pure functions over the tab array. Nothing edits the live array in place.
+- **Tab bar position** — top or bottom is CSS `order` on the `page_` flex container, not DOM reordering. The container's flex height is overridden via a WeakMap save/restore guarded by a `MutationObserver`, so Discord re-rendering the page does not undo it.
+- **Native context menus** — a synthetic `MouseEvent` plus `addContextMenuPatch`, so tabs get Discord's real channel menu rather than a lookalike.
+- **Keybinds** — 7 configurable bindings registered through `_libKeybindRegistry`, not a private listener.
+
+### Drag & Drop
+
+`DataTransfer.getData()` is deliberately unreadable during `dragover` — only `types` is exposed. Hover-time decisions ("is this a group being reordered, or a tab being absorbed into it?") therefore cannot come from the event, so `dragState.ts` mirrors the payload at `dragstart` and the bar reads it during `dragover`.
+
+The hover math lives in `dragGeometry.ts`, kept dependency-free (DOM only, no webpack imports) so it is unit-testable outside the renderer. A group chip is zoned: the outer 30% of each side reorders, the middle absorbs. Reordering animates by measuring `offsetLeft` before and after (FLIP), and the insertion point is drawn as a keyed caret rather than by shifting siblings.
+
+### File Structure
+
+```
+plugins/channelTabs/
+  index.tsx              # Plugin entry, tab state, virtual route registry
+  tabBar.tsx             # Bar rendering, drag handlers, overflow
+  tabMeta.ts             # Channel/DM/route -> label, icon, unread
+  types.ts               # Tab and group types
+  dragState.ts           # Module-scope drag mirror (dragover can't read dataTransfer)
+  dragGeometry.ts        # Pointer -> drop slot math, autoscroll (pure, DOM-only)
+  groupState.ts          # Pure group operations over the tab array
+  groupChip.tsx          # Collapsed group rendering
+  groupDropdown.tsx      # Expanded group contents
+  groupNamePrompt.tsx    # Rename dialog
+  contextMenu.tsx        # Synthetic MouseEvent -> Discord's native menu
+  contextMenuConfig.ts   # Menu item definitions
+  eventFilters.ts        # Which Flux events should refresh a tab
+  multiSelect.ts         # Shift/ctrl selection across tabs
+  settingsSchema.tsx     # settingsHub schema
+  style.css
+```
+
 ## _keybindRegistry
 
 Central keybind registry and dispatcher. Build-time shared module (like `_libAnimationKit`) — listed in `plugins.json` as a dependency for other plugins, but not independently useful to end users.
@@ -332,12 +377,23 @@ settingsHub renders a global Keybinds page reading from `window.__keybindRegistr
 
 ## embedFix Plugin
 
-Rewrites social media URLs in both directions to produce richer embeds.
+Rewrites social media URLs in both directions to produce richer embeds. Rewritten in v0.3.0 — provider support is resolved **per link**, never per platform. v0.5.0 added main-process media proxying for CSP-blocked provider CDNs.
 
 ### Architecture
 
-- **Outgoing** — `onBeforeMessageSend` hook. Cache-hit: instant URL rewrite before the message is sent. Cache-miss: message sends first, then a deferred `MessageActions.editMessage` replaces the URL (avoids blocking the send on a network probe).
-- **Incoming** — Render patch on `"mustConfirmExternalLink"` module suppresses Discord's default external-link embeds for rewritten URLs, then `MessageAccessories` API injects a replacement embed using Discord's native Embed component (`findComponentByCodeLazy "renderSuppressButton"`).
+- **Per-link resolution** (`providerResolver.ts`) — every URL is checked on its own, because a provider that renders video tweets may 404 on photo tweets. Results are cached by canonical URL (success TTL 24h, failure TTL 10m, LRU-bounded). Per-domain health tracking puts a repeatedly failing provider on exponential cooldown; concurrent lookups of the same link share one probe chain.
+- **Outgoing** (`outgoing.ts`) — `onBeforeMessageSend`. Known link → rewritten inline. Unknown → sent clean and queued; once resolved, a single `MessageActions.editMessage` splices the rewrites back in, verifying the text still matches at each offset. A link already known to have no working provider is never re-queued.
+- **Incoming** (`incomingPlan.ts` + `incomingController.ts`) — `MessageAccessories` renders a replacement embed and Discord's own embed is hidden **only once that replacement exists**. Pending and failed lookups leave Discord alone. There is no link-render patch: other users' link text is left as they typed it.
+- **Suppression** (`embedSuppressor.ts`) — scoped to one message container, driven entirely by the plan, restores everything it hid on teardown. No global document sweep. Pairs by the links an embed renders, falling back to embed position: an image-only tweet card links the author and the picture but never the post URL.
+- **Media presentation** (`mediaProbe.ts` + `mediaProxy.ts`) — Discord's CSP blocks `img-src`/`media-src` for provider CDNs. Each host is probed once **per kind** and, when blocked, the bytes are fetched in the Electron main process (no CSP) and presented from a `blob:` URL. Images/gifs proxy automatically under 8 MB; video is click-to-load under 50 MB.
+
+### Scoring
+
+`embedMeta.ts` rates every fetch 0–4 (NONE / TITLE_ONLY / IMAGE / RICH / MEDIA) and detects **soft errors**: a provider that answers 200 with an error page, a bare landing page, or a redirect back to the source domain. A soft error scores 0 for that link but does **not** count against the provider's health — the domain is alive, this one link is unsupported. A long streak of soft errors across *different* links does bench the domain, since a provider that says that about everything is dead or sniffing us. `GOOD_ENOUGH_SCORE` (IMAGE) is the early-accept bar; a title-only result keeps the search going and is used only as a last resort.
+
+Scoring must reflect what can actually be *presented*, not what the metadata claims. Media the renderer cannot display is stripped before scoring, and click-to-load video never reaches the MEDIA tier — it must not outrank a native embed that simply plays.
+
+A tie goes to the provider. Requiring a strict win meant the plugin silently did nothing for the common case, where Discord and the provider both manage title + image + description.
 
 ### Platforms
 
@@ -347,21 +403,36 @@ Rewrites social media URLs in both directions to produce richer embeds.
 
 ```
 plugins/embedFix/
-  index.tsx          # Plugin entry, patches, MessageAccessories registration
-  native.ts          # Node.js: HTTP probing with OG/oEmbed metadata parsing
-  probeCache.ts      # ProbeCache with TTL and static fallback map
-  platforms.ts       # Per-platform URL rewrite rules
+  index.tsx              # Plugin entry, settings, Flux wiring, deferred edits
+  native.ts              # Electron main: one fetch per provider URL, bounded concurrency
+  embedMeta.ts           # Meta parsing, scoring, soft-error detection (pure, shared with native)
+  providerResolver.ts    # Per-link resolution, caching, domain health (pure)
+  incomingPlan.ts        # Message -> render/suppress plan (pure)
+  incomingController.ts  # Shared renderer state, subscription fan-out
+  embedSuppressor.ts     # Scoped DOM hiding + restore
+  mediaProbe.ts          # Per-host, per-kind CSP capability probing (pure)
+  mediaProxy.ts          # Main-process media fetch -> blob: URL, bounded + revoked
+  outgoing.ts            # Send-time plan, offset-verified replacements (pure)
+  urlRewriter.ts         # URL scanning, tracking-param stripping, canonical keys
+  providerMap.ts         # Platform/provider definitions and matching
+  providerPriority.ts    # User-ordered provider lists
+  components/            # EmbedAccessory, EmbedCard, ProviderPriorityEditor
 ```
 
 ### Critical Gotchas
 
 | Issue | Detail |
 |-------|--------|
-| `addMessageAccessory` needs factory fn | Expects `(props) => ReactNode`. `ErrorBoundary.wrap()` returns a component class — passing it directly silently produces nothing. Wrap: `(props) => <EmbedFixAccessory {...props} />` |
+| Suppression invariant | Never hide a native embed unless a working replacement for that exact link exists. Hiding on "pending" is what made incoming rewriting appear broken — the message ended up with no embed at all. |
+| `addMessageAccessory` needs factory fn | Expects `(props) => ReactNode`. `ErrorBoundary.wrap()` returns a component class — passing it directly silently produces nothing. |
 | Embed DOM structure | Native embeds render as `<article class="embedFull__* embed__*">` inside `#message-accessories-{messageId}`. The `embedWrapper_` class does NOT exist in the accessories container. |
-| CSP blocks external video | `media-src` only allows Discord CDN. `<video src="https://vxreddit.com/...">` is silently blocked. Use `type: "article"` synthetic embeds with images (`img-src` is more permissive). |
-| Patch `$1` not resolved | In Vencord patch replace strings, `$1` may appear as a literal rather than the captured group. Use `arguments[N]` to reference function parameters directly. |
-| Domain normalization | When matching embed URLs against platform domains, strip `www`/`m`/`mobile`/`old` from BOTH the original URL hostname AND the embed link hostname. Add both raw and normalized forms to the match set. |
+| Embed colour must be an int | Discord's Embed component wants a 24-bit number, not `#rrggbb`. See `parseThemeColor`. |
+| Pair embeds by URL, then position | `message.embeds[i]` does not line up with the i-th `<article>` in the DOM. Match on the links inside the embed first; fall back to position among non-ours articles. |
+| Bare domains | `https://x.com` has nothing to embed — `hasEmbeddablePath` keeps home pages out of both directions. |
+| CSP blocks provider CDNs | `i.redd.it`, `preview.redd.it`, `phixiv.net` and provider video hosts are refused by `img-src`/`media-src`; `blob:` and `data:` pass. Confirm with a `securitypolicyviolation` listener — a CSP block and a 403 hotlink both look like `onerror`. |
+| Accessory errors are silent | Vencord wraps accessories in `<ErrorBoundary noop>`, so a render throw yields nothing at all. `findComponentByCodeLazy` returns an always-truthy proxy that throws at render time, making `X ? <X/> : <Fallback/>` dead code — use a real `ErrorBoundary fallback`. |
+| Providers sniff the User-Agent | vxtwitter emits OG tags only for exactly `TelegramBot (like TwitterBot)`. The native fetcher retries with a second identity when a page returns 200 with no metadata. |
+| Discord rewrites embed hosts | An `x.com` link comes back as a `twitter.com` embed URL. Pair by path across the platform's hosts; the weak host-only fallback must never count as proof a link is still in the message, or a pending link gets its embed hidden with nothing in its place. |
 
 ## venpm Integration
 
@@ -407,9 +478,11 @@ Always list `_lib`-prefixed shared modules — other plugins depend on them. The
 
 1. **Use venpm for all plugin operations.** Install, uninstall, update, search, list — always through venpm, never manual file operations.
 2. **Use `discord_rebuild_plugins` MCP tool for build+deploy when available.** Falls back to `venpm rebuild` if the MCP tool is unavailable or returns a symlink error. Never run `pnpm build` directly — it does not deploy.
-3. **Use MCP tools for investigation.** `discord_eval`, `discord_get_store`, `discord_query_selector` — not `/tmp` scripts.
-4. **Respect voice call auto-deny.** If `discord_rebuild_plugins` returns auto-deny, do NOT attempt workarounds. Inform the user and wait.
-5. **Update `plugins.json` when adding/modifying plugins.** Run `venpm validate plugins.json` after changes.
+3. **Never start Discord yourself.** No `nohup discord &`, `setsid discord`, or hand-built display flags — an agent shell's display environment is wrong and produces dead or crash-looping clients plus orphaned processes. Only `discord_rebuild_plugins` or `venpm rebuild --restart` may launch it.
+4. **Trust the verification, not the exit of a spawn.** Both supported paths report whether Discord actually came back; if one says it did not, read `~/.local/state/venpm/discord-launch.log` and run `venpm doctor` instead of retrying blindly.
+5. **Use MCP tools for investigation.** `discord_eval`, `discord_get_store`, `discord_query_selector` — not `/tmp` scripts.
+6. **Respect voice call auto-deny.** If `discord_rebuild_plugins` returns auto-deny, do NOT attempt workarounds. Inform the user and wait.
+7. **Update `plugins.json` when adding/modifying plugins.** Run `venpm validate plugins.json` after changes.
 
 ## Testing
 
@@ -436,14 +509,21 @@ cd ~/src/vencord-plugins && npm test
 | `plugins/settingsHub/search.ts` | Pure fuzzy search, no Discord deps |
 | `plugins/discordMcp/shared.ts` | Shared state and registration, no Discord deps |
 | `plugins/_libKeybindRegistry/*` | Pure logic — format, registry, dispatcher |
-| `plugins/embedFix/probeCache.ts` | Pure cache logic, no Discord deps |
-| `plugins/embedFix/platforms.ts` | Pure URL rewrite rules, no Discord deps |
+| `plugins/embedFix/embedMeta.ts` | Pure meta parsing, scoring, soft-error detection |
+| `plugins/embedFix/providerResolver.ts` | Pure per-link resolution — probe fn and clock are injected |
+| `plugins/embedFix/incomingPlan.ts` | Pure message -> render/suppress planning |
+| `plugins/embedFix/incomingController.ts` | Depends only on the resolver, no React |
+| `plugins/embedFix/outgoing.ts` | Pure send-time planning and offset-verified splicing |
+| `plugins/embedFix/urlRewriter.ts` | Pure URL rewrite rules and canonical keys |
+| `plugins/embedFix/embedSuppressor.ts` | Matching is pure; DOM helpers run under happy-dom |
+| `plugins/embedFix/mediaProbe.ts` | Loaders are injected — no DOM needed |
+| `plugins/embedFix/mediaProxy.ts` | Fetcher and object-URL factory are injected |
 
 Plugin UI code, patches, and DOM injection are **not** unit-testable (they require the Discord renderer).
 
 ### Current Coverage
 
-238 tests across 16 test files, all passing. DOM-dependent tests (dispatcher) use `happy-dom`.
+759 tests across 62 test files. DOM-dependent tests (dispatcher, embedSuppressor, enrichedHeader) use `happy-dom` via a `// @vitest-environment happy-dom` pragma.
 
 ## Git
 

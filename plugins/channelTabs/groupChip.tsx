@@ -4,9 +4,11 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { useRef } from "@webpack/common";
 import { findStoreLazy } from "@webpack";
 import type { GroupTab, LeafTab } from "./types";
 import { getTabMeta } from "./tabMeta";
+import { setDrag, setDragGhost } from "./dragState";
 
 const ReadStateStore = findStoreLazy("ReadStateStore") as {
     getMentionCount: (channelId: string) => number;
@@ -22,15 +24,15 @@ export interface GroupChipProps {
     chipStyle: "compact" | "minimal";
     activeChildIndex: number | null;
     showIcon: boolean;
+    /** This chip is the tab currently being dragged. */
+    isDragging?: boolean;
+    /** This chip just received a dropped tab. */
+    isSettling?: boolean;
+    /** A leaf is hovering the chip's absorb band. */
+    isAbsorbTarget?: boolean;
+    onDragStateChange?: (id: string | null) => void;
     onToggleCollapsed: (groupId: string) => void;
-    onActivateChild: (groupIndex: number, childIndex: number) => void;
-    onCloseChild: (groupId: string, childId: string) => void;
-    onMoveChild: (groupId: string, from: number, to: number) => void;
-    onDropToGroup: (tabId: string, groupId: string) => void;
-    onDropFromGroup: (tabId: string, dropIndex: number) => void;
     onContextMenu: (e: React.MouseEvent, index: number) => void;
-    onChildContextMenu: (e: React.MouseEvent, groupId: string, childIndex: number) => void;
-    onMove: (from: number, to: number) => void;
 }
 
 function ChildBadge({ child }: { child: LeafTab }) {
@@ -68,16 +70,14 @@ export function GroupChip({
     chipStyle,
     activeChildIndex,
     showIcon,
+    isDragging,
+    isSettling,
+    isAbsorbTarget,
+    onDragStateChange,
     onToggleCollapsed,
-    onActivateChild,
-    onCloseChild,
-    onMoveChild,
-    onDropToGroup,
-    onDropFromGroup,
     onContextMenu,
-    onChildContextMenu,
-    onMove,
 }: GroupChipProps) {
+    const chipRef = useRef<HTMLDivElement>(null);
     // Sort children: active child first in icon strip
     const iconChildren = [...group.children];
     if (activeChildIndex !== null && activeChildIndex >= 0 && activeChildIndex < iconChildren.length) {
@@ -91,9 +91,18 @@ export function GroupChip({
         ? { borderLeftColor: group.color, borderLeftWidth: "3px", borderLeftStyle: "solid" as const }
         : {};
 
+    let className = "vc-channelTabs-tab vc-channelTabs-group-chip";
+    if (isActive) className += " vc-channelTabs-tab-active";
+    if (group.pinned) className += " vc-channelTabs-tab-pinned";
+    if (isDragging) className += " vc-channelTabs-tab-dragging";
+    if (isSettling) className += " vc-channelTabs-tab-settling";
+    if (isAbsorbTarget) className += " vc-channelTabs-drop-target";
+
     return (
         <div
-            className={`vc-channelTabs-tab vc-channelTabs-group-chip ${isActive ? "vc-channelTabs-tab-active" : ""} ${group.pinned ? "vc-channelTabs-tab-pinned" : ""}`}
+            ref={chipRef}
+            data-vc-group-id={group.id}
+            className={className}
             style={colorStyle}
             onClick={() => onToggleCollapsed(group.id)}
             onContextMenu={e => onContextMenu(e, index)}
@@ -101,32 +110,11 @@ export function GroupChip({
             onDragStart={e => {
                 e.dataTransfer.setData("text/plain", String(index));
                 e.dataTransfer.setData("application/x-tab-type", "group");
+                e.dataTransfer.setData("application/x-tab-id", group.id);
                 e.dataTransfer.effectAllowed = "move";
-            }}
-            onDragOver={e => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-                e.currentTarget.classList.add("vc-channelTabs-drop-target");
-            }}
-            onDragLeave={e => {
-                e.currentTarget.classList.remove("vc-channelTabs-drop-target");
-            }}
-            onDrop={e => {
-                e.preventDefault();
-                e.currentTarget.classList.remove("vc-channelTabs-drop-target");
-                const tabType = e.dataTransfer.getData("application/x-tab-type");
-                if (tabType === "group") {
-                    const src = parseInt(e.dataTransfer.getData("text/plain"));
-                    if (!isNaN(src)) onMove(src, index);
-                } else if (tabType === "child") {
-                    const tabId = e.dataTransfer.getData("application/x-tab-id");
-                    if (tabId) onDropToGroup(tabId, group.id);
-                } else if (tabType === "tab") {
-                    const tabId = e.dataTransfer.getData("application/x-tab-id");
-                    if (tabId) onDropToGroup(tabId, group.id);
-                } else {
-                    // Unknown/external drag type — ignore
-                }
+                if (chipRef.current) setDragGhost(e, chipRef.current);
+                setDrag({ kind: "group", id: group.id, index });
+                onDragStateChange?.(group.id);
             }}
         >
             <span className="vc-channelTabs-group-name">{group.name}</span>

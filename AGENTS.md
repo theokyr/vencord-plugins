@@ -9,7 +9,7 @@ The Discord MCP proxy is:
 ```json
 {
   "command": "node",
-  "args": ["/Users/user/src/vencord-plugins/proxy/dist/index.js"]
+  "args": ["/path/to/vencord-plugins/proxy/dist/index.js"]
 }
 ```
 

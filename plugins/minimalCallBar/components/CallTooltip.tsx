@@ -4,10 +4,12 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { openUserProfile } from "@utils/discord";
 import { findStoreLazy } from "@webpack";
 import { React, UserStore } from "@webpack/common";
 
 import { settings } from "../index";
+import { openVoiceUserContextMenu } from "./UserContextMenu";
 
 const VoiceStateStore = findStoreLazy("VoiceStateStore") as {
     getVoiceStatesForChannel: (channelId: string) => Record<string, { userId: string; selfMute: boolean; selfDeaf: boolean; mute: boolean; deaf: boolean; selfVideo: boolean; selfStream: boolean; }>;
@@ -27,9 +29,13 @@ export interface CallTooltipProps {
     callStartedAt: number;
     position: "above" | "below";
     anchorRect: DOMRect;
+    /** Called while a context menu opened from the tooltip is up, so the bar keeps it visible. */
+    onMenuOpenChange?: (open: boolean) => void;
+    /** Dismiss the tooltip (e.g. after opening a profile modal on top of it). */
+    onDismiss?: () => void;
 }
 
-export function CallTooltip({ channelId, channelName, callStartedAt, position, anchorRect }: CallTooltipProps) {
+export function CallTooltip({ channelId, channelName, callStartedAt, position, anchorRect, onMenuOpenChange, onDismiss }: CallTooltipProps) {
     const [now, setNow] = React.useState(Date.now());
 
     React.useEffect(() => {
@@ -52,7 +58,11 @@ export function CallTooltip({ channelId, channelName, callStartedAt, position, a
     }
 
     return (
-        <div className="vc-minimalCallBar-tooltip" style={style}>
+        <div
+            className={`vc-minimalCallBar-tooltip vc-minimalCallBar-tooltip-${position}`}
+            style={style}
+            onClick={e => e.stopPropagation()}
+        >
             {settings.store.tooltipChannel && (
                 <div className="vc-minimalCallBar-tooltipHeader">{channelName}</div>
             )}
@@ -73,7 +83,16 @@ export function CallTooltip({ channelId, channelName, callStartedAt, position, a
                 else if (vs.selfMute || vs.mute) statusText = "Muted";
 
                 return (
-                    <div key={vs.userId} className="vc-minimalCallBar-tooltipUser">
+                    <div
+                        key={vs.userId}
+                        className="vc-minimalCallBar-tooltipUser"
+                        onClick={() => { onDismiss?.(); openUserProfile(vs.userId); }}
+                        onContextMenu={e => {
+                            onMenuOpenChange?.(true);
+                            openVoiceUserContextMenu(e, vs.userId, () => onMenuOpenChange?.(false));
+                        }}
+                        title="Click for profile — right click for volume and mute"
+                    >
                         <img
                             className="vc-minimalCallBar-tooltipUserAvatar"
                             src={user.getAvatarURL(undefined, 32)}

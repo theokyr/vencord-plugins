@@ -30,8 +30,20 @@ const CallStore = findStoreLazy("CallStore") as {
 
 const VoiceStateStore = findStoreLazy("VoiceStateStore") as {
     getVoiceStatesForChannel: (channelId: string) => Record<string, any>;
-    getCurrentClientVoiceChannelId: () => string | null;
+    /** NOTE: takes a guildId (null for DMs). Calling it with no args always returns null. */
+    getCurrentClientVoiceChannelId: (guildId: string | null) => string | null;
+    getVoiceStateForUser: (userId: string) => { channelId?: string; connectedAt?: number; } | undefined;
     isCurrentClientInVoiceChannel: () => boolean;
+};
+
+const SelectedChannelStore = findStoreLazy("SelectedChannelStore") as {
+    /** Channel we are joined (or joining) to for voice — guild VC or DM call. Null when not in voice. */
+    getVoiceChannelId: () => string | null;
+    getChannelId: () => string | null;
+};
+
+const GuildStore = findStoreLazy("GuildStore") as {
+    getGuild: (guildId: string) => { name: string; } | undefined;
 };
 
 const SpeakingStore = findStoreLazy("SpeakingStore") as {
@@ -43,9 +55,28 @@ const RTCConnectionStore = findStoreLazy("RTCConnectionStore") as {
     isDisconnected: () => boolean;
     getState: () => string;
     getChannelId: () => string | null;
+    getGuildId: () => string | null;
     getAveragePing: () => number;
     getDuration: () => number;
 };
+
+const UserStore = findStoreLazy("UserStore") as {
+    getCurrentUser: () => { id: string; } | undefined;
+};
+
+/** Governs the in-call layout, including whether the voice channel's text chat renders. */
+const ChannelRTCStore = findStoreLazy("ChannelRTCStore") as {
+    getLayout: (channelId: string) => string;
+    getChatOpen: (channelId: string) => boolean;
+};
+
+const ChannelRTCActions = findByPropsLazy("updateLayout", "updateChatOpen") as {
+    updateLayout: (channelId: string, layout: string) => void;
+    updateChatOpen: (channelId: string, open: boolean) => void;
+};
+
+const RTC_LAYOUT_NO_CHAT = "no-chat";
+const RTC_LAYOUT_NORMAL = "normal";
 
 const MediaEngineActions = findByPropsLazy("toggleSelfMute", "toggleSelfDeaf") as {
     toggleSelfMute: () => void;
@@ -77,9 +108,7 @@ export const settings = definePluginSettings({
             { label: "Bottom Strip (above input)", value: "bottom" },
         ],
         onChange: () => {
-            if (activeCallChannelId && overlayHidden) {
-                removeBar().then(() => injectBar());
-            }
+            if (activeCallChannelId && overlayHidden) rebuildBar();
         },
     },
     showMic: {
@@ -107,9 +136,14 @@ export const settings = definePluginSettings({
         description: "Show overflow menu button",
         default: true,
     },
+    responsiveAvatars: {
+        type: OptionType.BOOLEAN,
+        description: "Fit as many avatars as the bar width allows (ignores the max avatars setting)",
+        default: true,
+    },
     maxVisibleAvatars: {
         type: OptionType.NUMBER,
-        description: "Maximum avatars before +N count",
+        description: "Maximum avatars before +N count (used when responsive avatars is off)",
         default: 3,
     },
     tooltipUsers: {
@@ -140,6 +174,36 @@ export const settings = definePluginSettings({
             { label: "Navigate to call", value: "navigate" },
         ],
     },
+    expandWhenViewing: {
+        type: OptionType.SELECT,
+        description: "Show the full call view while you are viewing the call's own channel",
+        options: [
+            { label: "Server voice channels only", value: "guild", default: true },
+            { label: "Never (always compact)", value: "never" },
+            { label: "Always (DM calls too)", value: "always" },
+        ],
+        onChange: () => { manualOverride = false; applyAutoExpand(); },
+    },
+    showVoiceTextChat: {
+        type: OptionType.BOOLEAN,
+        description: "Show the voice channel's text chat instead of an empty page when the call view is collapsed",
+        default: true,
+        onChange: () => {
+            if (settings.store.showVoiceTextChat) applyVoiceTextChat();
+            else restoreVoiceTextChat();
+        },
+    },
+    keepBarWhenExpanded: {
+        type: OptionType.BOOLEAN,
+        description: "Keep the compact bar visible while the full call view is showing",
+        default: false,
+        onChange: () => {
+            if (!activeCallChannelId || overlayHidden) return;
+            // Only the expanded state changes shape here.
+            if (settings.store.keepBarWhenExpanded) injectBar();
+            else void removeBar(true);
+        },
+    },
     keybind_cycleMode: {
         type: OptionType.STRING,
         description: "Keybind to cycle display modes",
@@ -164,33 +228,106 @@ export const settings = definePluginSettings({
 
 // ─── Module-level state ──────────────────────────────────────────────────────
 
+export type ConnectionState = "connected" | "connecting" | "disconnected";
+
 let barContainer: HTMLDivElement | null = null;
 let barRoot: ReturnType<typeof createRoot> | null = null;
 let overlayHidden = false;
 let activeCallChannelId: string | null = null;
+let activeGuildId: string | null = null;
+let connectionState: ConnectionState = "disconnected";
 let callStartedAt = 0;
 let renderScheduled = false;
 let isConnectedToCall = false;
 let minimizeButton: HTMLButtonElement | null = null;
 let minimizeObserver: MutationObserver | null = null;
+let minimizeObserverTarget: Element | null = null;
 let removeBarInFlight: Promise<void> | null = null;
+/** Bumped on every session enter/switch/exit so async teardown can't resurrect a stale bar. */
+let sessionEpoch = 0;
+/** Remembers the RTC layout we replaced so it can be restored on leave. */
+let layoutOverride: { channelId: string; previous: string; } | null = null;
+/** Set when the user manually toggles the overlay; suppresses auto-expand until the view changes. */
+let manualOverride = false;
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Voice session resolution ────────────────────────────────────────────────
 
-function getActiveCallChannel(): { channelId: string; channel: any } | null {
+export interface VoiceSession {
+    channelId: string;
+    channel: any;
+    guildId: string | null;
+    /** True for guild voice channels (type 2) and stage channels (type 13). */
+    isGuildVoice: boolean;
+    connection: ConnectionState;
+}
+
+function classifyConnection(channelId: string): ConnectionState {
     try {
-        const calls = CallStore.getCalls();
-        for (const call of calls) {
-            const channelId = call.channelId;
-            if (!CallStore.isCallActive(channelId)) continue;
-            const channel = ChannelStore.getChannel(channelId);
-            // type 1 = DM, type 3 = Group DM
-            if (channel && (channel.type === 1 || channel.type === 3)) {
-                return { channelId, channel };
-            }
+        // RTC is authoritative once a media session exists for this exact channel.
+        if (RTCConnectionStore.getChannelId() === channelId && RTCConnectionStore.isConnected()) {
+            return "connected";
         }
-    } catch { /* stores not ready */ }
-    return null;
+    } catch { /* store not ready */ }
+    try {
+        // We have selected this channel for voice but RTC has not settled yet.
+        if (SelectedChannelStore.getVoiceChannelId() === channelId) return "connecting";
+    } catch { /* store not ready */ }
+    return "disconnected";
+}
+
+/**
+ * Resolves the voice session to display, covering both guild voice channels and
+ * DM/Group-DM calls.
+ *
+ * SelectedChannelStore.getVoiceChannelId() is the guild-agnostic source of truth for
+ * "the channel we are in" — it is set for guild VCs as well as DM calls, and cleared the
+ * moment we leave. CallStore only knows about DM/Group-DM calls, so it is used purely as
+ * a fallback to keep showing a rejoinable bar for a ringing/ongoing DM call we are not in.
+ */
+function resolveVoiceSession(): VoiceSession | null {
+    let channelId: string | null = null;
+    try { channelId = SelectedChannelStore.getVoiceChannelId(); } catch { /* store not ready */ }
+
+    if (!channelId) {
+        // Fallback: an active DM/Group-DM call we are not connected to (rejoin affordance).
+        try {
+            for (const call of CallStore.getCalls()) {
+                if (!CallStore.isCallActive(call.channelId)) continue;
+                const ch = ChannelStore.getChannel(call.channelId);
+                if (ch && (ch.type === 1 || ch.type === 3)) {
+                    channelId = call.channelId;
+                    break;
+                }
+            }
+        } catch { /* stores not ready */ }
+    }
+
+    if (!channelId) return null;
+
+    const channel = ChannelStore.getChannel(channelId);
+    if (!channel) return null;
+
+    const guildId = channel.guild_id ?? null;
+    return {
+        channelId,
+        channel,
+        guildId,
+        isGuildVoice: channel.type === 2 || channel.type === 13,
+        connection: classifyConnection(channelId),
+    };
+}
+
+/** Real join timestamp from our own voice state, so timers survive plugin reloads. */
+function resolveCallStartedAt(channelId: string): number {
+    try {
+        const me = UserStore.getCurrentUser();
+        const vs = me && VoiceStateStore.getVoiceStateForUser(me.id);
+        if (vs?.channelId === channelId && vs.connectedAt) {
+            // connectedAt is epoch seconds.
+            return vs.connectedAt * 1000;
+        }
+    } catch { /* store not ready */ }
+    return Date.now();
 }
 
 function getChannelName(channel: any): string {
@@ -199,6 +336,11 @@ function getChannelName(channel: any): string {
         return channel.rawRecipients.map((r: any) => r.global_name ?? r.username).join(", ");
     }
     return "Call";
+}
+
+function getGuildName(guildId: string | null): string | undefined {
+    if (!guildId) return undefined;
+    try { return GuildStore.getGuild(guildId)?.name; } catch { return undefined; }
 }
 
 function rejoinCall() {
@@ -223,13 +365,24 @@ function handleBarClick() {
         } catch { /* swallow */ }
         return;
     }
-    // toggleOverlay: navigate to call channel first, then expand
+    // toggleOverlay: navigate to the call channel, then show the full call view.
+    //
+    // Deliberately expand rather than toggle: transitionToChannel dispatches CHANNEL_SELECT
+    // synchronously, so onChannelSelect's auto-expand may already have run by the time we get
+    // here. Toggling would then immediately collapse it again, leaving the overlay hidden with
+    // no bar. The bar is only clickable while collapsed, so "expand" is the only sane intent.
+    // Capture intent *before* navigating: onChannelSelect's auto-expand runs synchronously
+    // inside transitionToChannel and would otherwise flip the state out from under us.
+    const wasExpanded = !overlayHidden;
     if (activeCallChannelId) {
         try {
             ChannelRouter.transitionToChannel(activeCallChannelId);
         } catch { /* swallow */ }
     }
-    toggleOverlay();
+    // Set after navigating — onChannelSelect resets manualOverride.
+    manualOverride = true;
+    if (wasExpanded) collapseOverlay();
+    else if (overlayHidden) expandOverlay();
 }
 
 // ─── Bar injection ───────────────────────────────────────────────────────────
@@ -243,8 +396,19 @@ function getEffectiveMode(): "strip" | "tab" | "bottom" {
     return mode as "strip" | "tab" | "bottom";
 }
 
+/**
+ * The bar shows whenever the full call view is hidden — or alongside it, when the user has
+ * opted into keeping both on screen at once.
+ */
+function barShouldBeVisible(): boolean {
+    if (!activeCallChannelId) return false;
+    return overlayHidden || settings.store.keepBarWhenExpanded;
+}
+
 function injectBar() {
     if (barContainer) return;
+    // Guard against async teardown racing a re-inject after the call already ended.
+    if (!barShouldBeVisible()) return;
 
     const mode = getEffectiveMode();
     if (mode === "tab") return; // Mode B: channelTabs handles rendering via window.__minimalCallBar
@@ -297,9 +461,11 @@ function renderBar() {
             <CompactBar
                 channelId={activeCallChannelId}
                 channelName={getChannelName(channel)}
+                guildName={getGuildName(activeGuildId)}
                 callStartedAt={callStartedAt}
                 mode={mode as "strip" | "bottom"}
                 isConnected={isConnectedToCall}
+                connection={connectionState}
                 ping={ping}
                 onToggleOverlay={toggleOverlay}
                 onRejoin={rejoinCall}
@@ -309,16 +475,22 @@ function renderBar() {
     );
 }
 
-async function removeBar(): Promise<void> {
+/**
+ * @param immediate Skip the exit animation. Used when the full call view is taking the bar's
+ * place — playing a 500ms fade while the overlay is already on screen reads as a glitch.
+ */
+async function removeBar(immediate = false): Promise<void> {
     if (removeBarInFlight) return removeBarInFlight;
     if (!barContainer) return;
     removeBarInFlight = (async () => {
-        // Exit animation — play it, then tear down
-        barContainer!.classList.add("vc-anim-fadeOut");
-        await new Promise<void>(resolve => {
-            barContainer!.addEventListener("animationend", () => resolve(), { once: true });
-            setTimeout(resolve, 500); // fallback in case animationend never fires
-        });
+        if (!immediate) {
+            // Exit animation — play it, then tear down
+            barContainer!.classList.add("vc-anim-fadeOut");
+            await new Promise<void>(resolve => {
+                barContainer!.addEventListener("animationend", () => resolve(), { once: true });
+                setTimeout(resolve, 500); // fallback in case animationend never fires
+            });
+        }
 
         barRoot?.unmount();
         barRoot = null;
@@ -340,6 +512,8 @@ function scheduleRender() {
 // ─── Minimize button injection ──────────────────────────────────────────────
 
 function injectMinimizeButton() {
+    // Drop a stale reference to a button Discord already removed from the DOM.
+    if (minimizeButton && !minimizeButton.isConnected) minimizeButton = null;
     if (minimizeButton) return;
 
     const bottomControls = document.querySelector(
@@ -374,14 +548,19 @@ function removeMinimizeButton() {
     if (minimizeObserver) {
         minimizeObserver.disconnect();
         minimizeObserver = null;
+        minimizeObserverTarget = null;
     }
 }
 
 function startMinimizeObserver() {
-    if (minimizeObserver) return;
-
     const chat = document.querySelector('[class*="chat_"]');
     if (!chat) return;
+    // Discord swaps the chat container on navigation, which silently orphans the observer.
+    if (minimizeObserver) {
+        if (minimizeObserverTarget?.isConnected && minimizeObserverTarget === chat) return;
+        minimizeObserver.disconnect();
+    }
+    minimizeObserverTarget = chat;
 
     minimizeObserver = new MutationObserver(() => {
         // Re-inject if overlay was recreated while in expanded state
@@ -399,19 +578,42 @@ function collapseOverlay() {
     overlayHidden = true;
     document.body.classList.add("vc-minimalCallBar-hideOverlay");
     removeMinimizeButton();
-    if (!barContainer) injectBar();
+    if (removeBarInFlight) {
+        // A fade-out is still running: barContainer is non-null but doomed, so waiting for the
+        // teardown is the only way to avoid ending up with the overlay hidden and no bar.
+        const epoch = sessionEpoch;
+        void removeBarInFlight.then(() => {
+            if (epoch === sessionEpoch) injectBar();
+        });
+    } else if (!barContainer) {
+        injectBar();
+    }
 }
 
 function expandOverlay() {
     overlayHidden = false;
     document.body.classList.remove("vc-minimalCallBar-hideOverlay");
-    removeBar().then(() => {
+
+    if (settings.store.keepBarWhenExpanded) {
+        // Both on screen: keep the bar mounted and just hook into the call view.
+        injectBar();
+        injectMinimizeButton();
+        startMinimizeObserver();
+        scheduleRender();
+        return;
+    }
+
+    const epoch = sessionEpoch;
+    void removeBar(true).then(() => {
+        if (epoch !== sessionEpoch || overlayHidden) return;
         injectMinimizeButton();
         startMinimizeObserver();
     });
 }
 
 function toggleOverlay() {
+    // A manual toggle wins over the auto-expand preference until the next navigation.
+    manualOverride = true;
     if (overlayHidden) {
         expandOverlay();
     } else {
@@ -427,81 +629,230 @@ function cycleMode() {
     const idx = modes.indexOf(current as any);
     const next = modes[(idx + 1) % modes.length];
     settings.store.displayMode = next;
-    if (overlayHidden && activeCallChannelId) {
-        removeBar().then(() => injectBar());
-    }
+    if (overlayHidden && activeCallChannelId) rebuildBar();
 }
 
 // ─── FluxDispatcher handlers ─────────────────────────────────────────────────
 
-function onCallUpdate() {
+/**
+ * Every event that can start, end, move or interrupt a voice session.
+ *
+ * VOICE_CHANNEL_SELECT is the important one and was previously missing — it is the event
+ * Discord fires when you join, leave or switch a voice channel, and it is the only signal
+ * for guild voice channels (which never produce CALL_* events).
+ */
+const VOICE_EVENTS = [
+    "VOICE_CHANNEL_SELECT",
+    "RTC_CONNECTION_STATE",
+    "CALL_CREATE",
+    "CALL_UPDATE",
+    "CALL_DELETE",
+    "CHANNEL_DELETE",
+    "GUILD_DELETE",
+    "CONNECTION_CLOSED",
+    "LOGOUT",
+] as const;
+
+/**
+ * Guild voice channels default to the "no-chat" RTC layout, which puts a `noChat_` class on the
+ * chat content element and suppresses the channel's text chat entirely. Combined with our own
+ * CSS hiding the call view, that leaves a genuinely empty page — Discord renders nothing at all.
+ *
+ * Switching the layout to "normal" makes Discord render the voice channel's own text chat, so the
+ * collapsed state shows the compact bar above a usable chat instead of blank space. The previous
+ * layout is remembered and restored, since this is Discord's own persisted per-channel state.
+ */
+function applyVoiceTextChat() {
+    if (!settings.store.showVoiceTextChat) return;
+    const channelId = activeCallChannelId;
+    // Guild voice only — DM calls already render their conversation.
+    if (!channelId || !activeGuildId) return;
     try {
-        const active = getActiveCallChannel();
-        let connected = false;
-        if (active) {
-            try {
-                const myChannel = VoiceStateStore.getCurrentClientVoiceChannelId();
-                connected = myChannel === active.channelId;
-            } catch { /* store not ready */ }
+        const current = ChannelRTCStore.getLayout(channelId);
+        if (current !== RTC_LAYOUT_NO_CHAT) return;
+        layoutOverride = { channelId, previous: current };
+        ChannelRTCActions.updateLayout(channelId, RTC_LAYOUT_NORMAL);
+    } catch { /* store or actions not ready */ }
+}
+
+function restoreVoiceTextChat() {
+    if (!layoutOverride) return;
+    const { channelId, previous } = layoutOverride;
+    layoutOverride = null;
+    try {
+        // Only revert if nothing else changed it in the meantime.
+        if (ChannelRTCStore.getLayout(channelId) === RTC_LAYOUT_NORMAL) {
+            ChannelRTCActions.updateLayout(channelId, previous);
+        }
+    } catch { /* store or actions not ready */ }
+}
+
+/** True when the compact bar should yield to Discord's full call view for the current session. */
+function shouldAutoExpand(): boolean {
+    if (!activeCallChannelId) return false;
+    const pref = settings.store.expandWhenViewing;
+    if (pref === "never") return false;
+    if (pref === "guild" && !activeGuildId) return false;
+    try {
+        // Only while actually looking at the call's own channel.
+        return SelectedChannelStore.getChannelId() === activeCallChannelId;
+    } catch { return false; }
+}
+
+/** Applies the auto-expand preference unless the user has manually overridden it. */
+function applyAutoExpand() {
+    if (!activeCallChannelId || manualOverride) return;
+    const wantExpanded = shouldAutoExpand();
+    if (wantExpanded && overlayHidden) {
+        expandOverlay();
+    } else if (!wantExpanded && !overlayHidden) {
+        collapseOverlay();
+    } else if (!barContainer && barShouldBeVisible()) {
+        injectBar();
+    }
+}
+
+/** Tears the bar down and rebuilds it, ignoring the result if the session moved on meanwhile. */
+function rebuildBar() {
+    const epoch = sessionEpoch;
+    void removeBar().then(() => {
+        if (epoch !== sessionEpoch) return;
+        injectBar();
+    });
+}
+
+function enterSession(session: VoiceSession) {
+    sessionEpoch++;
+    activeCallChannelId = session.channelId;
+    activeGuildId = session.guildId;
+    connectionState = session.connection;
+    isConnectedToCall = session.connection === "connected";
+    callStartedAt = resolveCallStartedAt(session.channelId);
+    manualOverride = false;
+    applyVoiceTextChat();
+
+    if (shouldAutoExpand()) {
+        overlayHidden = false;
+        document.body.classList.remove("vc-minimalCallBar-hideOverlay");
+        if (settings.store.keepBarWhenExpanded) injectBar();
+        else void removeBar(true);
+        injectMinimizeButton();
+        startMinimizeObserver();
+    } else {
+        overlayHidden = true;
+        document.body.classList.add("vc-minimalCallBar-hideOverlay");
+        injectBar();
+    }
+}
+
+function exitSession() {
+    sessionEpoch++;
+    restoreVoiceTextChat();
+    activeCallChannelId = null;
+    activeGuildId = null;
+    connectionState = "disconnected";
+    isConnectedToCall = false;
+    overlayHidden = false;
+    manualOverride = false;
+    document.body.classList.remove("vc-minimalCallBar-hideOverlay");
+    removeMinimizeButton();
+    void removeBar();
+}
+
+/**
+ * Single reconciliation point for every voice-related event. Handles four transitions:
+ * none -> session (join), session -> other channel (switch), connection-state change,
+ * and session -> none (leave / call ended / channel or guild deleted).
+ */
+function syncVoiceState() {
+    try {
+        const session = resolveVoiceSession();
+
+        if (!session) {
+            if (activeCallChannelId) exitSession();
+            return;
         }
 
-        if (active && !activeCallChannelId) {
-            // New call detected
-            activeCallChannelId = active.channelId;
-            callStartedAt = Date.now();
-            isConnectedToCall = connected;
-            // Always collapse overlay — the compact bar replaces it
-            overlayHidden = true;
-            document.body.classList.add("vc-minimalCallBar-hideOverlay");
-            injectBar();
-        } else if (active && activeCallChannelId) {
-            // Call still active — check if connection state changed
-            const wasConnected = isConnectedToCall;
-            isConnectedToCall = connected;
-            if (wasConnected !== connected) {
-                if (connected && !wasConnected) {
-                    // Reconnected (or new call on same channel) — reset timer
-                    callStartedAt = Date.now();
-                }
-                if (connected && !overlayHidden) {
-                    // Just reconnected — collapse overlay
-                    overlayHidden = true;
-                    document.body.classList.add("vc-minimalCallBar-hideOverlay");
-                    removeMinimizeButton();
-                    removeBar().then(() => injectBar());
-                }
-                scheduleRender();
-            }
-        } else if (!active && activeCallChannelId) {
-            // Call ended — full cleanup
-            activeCallChannelId = null;
-            isConnectedToCall = false;
-            overlayHidden = false;
-            document.body.classList.remove("vc-minimalCallBar-hideOverlay");
-            removeMinimizeButton();
-            void removeBar();
+        if (!activeCallChannelId) {
+            enterSession(session);
+            return;
         }
-    } catch { /* swallow — FluxDispatcher errors crash gateway */ }
+
+        if (session.channelId !== activeCallChannelId) {
+            // Switched channels (guild-to-guild hop, or straight from one call into another).
+            // Swap state in place rather than tearing down: the widget is the same, only its
+            // subject changed, and an animated teardown here would race the re-inject.
+            sessionEpoch++;
+            restoreVoiceTextChat(); // hand the old channel back its own layout
+            activeCallChannelId = session.channelId;
+            activeGuildId = session.guildId;
+            connectionState = session.connection;
+            isConnectedToCall = session.connection === "connected";
+            callStartedAt = resolveCallStartedAt(session.channelId);
+            manualOverride = false;
+            applyVoiceTextChat();
+            applyAutoExpand();
+            scheduleRender();
+            return;
+        }
+
+        // Same channel — reconcile connection state.
+        const prev = connectionState;
+        connectionState = session.connection;
+        isConnectedToCall = session.connection === "connected";
+
+        if (prev !== connectionState) {
+            if (prev !== "connected" && connectionState === "connected") {
+                // Freshly (re)connected — take the authoritative join time.
+                callStartedAt = resolveCallStartedAt(session.channelId);
+                manualOverride = false;
+                applyAutoExpand();
+            }
+            scheduleRender();
+        }
+
+        activeGuildId = session.guildId;
+    } catch { /* swallow — throwing from a FluxDispatcher handler breaks the gateway */ }
 }
 
 function onVoiceStateUpdate() {
     try {
-        onCallUpdate();
-        if (activeCallChannelId) {
-            scheduleRender();
-        }
+        syncVoiceState();
+        if (activeCallChannelId) scheduleRender();
     } catch { /* swallow */ }
 }
 
 function onChannelSelect() {
     try {
-        if (!activeCallChannelId || !overlayHidden) return;
+        syncVoiceState();
+        if (!activeCallChannelId) return;
+
+        // Navigating to/away from the call channel re-arms the auto-expand preference.
+        manualOverride = false;
+        // Discord recomputes the RTC layout on CHANNEL_SELECT, so re-assert it.
+        applyVoiceTextChat();
+        applyAutoExpand();
+
+        if (!overlayHidden) {
+            // Expanded: Discord rebuilds the call view on navigation, so re-arm our hooks into it.
+            setTimeout(() => {
+                if (!activeCallChannelId || overlayHidden) return;
+                injectMinimizeButton();
+                startMinimizeObserver();
+                // Navigation can destroy the bar's container even while expanded.
+                if (settings.store.keepBarWhenExpanded && !barContainer?.isConnected) {
+                    void removeBar(true).then(injectBar);
+                }
+            }, 100);
+            return;
+        }
         // Re-inject bar after navigation only if Discord destroyed our container
         setTimeout(() => {
+            if (!activeCallChannelId || !overlayHidden) return;
             if (barContainer?.isConnected) {
                 scheduleRender(); // container still valid, just re-render
             } else {
-                removeBar().then(() => injectBar());
+                rebuildBar();
             }
         }, 100);
     } catch { /* swallow */ }
@@ -513,6 +864,7 @@ function exposeTabAPI() {
     (window as any).__minimalCallBar = {
         isActive: () => overlayHidden && activeCallChannelId !== null,
         isConnected: () => isConnectedToCall,
+        getConnectionState: () => connectionState,
         getCallInfo: () => {
             if (!activeCallChannelId) return null;
             const channel = ChannelStore.getChannel(activeCallChannelId);
@@ -524,8 +876,12 @@ function exposeTabAPI() {
             return {
                 channelId: activeCallChannelId,
                 channelName: channel ? getChannelName(channel) : "Call",
+                guildId: activeGuildId,
+                guildName: getGuildName(activeGuildId),
+                isGuildVoice: channel ? (channel.type === 2 || channel.type === 13) : false,
                 callStartedAt,
                 isConnected: isConnectedToCall,
+                connection: connectionState,
                 ping,
                 participants: voiceStates.map((vs: any) => ({
                     userId: vs.userId,
@@ -559,7 +915,7 @@ function removeTabAPI() {
 
 export default definePlugin({
     name: "MinimalCallBar",
-    description: "Replaces the large DM/Group DM call overlay with a compact 32px bar",
+    description: "Replaces the large call overlay with a compact 32px bar, for DM calls and server voice channels",
     authors: [{ name: "kamaras", id: 132106519264100352n }],
     settings,
     settingsAboutComponent() {
@@ -573,12 +929,9 @@ export default definePlugin({
 
     start() {
         // FluxDispatcher subscriptions
-        FluxDispatcher.subscribe("CALL_UPDATE", onCallUpdate);
-        FluxDispatcher.subscribe("CALL_DELETE", onCallUpdate);
-        FluxDispatcher.subscribe("CALL_CREATE", onCallUpdate);
+        for (const event of VOICE_EVENTS) FluxDispatcher.subscribe(event, syncVoiceState);
         FluxDispatcher.subscribe("VOICE_STATE_UPDATES", onVoiceStateUpdate);
         FluxDispatcher.subscribe("CHANNEL_SELECT", onChannelSelect);
-        FluxDispatcher.subscribe("RTC_CONNECTION_STATE", onCallUpdate);
 
         // Mode B API
         exposeTabAPI();
@@ -606,18 +959,15 @@ export default definePlugin({
         // settingsHub registration
         (window as any).__settingsHub?.register(createMinimalCallBarSchema(settings));
 
-        // Check if already in a call
-        setTimeout(() => onCallUpdate(), 500);
+        // Check if we are already in a call / voice channel (plugin reload mid-session)
+        setTimeout(() => syncVoiceState(), 500);
     },
 
     stop() {
         // FluxDispatcher cleanup
-        FluxDispatcher.unsubscribe("CALL_UPDATE", onCallUpdate);
-        FluxDispatcher.unsubscribe("CALL_DELETE", onCallUpdate);
-        FluxDispatcher.unsubscribe("CALL_CREATE", onCallUpdate);
+        for (const event of VOICE_EVENTS) FluxDispatcher.unsubscribe(event, syncVoiceState);
         FluxDispatcher.unsubscribe("VOICE_STATE_UPDATES", onVoiceStateUpdate);
         FluxDispatcher.unsubscribe("CHANNEL_SELECT", onChannelSelect);
-        FluxDispatcher.unsubscribe("RTC_CONNECTION_STATE", onCallUpdate);
 
         // Keybind registry cleanup
         window.__keybindRegistry?.unregister("MinimalCallBar");
@@ -629,11 +979,6 @@ export default definePlugin({
         (window as any).__settingsHub?.unregister("MinimalCallBar");
 
         // DOM cleanup
-        overlayHidden = false;
-        activeCallChannelId = null;
-        isConnectedToCall = false;
-        document.body.classList.remove("vc-minimalCallBar-hideOverlay");
-        removeMinimizeButton();
-        void removeBar();
+        exitSession();
     },
 });

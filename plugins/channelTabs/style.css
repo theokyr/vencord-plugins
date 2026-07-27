@@ -292,26 +292,89 @@
 
 /* ─── Drag feedback ───────────────────────────────────────────────── */
 
-.vc-channelTabs-tab-dropLeft::before {
-    content: "";
-    position: absolute;
-    left: -2px;
-    top: 2px;
-    bottom: 2px;
-    width: 2px;
-    border-radius: 1px;
-    background: var(--brand-500, #5865f2);
+/* The tab left behind while its ghost follows the cursor. */
+.vc-channelTabs-tab-dragging {
+    opacity: 0.32;
+    transform: scale(0.94);
+    filter: grayscale(0.6);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
-.vc-channelTabs-tab-dropRight::after {
-    content: "";
-    position: absolute;
-    right: -2px;
-    top: 2px;
-    bottom: 2px;
-    width: 2px;
-    border-radius: 1px;
+.vc-channelTabs-tab-dragging:hover {
+    background: transparent;
+}
+
+/* Insertion caret — grows out of nothing, then slides between slots. */
+.vc-channelTabs-dropCaret {
+    flex: 0 0 auto;
+    align-self: stretch;
+    width: 3px;
+    margin: 4px 0;
+    border-radius: 2px;
     background: var(--brand-500, #5865f2);
+    box-shadow: 0 0 6px var(--brand-500, #5865f2);
+    pointer-events: none;
+    animation:
+        vc-channelTabs-caretIn var(--vc-anim-speed, 150ms) var(--vc-anim-ease-spring, ease-out) both,
+        vc-channelTabs-caretPulse 1.1s ease-in-out var(--vc-anim-speed, 150ms) infinite;
+}
+
+@keyframes vc-channelTabs-caretIn {
+    from {
+        width: 0;
+        opacity: 0;
+        transform: scaleY(0.4);
+    }
+    to {
+        width: 3px;
+        opacity: 1;
+        transform: scaleY(1);
+    }
+}
+
+@keyframes vc-channelTabs-caretPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+/* Bar dims slightly while a drop is staged, so the caret reads as the target. */
+.vc-channelTabs-tabBar-dropActive .vc-channelTabs-tab:not(.vc-channelTabs-tab-dragging):not(.vc-channelTabs-tab-muted) {
+    opacity: 0.75;
+}
+
+/* Group chips advertise that they can swallow a tab. */
+body.vc-channelTabs-dragging-tab .vc-channelTabs-group-chip,
+body.vc-channelTabs-dragging-child .vc-channelTabs-group-chip {
+    box-shadow: inset 0 0 0 1px rgba(88, 101, 242, 0.35);
+}
+
+/* Custom drag ghost — a tilted, lifted copy of the source tab. */
+.vc-channelTabs-dragGhostHost {
+    position: fixed;
+    top: -1000px;
+    left: -1000px;
+    pointer-events: none;
+    opacity: 0;
+}
+
+.vc-channelTabs-dragGhost {
+    background: var(--background-floating, #2b2d31);
+    color: #fff;
+    border-radius: var(--vc-channelTabs-tabRadius, 4px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+    transform: rotate(-2deg);
+    opacity: 0.95;
+}
+
+/* Landing flash on the tab that was just dropped. Deliberately transform-free:
+   the FLIP pass owns `transform` while the tab slides to its new slot. */
+@keyframes vc-channelTabs-settle {
+    0% { box-shadow: inset 0 0 0 2px var(--brand-500, #5865f2); }
+    100% { box-shadow: inset 0 0 0 2px rgba(88, 101, 242, 0); }
+}
+
+.vc-channelTabs-tab-settling {
+    animation: vc-channelTabs-settle 400ms var(--vc-anim-ease-out, ease-out) both;
 }
 
 /* ─── Tab open/close animations ──────────────────────────────── */
@@ -404,6 +467,7 @@
     margin-left: -3px;
     border-radius: 50%;
     overflow: visible;
+    transition: margin-left var(--vc-anim-speed, 150ms) var(--vc-anim-ease-spring, ease-out);
 }
 
 .vc-channelTabs-group-icon:first-child {
@@ -464,11 +528,36 @@
     color: var(--text-muted, #949ba4);
 }
 
-/* Drop target indicator */
+/* Wrapper that positions a group chip and its dropdown. */
+.vc-channelTabs-groupSlot {
+    position: relative;
+    flex-shrink: 0;
+}
+
+/* Drop target indicator — the chip is about to swallow the dragged tab. */
 .vc-channelTabs-drop-target {
     outline: 2px solid var(--brand-500, #5865f2);
     outline-offset: -2px;
     border-radius: var(--vc-channelTabs-tabRadius, 4px);
+    background: rgba(88, 101, 242, 0.22) !important;
+    opacity: 1 !important;
+    animation: vc-channelTabs-absorb 900ms ease-in-out infinite;
+}
+
+@keyframes vc-channelTabs-absorb {
+    0%, 100% {
+        transform: scale(1.04);
+        outline-color: var(--brand-500, #5865f2);
+    }
+    50% {
+        transform: scale(1.08);
+        outline-color: rgba(88, 101, 242, 0.55);
+    }
+}
+
+/* The chip's child icons huddle inward as it prepares to absorb. */
+.vc-channelTabs-drop-target .vc-channelTabs-group-icon {
+    margin-left: -7px;
 }
 
 /* ─── Group Dropdown ─────────────────────────────────────────────────── */
@@ -487,6 +576,34 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     margin-top: 2px;
     border-top: 2px solid var(--brand-500, #5865f2);
+}
+
+/* Dragging a loose tab over the open dropdown adds it to the group. */
+.vc-channelTabs-dropdown-absorbing {
+    border-color: var(--brand-500, #5865f2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(88, 101, 242, 0.6);
+    background: color-mix(in srgb, var(--brand-500, #5865f2) 12%, var(--background-floating, #2b2d31));
+}
+
+/* Horizontal insertion caret between dropdown rows. */
+.vc-channelTabs-dropdown-caret {
+    height: 2px;
+    margin: 1px 4px;
+    border-radius: 1px;
+    background: var(--brand-500, #5865f2);
+    box-shadow: 0 0 6px var(--brand-500, #5865f2);
+    pointer-events: none;
+    animation: vc-channelTabs-childCaretIn var(--vc-anim-speed, 150ms) var(--vc-anim-ease-out, ease-out) both;
+}
+
+@keyframes vc-channelTabs-childCaretIn {
+    from { height: 0; opacity: 0; }
+    to { height: 2px; opacity: 1; }
+}
+
+.vc-channelTabs-dropdown-item-dragging {
+    opacity: 0.35;
+    filter: grayscale(0.6);
 }
 
 .vc-channelTabs-dropdown-item {

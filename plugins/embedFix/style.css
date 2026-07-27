@@ -4,65 +4,82 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-.vc-embedFix-rewritten {
-    position: relative;
-    display: inline;
-}
-
-.vc-embedFix-indicator {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    margin-left: 2px;
-    vertical-align: middle;
-    opacity: 0.5;
-    cursor: pointer;
-    background: currentColor;
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='currentColor' d='M5.22 14.78a.75.75 0 0 0 1.06-1.06L4.56 12h8.69a.75.75 0 0 0 0-1.5H4.56l1.72-1.72a.75.75 0 0 0-1.06-1.06l-3 3a.75.75 0 0 0 0 1.06l3 3ZM10.78 1.22a.75.75 0 0 0-1.06 1.06L11.44 4H2.75a.75.75 0 0 0 0 1.5h8.69l-1.72 1.72a.75.75 0 1 0 1.06 1.06l3-3a.75.75 0 0 0 0-1.06l-3-3Z'/%3E%3C/svg%3E");
-    mask-size: contain;
-    mask-repeat: no-repeat;
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='currentColor' d='M5.22 14.78a.75.75 0 0 0 1.06-1.06L4.56 12h8.69a.75.75 0 0 0 0-1.5H4.56l1.72-1.72a.75.75 0 0 0-1.06-1.06l-3 3a.75.75 0 0 0 0 1.06l3 3ZM10.78 1.22a.75.75 0 0 0-1.06 1.06L11.44 4H2.75a.75.75 0 0 0 0 1.5h8.69l-1.72 1.72a.75.75 0 1 0 1.06 1.06l3-3a.75.75 0 0 0 0-1.06l-3-3Z'/%3E%3C/svg%3E");
-    -webkit-mask-size: contain;
-    -webkit-mask-repeat: no-repeat;
-}
-
-.vc-embedFix-indicator:hover {
-    opacity: 0.8;
-}
-
-/* Accessory container — no special styling needed, Discord handles the embed */
+/* Accessory container — Discord's own embed markup does the heavy lifting. */
 .vc-embedFix-accessory {
-    display: contents;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
-.vc-embedFix-fallbackEmbed {
-    --vc-embedFix-fallbackColor: var(--brand-500, #5865f2);
+.vc-embedFix-embed {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.vc-embedFix-badgeRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+
+.vc-embedFix-embed:hover .vc-embedFix-badgeRow,
+.vc-embedFix-embed:focus-within .vc-embedFix-badgeRow {
+    opacity: 1;
+}
+
+.vc-embedFix-badge {
+    color: var(--text-muted, #949ba4);
+    font-size: 0.6875rem;
+    line-height: 1.2;
+}
+
+.vc-embedFix-refresh {
+    padding: 0 4px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--text-muted, #949ba4);
+    cursor: pointer;
+    font-size: 0.75rem;
+    line-height: 1.2;
+}
+
+.vc-embedFix-refresh:hover {
+    background: var(--background-modifier-hover, #35373c);
+    color: var(--interactive-hover, #dbdee1);
+}
+
+/* Fallback card, used only if Discord's Embed component cannot be found. */
+.vc-embedFix-card {
+    --vc-embedFix-accent: var(--brand-500, #5865f2);
     box-sizing: border-box;
     display: grid;
     max-width: 432px;
-    margin-top: 4px;
     padding: 8px 12px;
-    border-left: 4px solid var(--vc-embedFix-fallbackColor);
+    border-left: 4px solid var(--vc-embedFix-accent);
     border-radius: 4px;
     background: var(--background-secondary, #2b2d31);
     color: var(--text-normal, #dbdee1);
 }
 
-.vc-embedFix-fallbackBody {
+.vc-embedFix-cardBody {
     display: grid;
     gap: 6px;
     min-width: 0;
 }
 
-.vc-embedFix-fallbackSource,
-.vc-embedFix-fallbackFooter {
+.vc-embedFix-cardSource {
     color: var(--text-muted, #949ba4);
     font-size: 0.75rem;
     line-height: 1.25;
 }
 
-.vc-embedFix-fallbackTitle,
-.vc-embedFix-fallbackVideoLink {
+.vc-embedFix-cardTitle {
     color: var(--text-link, #00a8fc);
     font-weight: 600;
     line-height: 1.25;
@@ -70,12 +87,11 @@
     text-decoration: none;
 }
 
-.vc-embedFix-fallbackTitle:hover,
-.vc-embedFix-fallbackVideoLink:hover {
+.vc-embedFix-cardTitle:hover {
     text-decoration: underline;
 }
 
-.vc-embedFix-fallbackDescription {
+.vc-embedFix-cardDescription {
     color: var(--text-normal, #dbdee1);
     font-size: 0.875rem;
     line-height: 1.35;
@@ -83,7 +99,7 @@
     white-space: pre-wrap;
 }
 
-.vc-embedFix-fallbackImage {
+.vc-embedFix-cardImage {
     display: block;
     max-width: min(100%, 400px);
     max-height: 300px;
@@ -201,4 +217,61 @@
 .vc-embedFix-priorityMove:disabled {
     cursor: default;
     opacity: 0.35;
+}
+
+/* Click-to-load video for CSP-blocked provider hosts. */
+.vc-embedFix-cardVideo {
+    display: block;
+    max-width: min(100%, 432px);
+    max-height: 340px;
+    margin-top: 4px;
+    border-radius: 4px;
+    background: #000;
+}
+
+.vc-embedFix-playButton {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: min(100%, 432px);
+    min-height: 64px;
+    margin-top: 4px;
+    padding: 10px 14px;
+    border: 1px solid var(--background-modifier-accent, #3f4147);
+    border-radius: 4px;
+    background-color: var(--background-secondary, #2b2d31);
+    background-position: center;
+    background-size: cover;
+    color: var(--text-normal, #dbdee1);
+    cursor: pointer;
+    text-align: left;
+}
+
+.vc-embedFix-playButton:hover:not(:disabled) {
+    border-color: var(--text-link, #00a8fc);
+}
+
+.vc-embedFix-playButton:disabled {
+    cursor: default;
+    opacity: 0.7;
+}
+
+.vc-embedFix-playGlyph {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgb(0 0 0 / 65%);
+    color: #fff;
+    font-size: 0.875rem;
+}
+
+.vc-embedFix-playLabel {
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: rgb(0 0 0 / 55%);
+    color: #fff;
+    font-size: 0.8125rem;
 }

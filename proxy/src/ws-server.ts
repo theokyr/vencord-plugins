@@ -30,11 +30,44 @@ export interface DiscordBridge {
     getState(): ConnectionState;
     getAvailableTools(): string[];
     setOnStateChange(handler: (state: ConnectionState) => void): void;
+    /** Resolves when the bridge next enters `state`, or rejects on timeout. */
+    waitForState(state: ConnectionState, timeoutMs: number): Promise<void>;
     onEvent(handler: EventHandler): void;
     callTool(id: string, tool: string, params: Record<string, unknown>): Promise<ToolResultMessage>;
     sendSubscribe(id: string, events: string[], filters?: EventFilters): void;
     sendUnsubscribe(subscriptionId: string): void;
     close(): Promise<void>;
+}
+
+// ─── State waiting ─────────────────────────────────────────────────────
+// Lets a caller block until the bridge reaches a state — the basis for
+// verifying a redeploy (client disconnects, then comes back ready).
+
+class StateWaiters {
+    private waiters = new Set<{ state: ConnectionState; resolve: () => void; timer: NodeJS.Timeout }>();
+
+    wait(state: ConnectionState, timeoutMs: number): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const entry = {
+                state,
+                resolve,
+                timer: setTimeout(() => {
+                    this.waiters.delete(entry);
+                    reject(new Error(`Timed out after ${timeoutMs}ms waiting for bridge state "${state}"`));
+                }, timeoutMs),
+            };
+            this.waiters.add(entry);
+        });
+    }
+
+    notify(state: ConnectionState) {
+        for (const entry of [...this.waiters]) {
+            if (entry.state !== state) continue;
+            clearTimeout(entry.timer);
+            this.waiters.delete(entry);
+            entry.resolve();
+        }
+    }
 }
 
 // ─── Primary mode: WS server ───────────────────────────────────────────
@@ -51,6 +84,7 @@ export class DiscordWsServer implements DiscordBridge {
     private secondaryCallMap = new Map<string, WebSocket>();
     private onEventHandlers: EventHandler[] = [];
     private onStateChangeHandler: ((state: ConnectionState) => void) | null = null;
+    private stateWaiters = new StateWaiters();
     private availableTools: string[] = [];
 
     constructor(port: number = DEFAULT_PORT) {
@@ -73,12 +107,18 @@ export class DiscordWsServer implements DiscordBridge {
         this.onStateChangeHandler = handler;
     }
 
+    waitForState(state: ConnectionState, timeoutMs: number): Promise<void> {
+        if (this.state === state) return Promise.resolve();
+        return this.stateWaiters.wait(state, timeoutMs);
+    }
+
     onEvent(handler: EventHandler) {
         this.onEventHandlers.push(handler);
     }
 
     private setState(state: ConnectionState) {
         this.state = state;
+        this.stateWaiters.notify(state);
         this.onStateChangeHandler?.(state);
         // Notify secondaries of state change
         for (const ws of this.secondaries) {
@@ -347,6 +387,7 @@ export class DiscordWsClient implements DiscordBridge {
     private pendingCalls = new Map<string, PendingCall>();
     private onEventHandlers: EventHandler[] = [];
     private onStateChangeHandler: ((state: ConnectionState) => void) | null = null;
+    private stateWaiters = new StateWaiters();
     private availableTools: string[] = [];
     private port: number;
     private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -462,12 +503,18 @@ export class DiscordWsClient implements DiscordBridge {
 
     private setState(state: ConnectionState) {
         this.state = state;
+        this.stateWaiters.notify(state);
         this.onStateChangeHandler?.(state);
     }
 
     getState(): ConnectionState { return this.state; }
     getAvailableTools(): string[] { return this.availableTools; }
     setOnStateChange(handler: (state: ConnectionState) => void) { this.onStateChangeHandler = handler; }
+
+    waitForState(state: ConnectionState, timeoutMs: number): Promise<void> {
+        if (this.state === state) return Promise.resolve();
+        return this.stateWaiters.wait(state, timeoutMs);
+    }
     onEvent(handler: EventHandler) { this.onEventHandlers.push(handler); }
 
     async callTool(id: string, tool: string, params: Record<string, unknown>): Promise<ToolResultMessage> {

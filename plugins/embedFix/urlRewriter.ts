@@ -65,6 +65,8 @@ export function extractUrls(text: string, platforms?: PlatformEntry[]): UrlMatch
         if (platforms) {
             const platform = matchPlatform(url, platforms);
             if (!platform) continue;
+            // A bare domain has nothing to embed.
+            if (!hasEmbeddablePath(url)) continue;
         }
 
         results.push({ url, offset });
@@ -126,8 +128,80 @@ export function rewriteUrl(urlStr: string, providerDomain: string): string {
 
     // Replace hostname — strip leading www. from original
     parsed.hostname = providerDomain;
+    // Providers are HTTPS-only; a http:// source would otherwise be probed
+    // insecurely and usually redirect anyway.
+    if (parsed.protocol === "http:") parsed.protocol = "https:";
 
     return parsed.toString();
+}
+
+/** Subdomains that never change which resource a URL points at. */
+const NOISE_SUBDOMAIN = /^(?:www|m|mobile|old)\./;
+
+/**
+ * Stable cache key for a link.
+ *
+ * Two URLs that address the same post must collapse to the same key, so
+ * `https://www.Twitter.com/a/status/1/` and `http://twitter.com/a/status/1`
+ * are resolved once. The fragment is dropped (it never changes the embed) but
+ * the query string is kept and sorted, because it can select a photo or a
+ * comment thread.
+ */
+export function canonicalUrlKey(urlStr: string): string {
+    let parsed: URL;
+    try {
+        parsed = new URL(urlStr);
+    } catch {
+        return urlStr.trim().toLowerCase();
+    }
+
+    const host = parsed.hostname.toLowerCase().replace(NOISE_SUBDOMAIN, "");
+    let path = parsed.pathname;
+    if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
+
+    const params = [...parsed.searchParams.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    const query = params.length > 0
+        ? `?${params.map(([key, value]) => `${key}=${value}`).join("&")}`
+        : "";
+
+    return `${host}${path}${query}`;
+}
+
+/**
+ * Do two URLs address the same resource, ignoring scheme, noise subdomains,
+ * trailing slashes and the fragment? Host must match — use this only after
+ * platform matching has already established the domains are related.
+ */
+export function sameResource(a: string, b: string): boolean {
+    return canonicalUrlKey(a) === canonicalUrlKey(b);
+}
+
+/**
+ * Is there actually a post at this URL?
+ *
+ * A bare `https://x.com` or `https://reddit.com/` addresses a home page, not
+ * content — rewriting it to a provider domain produces a broken link and a
+ * wasted probe.
+ */
+export function hasEmbeddablePath(urlStr: string): boolean {
+    try {
+        const { pathname } = new URL(urlStr);
+        return pathname.replace(/\/+$/, "").length > 0;
+    } catch {
+        return false;
+    }
+}
+
+/** Host + path key, ignoring the query string entirely. */
+export function resourcePathKey(urlStr: string): string | null {
+    try {
+        const parsed = new URL(urlStr);
+        let path = parsed.pathname;
+        if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
+        return `${parsed.hostname.toLowerCase().replace(NOISE_SUBDOMAIN, "")}${path}`;
+    } catch {
+        return null;
+    }
 }
 
 /**
@@ -142,13 +216,16 @@ export function rewriteUrl(urlStr: string, providerDomain: string): string {
  *
  * @param content      Raw message text
  * @param platforms    Platform definitions to match against
- * @param getProvider  Returns a cached ProviderDef or null/undefined for a platform id
+ * @param getProvider  Returns the provider to use for a specific cleaned URL, or
+ *                     null/undefined when nothing is known about it yet. It is
+ *                     given the URL as well as the platform id because provider
+ *                     support is per-link, not per-platform.
  * @param enabledMap   Map of platformId → boolean; skips disabled platforms entirely
  */
 export function rewriteMessageContent(
     content: string,
     platforms: PlatformEntry[],
-    getProvider: (platformId: string) => { domain: string; label: string } | null | undefined,
+    getProvider: (platformId: string, cleanUrl: string) => { domain: string; label: string } | null | undefined,
     enabledMap: Record<string, boolean>,
 ): RewriteResult {
     const rewrites: RewriteResult["rewrites"] = [];
@@ -180,7 +257,7 @@ export function rewriteMessageContent(
         const platformStripParams = platform.stripParams ?? [];
         const cleanUrl = stripTrackingParams(url, platformStripParams);
 
-        const provider = getProvider(platformId);
+        const provider = getProvider(platformId, cleanUrl);
 
         if (provider) {
             // Cache hit: rewrite domain

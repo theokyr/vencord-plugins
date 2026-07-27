@@ -1,345 +1,383 @@
 /*
  * Vencord userplugin — EmbedFix native module
- * Runs in Electron main process (Node.js). Probes embed providers via HTTP.
+ *
+ * Runs in the Electron main process. One job: fetch a provider URL and return
+ * its embed metadata. All parsing, scoring and soft-error rules live in
+ * embedMeta.ts so they can be tested outside Electron.
+ *
  * Authors: kamaras
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-// No imports — only Node.js/web standard APIs (fetch, AbortController, TextDecoder).
-
-interface ProbeResultNative {
-    domain: string;
-    score: number;
-    hasVideo: boolean;
-    hasAudio: boolean;
-    hasImage: boolean;
-    hasTitle: boolean;
-    oembedType?: string;
-    error?: string;
-}
-
-const USER_AGENT = "Mozilla/5.0 (compatible; Discordbot/2.0)";
-const HEAD_TIMEOUT_MS = 5000;
-const OEMBED_TIMEOUT_MS = 3000;
-const MAX_HEAD_BYTES = 32 * 1024; // 32 KB
+import {
+    emptyMeta,
+    extractOembedHref,
+    finalizeMeta,
+    parseEmbedHtml,
+    shouldRetryWithAlternateAgent,
+    type EmbedMeta,
+} from "./embedMeta";
 
 /**
- * Read the response body up to the closing `</head>` tag or MAX_HEAD_BYTES,
- * whichever comes first. Cancels the stream once the boundary is found.
+ * Crawler identities, tried in order.
+ *
+ * Discordbot first: fxtwitter and friends tailor their output for Discord when
+ * they see it. The TelegramBot fallback exists because vxtwitter (and other
+ * fixup services) sniff the UA and serve an empty shell to anything they do not
+ * recognise — measured 2026-07-27: vxtwitter emits OG tags for exactly
+ * "TelegramBot (like TwitterBot)" and for nothing else, not even a UA that
+ * contains that string alongside others.
  */
+const USER_AGENTS = [
+    "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discord.com)",
+    "TelegramBot (like TwitterBot)",
+];
+const USER_AGENT = USER_AGENTS[0];
+const PAGE_TIMEOUT_MS = 6000;
+const OEMBED_TIMEOUT_MS = 2500;
+const MAX_HEAD_BYTES = 64 * 1024;
+/** Concurrent outbound requests across all providers. */
+const MAX_CONCURRENT = 4;
+/** Concurrent outbound requests to any single host. */
+const MAX_PER_HOST = 2;
+
+// --- Tiny scheduler ---------------------------------------------------------
+// A message with five links used to fire fifteen simultaneous requests, which
+// is exactly how you get rate-limited by every provider at once.
+
+interface QueuedTask {
+    host: string;
+    run: () => void;
+}
+
+const queue: QueuedTask[] = [];
+const perHost = new Map<string, number>();
+let active = 0;
+
+function hostOf(url: string): string {
+    try {
+        return new URL(url).hostname.toLowerCase();
+    } catch {
+        return "invalid";
+    }
+}
+
+function pump(): void {
+    for (let i = 0; i < queue.length && active < MAX_CONCURRENT; i++) {
+        const task = queue[i];
+        if ((perHost.get(task.host) ?? 0) >= MAX_PER_HOST) continue;
+
+        queue.splice(i, 1);
+        i--;
+        active++;
+        perHost.set(task.host, (perHost.get(task.host) ?? 0) + 1);
+        task.run();
+    }
+}
+
+function release(host: string): void {
+    active = Math.max(0, active - 1);
+    const count = (perHost.get(host) ?? 1) - 1;
+    if (count <= 0) perHost.delete(host);
+    else perHost.set(host, count);
+    pump();
+}
+
+function schedule<T>(url: string, work: () => Promise<T>): Promise<T> {
+    const host = hostOf(url);
+    return new Promise<T>((resolve, reject) => {
+        queue.push({
+            host,
+            run: () => {
+                work().then(resolve, reject).finally(() => release(host));
+            },
+        });
+        pump();
+    });
+}
+
+// --- HTTP -------------------------------------------------------------------
+
+async function fetchWithTimeout(url: string, timeoutMs: number, userAgent: string = USER_AGENT): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, {
+            signal: controller.signal,
+            headers: {
+                "User-Agent": userAgent,
+                Accept: "text/html,application/xhtml+xml",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+            redirect: "follow",
+        });
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+/** Read the response body up to `</head>` or MAX_HEAD_BYTES, then hang up. */
 async function readHead(response: Response): Promise<string> {
     const reader = response.body?.getReader();
-    if (!reader) {
-        return await response.text();
-    }
+    if (!reader) return await response.text();
 
     const decoder = new TextDecoder();
     let accumulated = "";
     let totalBytes = 0;
 
     try {
-        while (true) {
+        for (;;) {
             const { done, value } = await reader.read();
             if (done) break;
 
             totalBytes += value.byteLength;
             accumulated += decoder.decode(value, { stream: true });
 
-            // Stop at </head> — we have everything we need
             const headEnd = accumulated.toLowerCase().indexOf("</head>");
             if (headEnd !== -1) {
                 accumulated = accumulated.slice(0, headEnd + 7);
-                reader.cancel().catch(() => { /* ignore */ });
+                void reader.cancel().catch(() => { /* ignore */ });
                 break;
             }
 
-            // Guard against oversized pages
             if (totalBytes >= MAX_HEAD_BYTES) {
-                reader.cancel().catch(() => { /* ignore */ });
+                void reader.cancel().catch(() => { /* ignore */ });
                 break;
             }
         }
     } catch {
-        // Stream errors are non-fatal — return what we have
+        // Partial head is still worth parsing.
     }
 
-    // Flush any remaining bytes in the decoder
-    accumulated += decoder.decode();
+    return accumulated + decoder.decode();
+}
 
-    return accumulated;
+function errorMeta(url: string, message: string, status = 0): EmbedMeta {
+    const meta = emptyMeta(url);
+    meta.status = status;
+    meta.error = message;
+    return meta;
+}
+
+function isRetryable(message: string): boolean {
+    return /abort|timeout|network|socket|ECONN|EAI_AGAIN|fetch failed/i.test(message);
+}
+
+async function loadPage(url: string, userAgent: string): Promise<{ html: string; finalUrl: string; status: number } | EmbedMeta> {
+    let lastError = "unknown error";
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const response = await fetchWithTimeout(url, PAGE_TIMEOUT_MS, userAgent);
+
+            if (!response.ok) {
+                // A status is a definitive answer — never retry it.
+                return errorMeta(url, `HTTP ${response.status}`, response.status);
+            }
+
+            const html = await readHead(response);
+            return { html, finalUrl: response.url || url, status: response.status };
+        } catch (e) {
+            lastError = e instanceof Error ? e.message : String(e);
+            if (!isRetryable(lastError)) break;
+        }
+    }
+
+    return errorMeta(url, lastError);
+}
+
+function resolveHref(href: string, base: string): string | null {
+    try {
+        return new URL(href, base).toString();
+    } catch {
+        return null;
+    }
 }
 
 /**
- * Extract a named `og:*` or `twitter:*` meta tag value from HTML.
- * Looks for both `property="..."` and `name="..."` attribute forms.
- */
-function extractMeta(html: string, property: string): string | null {
-    // Match <meta property="og:video" content="..."> or <meta name="..." content="...">
-    // Attributes can appear in any order; use a loose pattern.
-    const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const pattern = new RegExp(
-        `<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']+)["']` +
-        `|<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${escaped}["']`,
-        "i",
-    );
-    const match = html.match(pattern);
-    if (!match) return null;
-    return (match[1] ?? match[2]) || null;
-}
-
-/**
- * Extract the href of the oEmbed JSON link tag, if present.
- * `<link type="application/json+oembed" href="URL">`
- */
-function extractOembedHref(html: string): string | null {
-    const match = html.match(
-        /<link[^>]+type=["']application\/json\+oembed["'][^>]+href=["']([^"']+)["'][^>]*>/i,
-    ) ?? html.match(
-        /<link[^>]+href=["']([^"']+)["'][^>]+type=["']application\/json\+oembed["'][^>]*>/i,
-    );
-    return match ? match[1] : null;
-}
-
-/**
- * Compute the score from the boolean fields and optional oEmbed type.
+ * Fetch and describe one provider URL.
  *
- * video (og or oembed "video") = 4
- * audio                        = 3
- * image + title                = 2
- * title only                   = 1
- * nothing / error              = 0
+ * @param sourceHosts The originating platform's own domains. A provider that
+ *                    redirects back to one of them could not handle the link.
  */
-function computeScore(
-    hasVideo: boolean,
-    hasAudio: boolean,
-    hasImage: boolean,
-    hasTitle: boolean,
-    oembedType?: string,
-): number {
-    const videoEmbed = hasVideo || oembedType === "video";
-    if (videoEmbed) return 4;
-    if (hasAudio) return 3;
-    if (hasImage && hasTitle) return 2;
-    if (hasTitle) return 1;
-    return 0;
+export async function fetchEmbedMeta(
+    _event: unknown,
+    url: string,
+    sourceHosts: string[] = [],
+): Promise<EmbedMeta> {
+    const startedAt = Date.now();
+
+    const meta = await schedule(url, async (): Promise<EmbedMeta> => {
+        let result: EmbedMeta | null = null;
+
+        // Try each crawler identity until one hands us real metadata. Most
+        // providers answer the first; the retry exists only for the ones that
+        // serve an empty shell to a UA they do not recognise.
+        for (const userAgent of USER_AGENTS) {
+            const attempt = await fetchAs(url, sourceHosts, userAgent);
+            result = attempt;
+            if (!shouldRetryWithAlternateAgent(attempt)) break;
+        }
+
+        return result ?? errorMeta(url, "no attempt completed");
+    }).catch((e: unknown) => errorMeta(url, e instanceof Error ? e.message : String(e)));
+
+    meta.elapsedMs = Date.now() - startedAt;
+    return meta;
 }
 
-export async function probeProvider(
-    _event: unknown,
-    providerDomain: string,
-    originalPath: string,
-): Promise<ProbeResultNative> {
-    const url = `https://${providerDomain}${originalPath}`;
+/** One fetch + parse pass under a single crawler identity. */
+async function fetchAs(url: string, sourceHosts: string[], userAgent: string): Promise<EmbedMeta> {
+    const page = await loadPage(url, userAgent);
+    if (!("html" in page)) return page;
 
-    let html: string;
+    const { html, finalUrl, status } = page;
+    const parsed = parseEmbedHtml(html, url, finalUrl, status);
+
+    // Only pay for oEmbed when the page itself was thin — it is the one
+    // place where video-only providers expose their type and author.
+    const needsOembed = !parsed.videoUrl || !parsed.authorName || !parsed.type;
+    if (needsOembed) {
+        const href = extractOembedHref(html);
+        const absolute = href ? resolveHref(href, finalUrl) : null;
+        if (absolute) {
+            const oembed = await fetchOembed(absolute);
+            if (oembed) {
+                if (!parsed.type && typeof oembed.type === "string") parsed.type = oembed.type;
+                if (typeof oembed.type === "string" && oembed.type === "video" && !parsed.videoUrl) {
+                    parsed.videoUrl = typeof oembed.url === "string" ? oembed.url : parsed.videoUrl;
+                    if (!parsed.videoUrl) parsed.type = "video";
+                }
+                if (!parsed.authorName && typeof oembed.author_name === "string") parsed.authorName = oembed.author_name;
+                if (!parsed.authorUrl && typeof oembed.author_url === "string") parsed.authorUrl = oembed.author_url;
+                if (!parsed.siteName && typeof oembed.provider_name === "string") parsed.siteName = oembed.provider_name;
+                if (!parsed.title && typeof oembed.title === "string") parsed.title = oembed.title;
+                if (!parsed.imageUrl && typeof oembed.thumbnail_url === "string") parsed.imageUrl = oembed.thumbnail_url;
+            }
+        }
+    }
+
+    return finalizeMeta(parsed, sourceHosts);
+}
+
+async function fetchOembed(url: string): Promise<Record<string, unknown> | null> {
     try {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), HEAD_TIMEOUT_MS);
-
+        const timer = setTimeout(() => controller.abort(), OEMBED_TIMEOUT_MS);
         let response: Response;
         try {
             response = await fetch(url, {
                 signal: controller.signal,
-                headers: { "User-Agent": USER_AGENT },
-                redirect: "follow",
+                headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
             });
         } finally {
             clearTimeout(timer);
         }
 
-        if (!response.ok) {
-            return {
-                domain: providerDomain,
-                score: 0,
-                hasVideo: false,
-                hasAudio: false,
-                hasImage: false,
-                hasTitle: false,
-                error: `HTTP ${response.status}`,
-            };
-        }
+        if (!response.ok) return null;
 
-        html = await readHead(response);
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        return {
-            domain: providerDomain,
-            score: 0,
-            hasVideo: false,
-            hasAudio: false,
-            hasImage: false,
-            hasTitle: false,
-            error: message,
-        };
+        const json: unknown = await response.json();
+        return json && typeof json === "object" && !Array.isArray(json)
+            ? json as Record<string, unknown>
+            : null;
+    } catch {
+        return null;
     }
-
-    // Parse OG / Twitter meta tags
-    const hasVideo = !!(extractMeta(html, "og:video") ?? extractMeta(html, "twitter:player"));
-    const hasAudio = !!(extractMeta(html, "og:audio"));
-    const hasImage = !!(extractMeta(html, "og:image"));
-    const hasTitle = !!(extractMeta(html, "og:title"));
-
-    // Try oEmbed
-    let oembedType: string | undefined;
-    const oembedHref = extractOembedHref(html);
-    if (oembedHref) {
-        try {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), OEMBED_TIMEOUT_MS);
-
-            let oembedResponse: Response;
-            try {
-                oembedResponse = await fetch(oembedHref, {
-                    signal: controller.signal,
-                    headers: { "User-Agent": USER_AGENT },
-                });
-            } finally {
-                clearTimeout(timer);
-            }
-
-            if (oembedResponse.ok) {
-                const json = await oembedResponse.json() as unknown;
-                if (
-                    json !== null &&
-                    typeof json === "object" &&
-                    !Array.isArray(json) &&
-                    "type" in (json as object)
-                ) {
-                    const t = (json as Record<string, unknown>).type;
-                    if (typeof t === "string") {
-                        oembedType = t;
-                    }
-                }
-            }
-        } catch {
-            // oEmbed failure is non-fatal — score without it
-        }
-    }
-
-    const score = computeScore(hasVideo, hasAudio, hasImage, hasTitle, oembedType);
-
-    return {
-        domain: providerDomain,
-        score,
-        hasVideo,
-        hasAudio,
-        hasImage,
-        hasTitle,
-        ...(oembedType !== undefined ? { oembedType } : {}),
-    };
 }
 
-/**
- * Fetch rich embed data from a provider URL — returns actual OG values
- * for rendering a replacement embed card.
- */
-export interface EmbedData {
-    url: string;
-    title: string | null;
-    description: string | null;
-    siteName: string | null;
-    imageUrl: string | null;
-    videoUrl: string | null;
-    videoWidth: number | null;
-    videoHeight: number | null;
-    authorName: string | null;
-    authorUrl: string | null;
-    themeColor: string | null;
-    type: string | null; // "video", "article", "website", etc.
+/** Fetch several provider URLs. The scheduler keeps the fan-out bounded. */
+export async function fetchEmbedMetaBatch(
+    _event: unknown,
+    urls: string[],
+    sourceHosts: string[] = [],
+): Promise<EmbedMeta[]> {
+    return Promise.all(urls.map(url => fetchEmbedMeta(_event, url, sourceHosts)));
+}
+
+// --- Media proxying ---------------------------------------------------------
+// Discord's renderer CSP blocks img-src/media-src for provider CDNs (i.redd.it,
+// phixiv.net, vxtwitter's video host…), and its own embeds sidestep that with
+// signed proxy URLs we cannot forge. The main process has no CSP, so we fetch
+// the bytes here and let the renderer present them from a blob: URL — measured
+// 2026-07-27: blob: is accepted by both img-src and media-src.
+
+export interface MediaPayload {
+    ok: boolean;
+    contentType: string | null;
+    bytes: Uint8Array | null;
+    size: number;
     error?: string;
 }
 
-export async function fetchEmbedData(
-    _event: unknown,
-    providerUrl: string,
-): Promise<EmbedData> {
-    const empty: EmbedData = {
-        url: providerUrl, title: null, description: null, siteName: null,
-        imageUrl: null, videoUrl: null, videoWidth: null, videoHeight: null,
-        authorName: null, authorUrl: null, themeColor: null, type: null,
-    };
+const MEDIA_TIMEOUT_MS = 20_000;
 
-    try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), HEAD_TIMEOUT_MS);
-
-        let response: Response;
-        try {
-            response = await fetch(providerUrl, {
-                signal: controller.signal,
-                headers: { "User-Agent": USER_AGENT },
-                redirect: "follow",
-            });
-        } finally {
-            clearTimeout(timeout);
-        }
-
-        if (!response.ok) {
-            return { ...empty, error: `HTTP ${response.status}` };
-        }
-
-        const html = await readHead(response);
-
-        const title = extractMeta(html, "og:title");
-        const description = extractMeta(html, "og:description");
-        const siteName = extractMeta(html, "og:site_name");
-        const imageUrl = extractMeta(html, "og:image");
-        const videoUrl = extractMeta(html, "og:video") ?? extractMeta(html, "og:video:url");
-        const videoWidthStr = extractMeta(html, "og:video:width");
-        const videoHeightStr = extractMeta(html, "og:video:height");
-        const authorName = extractMeta(html, "og:article:author") ?? extractMeta(html, "twitter:creator");
-        const authorUrl = extractMeta(html, "og:article:author_url");
-        const themeColor = extractMeta(html, "theme-color");
-        const type = extractMeta(html, "og:type") ?? extractMeta(html, "twitter:card");
-
-        // Try oEmbed for richer author/provider data
-        const oembedHref = extractOembedHref(html);
-        let oembedAuthor: string | null = null;
-        let oembedProviderName: string | null = null;
-
-        if (oembedHref) {
-            try {
-                const oc = new AbortController();
-                const ot = setTimeout(() => oc.abort(), OEMBED_TIMEOUT_MS);
-                let oRes: Response;
-                try {
-                    oRes = await fetch(oembedHref, { signal: oc.signal });
-                } finally {
-                    clearTimeout(ot);
-                }
-                if (oRes.ok) {
-                    const oembed = await oRes.json() as Record<string, unknown>;
-                    if (typeof oembed.author_name === "string") oembedAuthor = oembed.author_name;
-                    if (typeof oembed.provider_name === "string") oembedProviderName = oembed.provider_name;
-                }
-            } catch { /* non-fatal */ }
-        }
-
-        return {
-            url: providerUrl,
-            title,
-            description,
-            siteName: oembedProviderName ?? siteName,
-            imageUrl,
-            videoUrl,
-            videoWidth: videoWidthStr ? parseInt(videoWidthStr, 10) || null : null,
-            videoHeight: videoHeightStr ? parseInt(videoHeightStr, 10) || null : null,
-            authorName: oembedAuthor ?? authorName,
-            authorUrl,
-            themeColor,
-            type,
-        };
-    } catch (e: any) {
-        return { ...empty, error: e.message ?? "Unknown error" };
-    }
+function mediaError(message: string): MediaPayload {
+    return { ok: false, contentType: null, bytes: null, size: 0, error: message };
 }
 
-export async function probeAllProviders(
+/**
+ * Download one asset for the renderer to present.
+ *
+ * `maxBytes` is enforced while streaming, not merely checked against
+ * Content-Length, so a lying or absent header cannot make us buffer a 300 MB
+ * video into the renderer process.
+ */
+export async function fetchMedia(
     _event: unknown,
-    providers: { domain: string }[],
-    originalPath: string,
-): Promise<ProbeResultNative[]> {
-    return Promise.all(
-        providers.map(p => probeProvider(_event, p.domain, originalPath)),
-    );
+    url: string,
+    maxBytes: number,
+): Promise<MediaPayload> {
+    return schedule(url, async (): Promise<MediaPayload> => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), MEDIA_TIMEOUT_MS);
+
+        try {
+            const response = await fetch(url, {
+                signal: controller.signal,
+                headers: { "User-Agent": USER_AGENT, Accept: "*/*" },
+                redirect: "follow",
+            });
+
+            if (!response.ok) return mediaError(`HTTP ${response.status}`);
+
+            const declared = Number(response.headers.get("content-length") ?? "0");
+            if (Number.isFinite(declared) && declared > maxBytes) {
+                return mediaError(`too large (${Math.round(declared / 1024)} KB > ${Math.round(maxBytes / 1024)} KB)`);
+            }
+
+            const reader = response.body?.getReader();
+            if (!reader) {
+                const buffer = new Uint8Array(await response.arrayBuffer());
+                if (buffer.byteLength > maxBytes) return mediaError("too large");
+                return { ok: true, contentType: response.headers.get("content-type"), bytes: buffer, size: buffer.byteLength };
+            }
+
+            const chunks: Uint8Array[] = [];
+            let total = 0;
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                total += value.byteLength;
+                if (total > maxBytes) {
+                    void reader.cancel().catch(() => { /* ignore */ });
+                    return mediaError(`too large (over ${Math.round(maxBytes / 1024)} KB)`);
+                }
+                chunks.push(value);
+            }
+
+            const bytes = new Uint8Array(total);
+            let offset = 0;
+            for (const chunk of chunks) {
+                bytes.set(chunk, offset);
+                offset += chunk.byteLength;
+            }
+
+            return { ok: true, contentType: response.headers.get("content-type"), bytes, size: total };
+        } catch (e) {
+            return mediaError(e instanceof Error ? e.message : String(e));
+        } finally {
+            clearTimeout(timer);
+        }
+    }).catch((e: unknown) => mediaError(e instanceof Error ? e.message : String(e)));
 }

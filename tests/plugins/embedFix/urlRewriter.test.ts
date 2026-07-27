@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
     GLOBAL_STRIP_PARAMS,
+    canonicalUrlKey,
     extractUrls,
+    hasEmbeddablePath,
+    resourcePathKey,
+    sameResource,
     stripTrackingParams,
     rewriteUrl,
     rewriteMessageContent,
@@ -255,5 +259,89 @@ describe("embedFix/urlRewriter", () => {
             expect(result.content.slice(secondRewrite.offset, secondRewrite.offset + secondRewrite.rewritten.length))
                 .toBe(secondRewrite.rewritten);
         });
+    });
+});
+
+describe("embedFix/urlRewriter — canonical keys", () => {
+    it("collapses scheme, case, noise subdomains, trailing slash and fragment", () => {
+        const key = canonicalUrlKey("https://x.com/a/status/1");
+
+        expect(canonicalUrlKey("http://X.com/a/status/1")).toBe(key);
+        expect(canonicalUrlKey("https://www.x.com/a/status/1/")).toBe(key);
+        expect(canonicalUrlKey("https://m.x.com/a/status/1#reply")).toBe(key);
+        expect(canonicalUrlKey("https://mobile.x.com/a/status/1")).toBe(key);
+        expect(canonicalUrlKey("https://old.x.com/a/status/1")).toBe(key);
+    });
+
+    it("keeps query params, but not their order", () => {
+        expect(canonicalUrlKey("https://x.com/a?b=2&a=1")).toBe(canonicalUrlKey("https://x.com/a?a=1&b=2"));
+        expect(canonicalUrlKey("https://x.com/a?a=1")).not.toBe(canonicalUrlKey("https://x.com/a?a=2"));
+    });
+
+    it("keeps paths distinct even when they look similar", () => {
+        expect(canonicalUrlKey("https://x.com/a/status/1")).not.toBe(canonicalUrlKey("https://x.com/a/status/11"));
+        expect(canonicalUrlKey("https://x.com/a/status/1")).not.toBe(canonicalUrlKey("https://y.com/a/status/1"));
+    });
+
+    it("does not strip a subdomain that is part of the name", () => {
+        expect(canonicalUrlKey("https://www2.x.com/a")).toBe("www2.x.com/a");
+    });
+
+    it("degrades gracefully on garbage input instead of throwing", () => {
+        expect(canonicalUrlKey("  NOT A URL  ")).toBe("not a url");
+    });
+
+    it("sameResource ignores everything that does not change the post", () => {
+        expect(sameResource("https://x.com/a/status/1", "http://www.x.com/a/status/1/#x")).toBe(true);
+        expect(sameResource("https://x.com/a/status/1", "https://x.com/a/status/2")).toBe(false);
+    });
+
+    it("resourcePathKey drops the query entirely", () => {
+        expect(resourcePathKey("https://x.com/a/status/1?s=20")).toBe("x.com/a/status/1");
+        expect(resourcePathKey("nonsense")).toBeNull();
+    });
+});
+
+describe("embedFix/urlRewriter — embeddable paths", () => {
+    it("rejects bare domains and home pages", () => {
+        expect(hasEmbeddablePath("https://x.com")).toBe(false);
+        expect(hasEmbeddablePath("https://x.com/")).toBe(false);
+        expect(hasEmbeddablePath("https://x.com///")).toBe(false);
+    });
+
+    it("accepts anything with a real path", () => {
+        expect(hasEmbeddablePath("https://x.com/a")).toBe(true);
+        expect(hasEmbeddablePath("https://x.com/a/status/1")).toBe(true);
+    });
+
+    it("rejects unparseable input", () => {
+        expect(hasEmbeddablePath("not a url")).toBe(false);
+    });
+
+    it("keeps bare domains out of the outgoing rewrite scan", () => {
+        const platforms = [{
+            id: "twitter",
+            label: "Twitter",
+            domains: ["twitter.com", "x.com"],
+            providers: [{ domain: "vxtwitter.com", label: "VxTwitter" }],
+        }];
+
+        expect(extractUrls("https://x.com and https://x.com/a/status/1", platforms))
+            .toEqual([{ url: "https://x.com/a/status/1", offset: 18 }]);
+    });
+});
+
+describe("embedFix/urlRewriter — rewriteUrl hardening", () => {
+    it("upgrades a plain-http source to https on the provider", () => {
+        expect(rewriteUrl("http://x.com/a/status/1", "vxtwitter.com")).toBe("https://vxtwitter.com/a/status/1");
+    });
+
+    it("keeps query and fragment intact", () => {
+        expect(rewriteUrl("https://x.com/a/status/1?lang=en#reply", "vxtwitter.com"))
+            .toBe("https://vxtwitter.com/a/status/1?lang=en#reply");
+    });
+
+    it("returns unparseable input untouched", () => {
+        expect(rewriteUrl("not a url", "vxtwitter.com")).toBe("not a url");
     });
 });

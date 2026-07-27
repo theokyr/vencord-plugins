@@ -71,9 +71,14 @@ describe("TIMEOUTS", () => {
     });
 
     it("has reasonable values (between 1s and 120s)", () => {
+        // The rebuild timeouts cover a full Vencord build plus a Discord restart,
+        // which legitimately outlives any interactive tool call.
+        const REBUILD_KEYS = ["rebuild", "rebuildDisconnect"];
+
         for (const [key, value] of Object.entries(TIMEOUTS)) {
             expect(value, `TIMEOUTS.${key}`).toBeGreaterThanOrEqual(1_000);
-            expect(value, `TIMEOUTS.${key}`).toBeLessThanOrEqual(120_000);
+            const max = REBUILD_KEYS.includes(key) ? 600_000 : 120_000;
+            expect(value, `TIMEOUTS.${key}`).toBeLessThanOrEqual(max);
         }
     });
 

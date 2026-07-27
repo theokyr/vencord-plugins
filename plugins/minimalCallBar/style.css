@@ -98,6 +98,8 @@
     display: flex;
     align-items: center;
     flex-shrink: 0;
+    min-width: 0;
+    isolation: isolate;
 }
 
 .vc-minimalCallBar-avatar {
@@ -108,14 +110,25 @@
     object-fit: cover;
 }
 
-.vc-minimalCallBar-avatar + .vc-minimalCallBar-avatar {
-    margin-left: -6px;
+/* Avatars are wrapped in .avatarWrap, so the overlap must be applied to the wrapper */
+.vc-minimalCallBar-avatarWrap + .vc-minimalCallBar-avatarWrap {
+    margin-left: -8px;
+}
+
+/* Earlier avatars sit on top so every status badge stays visible (facepile order) */
+.vc-minimalCallBar-avatarWrap:hover {
+    z-index: 100;
 }
 
 .vc-minimalCallBar-avatarCount {
     color: var(--text-muted, #949ba4);
     font-size: 11px;
-    margin-left: 4px;
+    margin-left: 6px;
+    cursor: context-menu;
+}
+
+.vc-minimalCallBar-avatarCount:hover {
+    color: var(--text-normal, #dbdee1);
 }
 
 .vc-minimalCallBar-avatarWrap {
@@ -177,6 +190,16 @@
 .vc-minimalCallBar-statusDot.vc-minimalCallBar-disconnected {
     background: #949ba4;
     animation: none;
+}
+
+.vc-minimalCallBar-statusDot.vc-minimalCallBar-connecting {
+    background: #f0b132;
+    animation: vc-minimalCallBar-pulse 0.8s ease-in-out infinite;
+}
+
+/* Server name prefix on the channel label for guild voice channels */
+.vc-minimalCallBar-guildName {
+    color: #949ba4;
 }
 
 /* ─── Controls ─── */
@@ -311,11 +334,39 @@
     margin-bottom: 8px;
 }
 
+/* Invisible bridge across the 4px gap so the pointer can reach the tooltip */
+.vc-minimalCallBar-tooltip::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 8px;
+}
+
+.vc-minimalCallBar-tooltip-below::before {
+    top: -8px;
+}
+
+.vc-minimalCallBar-tooltip-above::before {
+    bottom: -8px;
+}
+
 .vc-minimalCallBar-tooltipUser {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 4px 0;
+    padding: 4px 6px;
+    margin: 0 -6px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.vc-minimalCallBar-tooltipUser:hover {
+    background: var(--background-modifier-hover, rgba(255, 255, 255, 0.06));
+}
+
+.vc-minimalCallBar-tooltipUser:active {
+    background: var(--background-modifier-active, rgba(255, 255, 255, 0.09));
 }
 
 .vc-minimalCallBar-tooltipUserAvatar {

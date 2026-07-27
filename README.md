@@ -26,7 +26,7 @@
 | **bsNoMore** | Remove upsell clutter — compacts DM nav, hides clan tags, avatar decorations, quest popups, and store UI |
 | **channelTabs** | Quick-access tab bar for channels and DMs |
 | **discordMcp** | MCP bridge — expose Discord to AI agents via the Model Context Protocol |
-| **embedFix** | Replaces social media URLs with embed-friendly alternatives from third-party providers |
+| **embedFix** | Richer social media embeds in both directions — rewrites your own links before sending, and adds a working embed to other people's |
 | **enrichedHeader** | Moves Discord channel header controls into the title bar and exposes a typed header layout API |
 | **hotkeyNav** | Keyboard-driven navigation to notifications, DMs, and servers with inline keycap hints |
 | **messageHeaderAvatar** | Displays user avatars inline in message headers next to the username |
@@ -127,7 +127,7 @@ plugins/
   _libAnimationKit/  # Shared animation presets (build-time dependency)
   _libKeybindRegistry/ # Shared keybind registry (build-time dependency)
 proxy/               # MCP proxy server for discordMcp
-tests/               # Vitest test suite (186 tests)
+tests/               # Vitest test suite (759 tests)
 plugins.json         # venpm plugin index
 ```
 

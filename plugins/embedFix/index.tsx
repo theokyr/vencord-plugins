@@ -5,42 +5,32 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { MessageObject } from "@api/MessageEvents";
 import { addMessageAccessory, removeMessageAccessory } from "@api/MessageAccessories";
+import type { MessageObject } from "@api/MessageEvents";
 import { definePluginSettings } from "@api/Settings";
 import definePlugin, { OptionType } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
-import { FluxDispatcher, UserStore } from "@webpack/common";
+import { Button, FluxDispatcher, React, UserStore } from "@webpack/common";
 
-import { DEFAULT_PLATFORMS, matchPlatform, mergeUserOverrides, resolvePlatformUrl, type PlatformEntry } from "./providerMap";
-import { rewriteMessageContent, rewriteUrl, stripTrackingParams } from "./urlRewriter";
-import { ProbeCache, type ProbeResult } from "./probeCache";
-import { chooseWorkingProvider } from "./providerFallback";
-import { applyProviderOrder } from "./providerPriority";
-import { startIncomingEmbedSuppressor } from "./domSuppressor";
-import { RewrittenLink } from "./components/RewrittenLink";
-import { createEmbedAccessory, triggerEmbedRefresh } from "./components/EmbedAccessory";
+import { createEmbedAccessory } from "./components/EmbedAccessory";
 import { ProviderPriorityEditor } from "./components/ProviderPriorityEditor";
+import type { EmbedMeta } from "./embedMeta";
+import { restoreAll } from "./embedSuppressor";
+import { MediaHostRegistry, createDomImageLoader, createDomVideoLoader } from "./mediaProbe";
+import { MediaProxy, createDomObjectUrls } from "./mediaProxy";
+import { IncomingController } from "./incomingController";
+import { findCandidateLinks, planIncomingMessage } from "./incomingPlan";
+import { applyReplacements, pendingKey, planOutgoing, type DeferredLink, type LinkKnowledge } from "./outgoing";
+import { DEFAULT_PLATFORMS, mergeUserOverrides, type PlatformEntry } from "./providerMap";
+import { applyProviderOrder } from "./providerPriority";
+import { ProviderResolver } from "./providerResolver";
 import { createEmbedFixSchema } from "./settingsSchema";
 
 import "./style.css";
 
 const MessageActions = findByPropsLazy("editMessage", "sendMessage");
 
-// Native module access — lazy getter to avoid TDZ issues at module scope.
-// The plugin name "EmbedFix" must match the definePlugin name exactly.
-function getNative(): {
-    probeProvider(providerDomain: string, originalPath: string): Promise<ProbeResult & { oembedType?: string; error?: string }>;
-    probeAllProviders(providers: { domain: string }[], originalPath: string): Promise<(ProbeResult & { oembedType?: string; error?: string })[]>;
-} | null {
-    try {
-        return (window as any).VencordNative?.pluginHelpers?.EmbedFix ?? null;
-    } catch {
-        return null;
-    }
-}
-
-// --- Settings ---
+// --- Settings ---------------------------------------------------------------
 
 const settings = definePluginSettings({
     rewriteOutgoing: {
@@ -50,12 +40,27 @@ const settings = definePluginSettings({
     },
     rewriteIncoming: {
         type: OptionType.BOOLEAN,
-        description: "Visually replace URLs from other users (restart required)",
+        description: "Add a working embed to supported links from other users",
         default: true,
+    },
+    replaceOnlyWhenBetter: {
+        type: OptionType.BOOLEAN,
+        description: "Only replace Discord's embed when the provider's is richer",
+        default: true,
+    },
+    parallelProbes: {
+        type: OptionType.BOOLEAN,
+        description: "Check every provider at once instead of stopping at the first good one",
+        default: false,
+    },
+    debugLogging: {
+        type: OptionType.BOOLEAN,
+        description: "Log every provider check to the console",
+        default: false,
     },
     cacheTTLHours: {
         type: OptionType.NUMBER,
-        description: "Probe result cache lifetime in hours",
+        description: "How long a successful link lookup stays cached, in hours",
         default: 24,
     },
     enableTwitter: { type: OptionType.BOOLEAN, description: "Twitter / X", default: true },
@@ -91,273 +96,300 @@ const settings = definePluginSettings({
     },
     recheckProviders: {
         type: OptionType.COMPONENT,
-        description: "Re-check all providers",
+        description: "Forget every cached lookup",
         component: () => {
-            const { React, Button } = require("@webpack/common");
-            const [checking, setChecking] = React.useState(false);
+            const [done, setDone] = React.useState(false);
             return (
                 <Button
                     size={Button.Sizes.SMALL}
-                    disabled={checking}
-                    onClick={async () => {
-                        setChecking(true);
-                        console.log("[EmbedFix] Flushing probe cache and re-checking all providers...");
-                        probeCache.flush();
-                        await prewarmCache();
-                        console.log("[EmbedFix] Re-check complete. Cache:", probeCache.serialize());
-                        setChecking(false);
+                    onClick={() => {
+                        resolver.flush();
+                        controller.reset();
+                        setDone(true);
+                        setTimeout(() => setDone(false), 1500);
                     }}
                 >
-                    {checking ? "Checking..." : "Re-check Providers"}
+                    {done ? "Cache cleared" : "Re-check All Links"}
                 </Button>
             );
         },
     },
-    probeCache: {
+    linkCache: {
         type: OptionType.STRING,
-        description: "Internal probe cache (do not edit)",
+        description: "Internal per-link resolution cache (do not edit)",
         default: "",
         hidden: true,
     },
 });
 
-// --- Probe Cache ---
+// --- Logging ----------------------------------------------------------------
 
-const probeCache = new ProbeCache(24, () => {
-    settings.store.probeCache = probeCache.serialize();
+function log(message: string) {
+    if (settings.store.debugLogging) console.log(`[EmbedFix] ${message}`);
+}
+
+// --- Native bridge ----------------------------------------------------------
+
+interface NativeApi {
+    fetchEmbedMeta(url: string, sourceHosts: string[]): Promise<EmbedMeta>;
+    fetchMedia(url: string, maxBytes: number): Promise<{
+        ok: boolean; contentType: string | null; bytes: Uint8Array | null; size: number; error?: string;
+    }>;
+}
+
+function getNative(): NativeApi | null {
+    try {
+        return (window as any).VencordNative?.pluginHelpers?.EmbedFix ?? null;
+    } catch {
+        return null;
+    }
+}
+
+// --- Resolver ---------------------------------------------------------------
+
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+const resolver = new ProviderResolver({
+    probe: async (providerUrl, sourceHosts) => {
+        const Native = getNative();
+        if (!Native?.fetchEmbedMeta) throw new Error("native module unavailable");
+        return await Native.fetchEmbedMeta(providerUrl, sourceHosts);
+    },
+    onPersist: () => {
+        // Settings writes hit disk — coalesce the burst from one message.
+        if (persistTimer) return;
+        persistTimer = setTimeout(() => {
+            persistTimer = null;
+            try {
+                settings.store.linkCache = resolver.serialize();
+            } catch {
+                // Persistence is best-effort.
+            }
+        }, 2000);
+    },
+    log,
 });
 
-// --- Helpers ---
+/**
+ * Discord's CSP blocks media from hosts outside its allowlist, so an og:image
+ * or og:video is only worth something if it actually paints or plays.
+ * Measured per host and per kind — img-src and media-src differ.
+ */
+const mediaHosts = new MediaHostRegistry({
+    loaders: {
+        image: createDomImageLoader(),
+        video: createDomVideoLoader(),
+    },
+});
 
 /**
- * Merge user overrides with defaults, then apply the persisted provider order.
+ * The main process has no CSP, so it can fetch what the renderer cannot and
+ * hand the bytes over as a blob: URL.
  */
-function getConfiguredPlatforms(): PlatformEntry[] {
-    const all = mergeUserOverrides(DEFAULT_PLATFORMS, settings.store.customProviders);
-    return applyProviderOrder(all, settings.store.providerOrder);
-}
+const mediaProxy = new MediaProxy({
+    fetcher: async (url, maxBytes) => {
+        const Native = getNative();
+        if (!Native?.fetchMedia) throw new Error("native module unavailable");
+        return await Native.fetchMedia(url, maxBytes);
+    },
+    objectUrls: createDomObjectUrls(),
+    log,
+});
 
-/**
- * Filter configured platforms by per-platform toggles.
- */
-function getActivePlatforms(): PlatformEntry[] {
-    const all = getConfiguredPlatforms();
-    const toggles: Record<string, boolean> = {
-        twitter: settings.store.enableTwitter,
-        reddit: settings.store.enableReddit,
-        instagram: settings.store.enableInstagram,
-        tiktok: settings.store.enableTiktok,
-        pixiv: settings.store.enablePixiv,
-        bluesky: settings.store.enableBluesky,
-        threads: settings.store.enableThreads,
-    };
-    return all.filter(p => toggles[p.id] !== false);
-}
+const controller = new IncomingController(
+    resolver,
+    log,
+    (url, kind) => mediaHosts.canPresent(url, kind),
+    mediaProxy,
+);
+controller.peekMedia = (url, kind) => mediaHosts.peek(url, kind);
 
-/**
- * Build an enabledMap from settings toggles for rewriteMessageContent.
- */
-function buildEnabledMap(): Record<string, boolean> {
-    return {
-        twitter: settings.store.enableTwitter,
-        reddit: settings.store.enableReddit,
-        instagram: settings.store.enableInstagram,
-        tiktok: settings.store.enableTiktok,
-        pixiv: settings.store.enablePixiv,
-        bluesky: settings.store.enableBluesky,
-        threads: settings.store.enableThreads,
-    };
-}
+// --- Platform configuration -------------------------------------------------
 
-/**
- * Return the first provider in the user-configured priority list.
- */
-function getPreferredProvider(platformId: string): { domain: string; label: string } | null {
-    const platforms = getActivePlatforms();
-    const platform = platforms.find(p => p.id === platformId);
-    if (platform && platform.providers.length > 0) {
-        const preferred = platform.providers[0];
-        return { domain: preferred.domain, label: preferred.label };
-    }
-
-    return null;
-}
-
-// --- Deferred Edit ---
-
-interface PendingEdit {
-    channelId: string;
-    originalUrl: string;
-    cleanUrl: string;
-    sentUrl: string;
-    offset: number;
-    platformId: string;
-    originalContent: string;
-}
-
-const pendingEdits = new Map<string, PendingEdit[]>();
-let stopIncomingEmbedSuppressor: (() => void) | null = null;
-
-/**
- * Probe providers in configured priority order for each pending URL and edit
- * the message once. If every provider fails, the URL falls back to the clean
- * original URL instead of keeping a broken rewrite.
- */
-async function probeAndEdit(messageId: string, channelId: string, edits: PendingEdit[]) {
-    const Native = getNative();
-    if (!Native?.probeProvider) return;
-
-    const platforms = getActivePlatforms();
-    const replacements: Array<{ offset: number; from: string; to: string }> = [];
-    const originalContent = edits[0]?.originalContent;
-    if (!originalContent) return;
-
-    for (const edit of edits) {
-        const platform = platforms.find(p => p.id === edit.platformId);
-        if (!platform) continue;
-
-        try {
-            // Check if the edit is still pending (user may have edited the message)
-            const stillPending = pendingEdits.get(messageId);
-            if (!stillPending) return;
-
-            const actualUrl = [edit.sentUrl, edit.cleanUrl, edit.originalUrl].find(candidate => (
-                originalContent.slice(edit.offset, edit.offset + candidate.length) === candidate
-            ));
-            if (!actualUrl) continue;
-
-            const working = await chooseWorkingProvider(platform, edit.cleanUrl, (domain, path) => Native.probeProvider(domain, path));
-            const targetUrl = working
-                ? rewriteUrl(edit.cleanUrl, working.provider.domain)
-                : edit.cleanUrl;
-
-            if (targetUrl !== actualUrl) {
-                replacements.push({ offset: edit.offset, from: actualUrl, to: targetUrl });
-            }
-        } catch {
-            // Probe or edit failed — silently continue
-        }
-    }
-
-    if (replacements.length > 0 && pendingEdits.get(messageId)) {
-        replacements.sort((a, b) => b.offset - a.offset);
-
-        let newContent = originalContent;
-        for (const replacement of replacements) {
-            newContent =
-                newContent.slice(0, replacement.offset) +
-                replacement.to +
-                newContent.slice(replacement.offset + replacement.from.length);
-        }
-
-        if (newContent !== originalContent) {
-            await MessageActions.editMessage(channelId, messageId, { content: newContent });
-        }
-    }
-
-    pendingEdits.delete(messageId);
-}
-
-/**
- * FluxDispatcher handler for MESSAGE_CREATE.
- * When we see our own message, move pending edits from temp key to real
- * messageId and fire probeAndEdit in the background.
- */
-function onMessageCreate(event: { message: { id: string; author: { id: string }; channel_id: string; content: string } }) {
-    try {
-        const msg = event.message;
-
-        // Get current user ID — try-catch for TDZ safety
-        let currentUserId: string | undefined;
-        try {
-            currentUserId = UserStore.getCurrentUser()?.id;
-        } catch {
-            return;
-        }
-        if (!currentUserId || msg.author.id !== currentUserId) return;
-
-        // Find pending edits for this channel (keyed by temp key)
-        const channelPending = [...pendingEdits.entries()].find(
-            ([key, edits]) => key.startsWith("pending_") && edits[0]?.channelId === msg.channel_id,
-        );
-        if (!channelPending) return;
-
-        const [tempKey, edits] = channelPending;
-        pendingEdits.delete(tempKey);
-        pendingEdits.set(msg.id, edits);
-
-        // Fire deferred probe+edit in background
-        probeAndEdit(msg.id, msg.channel_id, edits);
-    } catch {
-        // Never crash FluxDispatcher
-    }
-}
-
-/**
- * FluxDispatcher handler for MESSAGE_UPDATE.
- * If the user edited the message, cancel our pending edit.
- */
-function onMessageUpdate(event: { message: { id: string } }) {
-    try {
-        pendingEdits.delete(event.message.id);
-    } catch {
-        // Never crash FluxDispatcher
-    }
-}
-
-// --- Pre-warm ---
-
-/**
- * Hardcoded test paths per platform for cache prewarm probes.
- * Must be real, popular URLs that return rich OG tags.
- */
-const PREWARM_TEST_PATHS: Record<string, string> = {
-    twitter: "/elikiiii/status/1629978420",
-    reddit: "/r/pics/comments/haukpf/test_post_please_ignore/",
-    instagram: "/p/CwwMGPWrPbQ/",
-    tiktok: "/@tiktok/video/7106594312292453675",
-    pixiv: "/en/artworks/118153342",
-    bluesky: "/profile/bsky.app/post/3jxsxdcx7rs2n",
-    threads: "/@zuck/post/CuVDT24PmIm",
+const TOGGLE_KEYS: Record<string, keyof typeof settings.store> = {
+    twitter: "enableTwitter",
+    reddit: "enableReddit",
+    instagram: "enableInstagram",
+    tiktok: "enableTiktok",
+    pixiv: "enablePixiv",
+    bluesky: "enableBluesky",
+    threads: "enableThreads",
 };
 
+function buildEnabledMap(): Record<string, boolean> {
+    const map: Record<string, boolean> = {};
+    for (const [platformId, key] of Object.entries(TOGGLE_KEYS)) {
+        map[platformId] = settings.store[key] !== false;
+    }
+    return map;
+}
+
+/** Enabled platforms, with providers in the user's priority order. */
+function getActivePlatforms(): PlatformEntry[] {
+    const merged = mergeUserOverrides(DEFAULT_PLATFORMS, settings.store.customProviders);
+    const ordered = applyProviderOrder(merged, settings.store.providerOrder);
+    const enabled = buildEnabledMap();
+    return ordered.filter(platform => enabled[platform.id] !== false);
+}
+
+// --- Outgoing ---------------------------------------------------------------
+
+interface PendingMessage {
+    channelId: string;
+    content: string;
+    links: DeferredLink[];
+    platforms: PlatformEntry[];
+    queuedAt: number;
+}
+
+const pending = new Map<string, PendingMessage>();
+const PENDING_TTL_MS = 60_000;
+
+/** What we already know about a link, without touching the network. */
+function lookupKnowledge(cleanUrl: string): LinkKnowledge {
+    const cached = resolver.peek(cleanUrl);
+    if (!cached) return { status: "unknown" };
+    if (!cached.providerDomain) return { status: "none" };
+    return { status: "provider", domain: cached.providerDomain, label: cached.providerDomain };
+}
+
+function prunePending(now: number) {
+    for (const [key, entry] of pending) {
+        if (now - entry.queuedAt > PENDING_TTL_MS) pending.delete(key);
+    }
+}
+
 /**
- * Probe all enabled platforms in the background.
- * Skips platforms that already have a valid cached result.
+ * Check every queued link, then fix the message with a single edit.
+ * Each link is checked on its own — one bad link never drags the others down.
  */
-async function prewarmCache() {
-    const Native = getNative();
-    if (!Native?.probeAllProviders) {
-        console.log("[EmbedFix] Prewarm: native module not available, skipping");
+async function resolvePendingMessage(messageId: string, entry: PendingMessage) {
+    const replacements = await Promise.all(entry.links.map(async link => {
+        const platform = entry.platforms.find(candidate => candidate.id === link.platformId);
+        if (!platform) return null;
+
+        const resolution = await resolver.resolve(link.cleanUrl, platform);
+        if (!resolution.providerUrl || resolution.providerUrl === link.sentUrl) return null;
+
+        return { offset: link.offset, from: link.sentUrl, to: resolution.providerUrl };
+    }));
+
+    const usable = replacements.filter((value): value is NonNullable<typeof value> => value !== null);
+    if (usable.length === 0) return;
+
+    const { content, applied, skipped } = applyReplacements(entry.content, usable);
+    if (applied === 0) {
+        log(`deferred edit for ${messageId} skipped (${skipped} stale replacement(s))`);
         return;
     }
 
-    console.log("[EmbedFix] Prewarm: starting provider checks...");
-    const platforms = getActivePlatforms();
-
-    for (const platform of platforms) {
-        if (probeCache.get(platform.id)) {
-            console.log(`[EmbedFix] Prewarm: ${platform.id} already cached, skipping`);
-            continue;
-        }
-        const path = PREWARM_TEST_PATHS[platform.id] ?? "/";
-        try {
-            console.log(`[EmbedFix] Prewarm: probing ${platform.id} with path ${path}`);
-            const results = await Native.probeAllProviders(
-                platform.providers.map(p => ({ domain: p.domain })),
-                path,
-            );
-            probeCache.set(platform.id, results, path);
-            const best = probeCache.get(platform.id);
-            console.log(`[EmbedFix] Prewarm: ${platform.id} → best=${best}, scores=[${results.map(r => `${r.domain}:${r.score}`).join(", ")}]`);
-        } catch (e) {
-            console.error(`[EmbedFix] Prewarm: ${platform.id} failed:`, e);
-        }
+    try {
+        await MessageActions.editMessage(entry.channelId, messageId, { content });
+        log(`edited ${messageId} with ${applied} rewritten link(s)`);
+    } catch (e) {
+        log(`edit failed for ${messageId}: ${String(e)}`);
     }
-    console.log("[EmbedFix] Prewarm: complete");
 }
 
-// --- Plugin ---
+function onMessageCreate(event: any) {
+    try {
+        const message = event?.message;
+        if (!message?.id || !message.channel_id) return;
+
+        const currentUserId = UserStore.getCurrentUser()?.id;
+        if (!currentUserId || message.author?.id !== currentUserId) return;
+
+        prunePending(Date.now());
+
+        const key = pendingKey(message.channel_id, message.content ?? "");
+        const entry = pending.get(key);
+        if (!entry) return;
+
+        pending.delete(key);
+        void resolvePendingMessage(message.id, entry);
+    } catch {
+        // Never throw inside a Flux handler.
+    }
+}
+
+// --- Diagnostics ------------------------------------------------------------
+
+/**
+ * Exposed as `window.__embedFix` for debugging from DevTools.
+ *
+ * Message accessories are wrapped by Vencord in `<ErrorBoundary noop>`, so a
+ * render failure shows up as nothing at all. These handles make the plugin's
+ * actual state inspectable without needing the MCP bridge.
+ */
+function buildDiagnostics() {
+    return {
+        /** Resolution state for every link seen this session. */
+        states: () => Object.fromEntries(controller.getStates()),
+        /** Cache size and per-domain health, including active cooldowns. */
+        stats: () => resolver.stats(),
+        /** Which CDNs actually render inside Discord, per media kind. */
+        mediaHosts: () => mediaHosts.stats(),
+        /** Media fetched through the main process to dodge the CSP. */
+        proxied: () => mediaProxy.stats(),
+        /** Platform config actually in use right now. */
+        platforms: () => getActivePlatforms().map(platform => ({
+            id: platform.id,
+            domains: platform.domains,
+            providers: platform.providers.map(provider => provider.domain),
+        })),
+        /** Is the Electron-main half reachable? */
+        native: () => !!getNative()?.fetchEmbedMeta,
+        /**
+         * Force a check of one link, bypassing the cache. Returns every
+         * provider attempt with its score, error or soft error.
+         */
+        check: async (url: string) => {
+            const platforms = getActivePlatforms();
+            const candidate = findCandidateLinks(url, platforms)[0];
+            if (!candidate) return { error: "no supported platform matched this URL" };
+
+            resolver.invalidate(candidate.cleanUrl);
+            const resolution = await resolver.resolve(candidate.cleanUrl, candidate.platform);
+            return {
+                cleanUrl: candidate.cleanUrl,
+                winner: resolution.providerUrl,
+                score: resolution.score,
+                attempts: resolution.attempts,
+            };
+        },
+        /** Dry-run the planner against a message body. */
+        explain: (content: string, embeds: any[] = []) => {
+            const plan = planIncomingMessage({
+                content,
+                embeds,
+                platforms: getActivePlatforms(),
+                states: controller.getStates(),
+                replaceOnlyWhenBetter: settings.store.replaceOnlyWhenBetter !== false,
+            });
+            return {
+                candidates: plan.candidates.map(c => ({ url: c.cleanUrl, provider: c.isProviderLink })),
+                needsResolution: plan.needsResolution.map(c => c.cleanUrl),
+                render: plan.render.map(item => ({ url: item.providerUrl, why: item.reason })),
+                suppress: plan.suppress,
+            };
+        },
+        /** Forget everything and start over. */
+        flush: () => {
+            resolver.flush();
+            controller.reset();
+            mediaHosts.reset();
+            mediaProxy.reset();
+            return "cache cleared";
+        },
+        /** Toggle per-check console logging. */
+        debug: (on = true) => {
+            settings.store.debugLogging = on;
+            return `debug logging ${on ? "on" : "off"}`;
+        },
+    };
+}
+
+// --- Plugin -----------------------------------------------------------------
 
 export default definePlugin({
     name: "EmbedFix",
@@ -365,7 +397,6 @@ export default definePlugin({
     authors: [{ name: "kamaras", id: 132106519264100352n }],
     settings,
     settingsAboutComponent() {
-        const { Button } = require("@webpack/common");
         return (
             <Button onClick={() => (window as any).__settingsHub?.open("EmbedFix")}>
                 Open Full Settings
@@ -373,173 +404,86 @@ export default definePlugin({
         );
     },
 
-    patches: [
-        {
-            // Patch the link render rule (markdown autolinks/urls) to intercept URL
-            // display for incoming messages. Injects before the return statement in
-            // the react() method. If _patchedLinkRender returns non-null, it short-
-            // circuits the default <a> render.
-            // No predicate — settings.store is undefined at registration time.
-            // Runtime check is in _patchedLinkRender instead.
-            find: "mustConfirmExternalLink",
-            replacement: {
-                match: /return (\i)\.noStyleAndInteraction\?/,
-                replace: "{let _vr=$self._patchedLinkRender(arguments[0],arguments[2]);if(_vr!=null)return _vr;}return arguments[2].noStyleAndInteraction?",
-            },
-        },
-    ],
-
-    /**
-     * Intercept link rendering for incoming messages.
-     * Called from the patched link render rule with the parsed node and render state.
-     * Returns a RewrittenLink component if the URL matches a known platform
-     * with a cached provider, or null to fall through to default render.
-     *
-     * @param node - Parsed markdown node: { target: string, content: any[], title?: string }
-     * @param state - Render state: { key?: string, messageId?: string, channelId?: string }
-     */
-    _patchedLinkRender(node: { target: string; content: any[] }, state: { key?: string; messageId?: string; channelId?: string }) {
-        if (!settings.store.rewriteIncoming) return null;
-
-        const originalUrl = node.target;
-        const platforms = getActivePlatforms();
-        const resolved = resolvePlatformUrl(originalUrl, platforms);
-        if (!resolved) return null;
-
-        const platform = resolved.platform;
-        const provider = resolved.provider ?? getPreferredProvider(platform.id);
-        if (!provider) {
-            console.log(`[EmbedFix] Incoming: no provider for ${platform.id}, skipping ${originalUrl}`);
-            return null;
-        }
-
-        const cleanUrl = stripTrackingParams(originalUrl, platform.stripParams ?? []);
-        const rewrittenUrl = rewriteUrl(cleanUrl, provider.domain);
-        console.log(`[EmbedFix] Incoming: ${originalUrl} → ${rewrittenUrl}`);
-
-        return (
-            <RewrittenLink
-                href={rewrittenUrl}
-                originalHref={originalUrl}
-                title={`${provider.label} embed`}
-                messageId={state.messageId}
-                channelId={state.channelId}
-                onRefresh={context => triggerEmbedRefresh(rewrittenUrl, context)}
-            >
-                {rewrittenUrl}
-            </RewrittenLink>
-        );
-    },
-
     start() {
         (window as any).__settingsHub?.register(createEmbedFixSchema(settings));
 
-        // Restore probe cache from persisted settings
-        const saved = settings.store.probeCache;
-        if (saved) probeCache.restore(saved);
-        probeCache.setTTL(settings.store.cacheTTLHours ?? 24);
+        resolver.restore(settings.store.linkCache);
+        resolver.setTTL(settings.store.cacheTTLHours ?? 24);
+        resolver.setParallel(settings.store.parallelProbes === true);
 
-        // Subscribe to FluxDispatcher for deferred edits
         FluxDispatcher.subscribe("MESSAGE_CREATE", onMessageCreate);
-        FluxDispatcher.subscribe("MESSAGE_UPDATE", onMessageUpdate);
 
-        // Register embed accessory for incoming messages
         addMessageAccessory(
             "EmbedFix",
-            createEmbedAccessory(
-                getActivePlatforms,
-                () => settings.store.rewriteIncoming,
-            ),
-            4, // position: near embeds
+            createEmbedAccessory({
+                getPlatforms: getActivePlatforms,
+                controller,
+                isEnabled: () => settings.store.rewriteIncoming !== false,
+                replaceOnlyWhenBetter: () => settings.store.replaceOnlyWhenBetter !== false,
+                proxy: mediaProxy,
+            }),
+            4,
         );
 
-        // Body class for CSS embed suppression
         document.body.classList.add("vc-embedFix-active");
-        stopIncomingEmbedSuppressor = startIncomingEmbedSuppressor(
-            getActivePlatforms,
-            () => settings.store.rewriteIncoming,
-        );
 
-        // Pre-warm cache in background
-        prewarmCache();
+        (window as any).__embedFix = buildDiagnostics();
     },
 
     stop() {
         (window as any).__settingsHub?.unregister("EmbedFix");
         FluxDispatcher.unsubscribe("MESSAGE_CREATE", onMessageCreate);
-        FluxDispatcher.unsubscribe("MESSAGE_UPDATE", onMessageUpdate);
         removeMessageAccessory("EmbedFix");
-        stopIncomingEmbedSuppressor?.();
-        stopIncomingEmbedSuppressor = null;
+        restoreAll(document);
+        controller.reset();
+        mediaProxy.reset();
+        pending.clear();
         document.body.classList.remove("vc-embedFix-active");
-        pendingEdits.clear();
-    },
+        delete (window as any).__embedFix;
 
-    onBeforeMessageSend(_channelId: string, msg: MessageObject) {
-        if (!settings.store.rewriteOutgoing) return;
-        if (!/https?:\/\//.test(msg.content)) return;
-
-        const platforms = getActivePlatforms();
-        const enabledMap = buildEnabledMap();
-        const { content, rewrites, cacheMisses } = rewriteMessageContent(
-            msg.content,
-            platforms,
-            getPreferredProvider,
-            enabledMap,
-        );
-
-        if (rewrites.length > 0) {
-            console.log(`[EmbedFix] Outgoing: rewrote ${rewrites.length} URL(s):`, rewrites.map(r => `${r.original} → ${r.rewritten}`));
+        if (persistTimer) {
+            clearTimeout(persistTimer);
+            persistTimer = null;
         }
-        if (cacheMisses.length > 0) {
-            console.log(`[EmbedFix] Outgoing: ${cacheMisses.length} cache miss(es), queuing deferred edit:`, cacheMisses.map(m => m.url));
-        }
-
-        msg.content = content;
-
-        const edits: PendingEdit[] = [
-            ...rewrites.map(r => ({
-                channelId: _channelId,
-                originalUrl: r.original,
-                cleanUrl: r.cleanUrl,
-                sentUrl: r.rewritten,
-                offset: r.offset,
-                platformId: r.platformId,
-                originalContent: content,
-            })),
-            ...cacheMisses.map(m => ({
-                channelId: _channelId,
-                originalUrl: m.url,
-                cleanUrl: m.cleanUrl,
-                sentUrl: m.cleanUrl,
-                offset: m.offset,
-                platformId: m.platformId,
-                originalContent: content,
-            })),
-        ];
-
-        // Queue deferred verification for all rewritten URLs so per-link HTTP
-        // failures can fall through to the next provider or the clean original.
-        if (edits.length > 0) {
-            const tempKey = `pending_${Date.now()}`;
-            pendingEdits.set(tempKey, edits);
+        try {
+            settings.store.linkCache = resolver.serialize();
+        } catch {
+            // best-effort
         }
     },
 
-    onBeforeMessageEdit(_cid: string, _mid: string, msg: MessageObject) {
-        if (!settings.store.rewriteOutgoing) return;
-        if (!/https?:\/\//.test(msg.content)) return;
+    onBeforeMessageSend(channelId: string, msg: MessageObject) {
+        if (settings.store.rewriteOutgoing === false) return;
+        if (!msg.content || !/https?:\/\//.test(msg.content)) return;
 
         const platforms = getActivePlatforms();
-        const enabledMap = buildEnabledMap();
-        const { content } = rewriteMessageContent(
-            msg.content,
-            platforms,
-            getPreferredProvider,
-            enabledMap,
-        );
+        const plan = planOutgoing(msg.content, platforms, buildEnabledMap(), lookupKnowledge);
 
-        msg.content = content;
-        // No deferred edit for manual edits — only rewrite what's cached
+        msg.content = plan.content;
+
+        if (plan.applied.length > 0) {
+            log(`sent with ${plan.applied.length} cached rewrite(s)`);
+        }
+        if (plan.deferred.length === 0) return;
+
+        prunePending(Date.now());
+        pending.set(pendingKey(channelId, plan.content), {
+            channelId,
+            content: plan.content,
+            links: plan.deferred,
+            platforms,
+            queuedAt: Date.now(),
+        });
+        log(`queued ${plan.deferred.length} link(s) for a deferred check`);
+    },
+
+    onBeforeMessageEdit(_channelId: string, _messageId: string, msg: MessageObject) {
+        if (settings.store.rewriteOutgoing === false) return;
+        if (!msg.content || !/https?:\/\//.test(msg.content)) return;
+
+        // Only apply what we already know — an edit must not trigger a second
+        // edit a few seconds later.
+        const plan = planOutgoing(msg.content, getActivePlatforms(), buildEnabledMap(), lookupKnowledge);
+        msg.content = plan.content;
     },
 });

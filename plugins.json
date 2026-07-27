@@ -58,7 +58,7 @@
       }
     },
     "channelTabs": {
-      "version": "0.5.0",
+      "version": "0.6.0",
       "description": "Quick-access tab bar for channels and DMs",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "GPL-3.0-or-later",
@@ -82,8 +82,8 @@
       }
     },
     "embedFix": {
-      "version": "0.2.0",
-      "description": "Replaces social media URLs with embed-friendly alternatives from third-party providers",
+      "version": "0.5.0",
+      "description": "Richer social media embeds in both directions — rewrites your own links before sending, and adds a working embed to other people's",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "GPL-3.0-or-later",
       "optionalDependencies": ["settingsHub"],
@@ -93,7 +93,7 @@
       }
     },
     "discordMcp": {
-      "version": "0.2.3",
+      "version": "0.2.5",
       "description": "MCP bridge — expose Discord to AI agents via the Model Context Protocol",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "GPL-3.0-or-later",
@@ -129,8 +129,8 @@
       }
     },
     "minimalCallBar": {
-      "version": "0.2.2",
-      "description": "Replaces the large DM/Group DM call overlay with a compact 32px bar",
+      "version": "0.8.1",
+      "description": "Replaces the large call overlay with a compact 32px bar, for DM calls and server voice channels",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "GPL-3.0-or-later",
       "dependencies": ["_libAnimationKit"],

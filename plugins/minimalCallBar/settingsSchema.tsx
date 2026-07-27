@@ -20,7 +20,7 @@ function PhoneIcon() {
 export function createMinimalCallBarSchema(settings: DefinedSettings): SettingsSchema {
     return {
         plugin: "MinimalCallBar",
-        description: "Compact DM/Group DM call bar",
+        description: "Compact call bar for DM calls and server voice channels",
         icon: PhoneIcon,
         settings,
         sections: [
@@ -63,10 +63,15 @@ export function createMinimalCallBarSchema(settings: DefinedSettings): SettingsS
                     {
                         settings: [
                             {
+                                key: "responsiveAvatars",
+                                label: "Fit Avatars To Width",
+                                description: "Show as many avatars as the bar has room for",
+                            },
+                            {
                                 key: "maxVisibleAvatars",
                                 control: "slider",
                                 label: "Max Visible Avatars",
-                                description: "Number of avatars before +N count",
+                                description: "Number of avatars before +N count (when fit-to-width is off)",
                                 slider: { min: 1, max: 8, step: 1 },
                             },
                         ],
@@ -112,7 +117,26 @@ export function createMinimalCallBarSchema(settings: DefinedSettings): SettingsS
                             },
                         ],
                     },
-
+                    {
+                        label: "Full Call View",
+                        settings: [
+                            {
+                                key: "expandWhenViewing",
+                                label: "Expand When Viewing",
+                                description: "Show Discord's full call view while you're viewing the call's own channel, and collapse back to the compact bar when you navigate away.",
+                            },
+                            {
+                                key: "showVoiceTextChat",
+                                label: "Show Voice Text Chat",
+                                description: "Server voice channels default to hiding their text chat, which leaves an empty page once the call view is collapsed. This renders the channel's text chat there instead.",
+                            },
+                            {
+                                key: "keepBarWhenExpanded",
+                                label: "Keep Bar While Expanded",
+                                description: "Keep the compact bar on screen alongside the full call view instead of replacing it. Clicking the bar then collapses back to bar-only.",
+                            },
+                        ],
+                    },
                 ],
             },
         ],

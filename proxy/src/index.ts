@@ -6,10 +6,11 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { randomUUID } from "node:crypto";
-import { createBridge, type DiscordBridge } from "./ws-server.js";
+import { createBridge } from "./ws-server.js";
 import { TOOLS } from "./tools.js";
 import { SubscriptionManager } from "./subscriptions.js";
 import { DEFAULT_PORT, TOOL_NAMES, type EventFilters } from "./protocol.js";
+import { runVerifiedRebuild } from "./rebuild.js";
 
 async function main() {
     const { bridge, mode } = await createBridge(DEFAULT_PORT);
@@ -57,6 +58,13 @@ async function main() {
             return {
                 content: [{ type: "text", text: JSON.stringify({ success: true }) }],
             };
+        }
+
+        // A rebuild takes Discord down with it, so the plugin's "launched" reply says
+        // nothing about whether the redeploy worked. The proxy owns the verification:
+        // watch the bridge drop and come back ready, then report that round trip.
+        if (name === TOOL_NAMES.rebuildPlugins) {
+            return await runVerifiedRebuild(bridge, params as Record<string, unknown>);
         }
 
         // All other tools: forward to plugin via WS

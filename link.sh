@@ -10,6 +10,14 @@ set -euo pipefail
 # Ensure pnpm and venpm are in PATH
 [[ ":$PATH:" != *":$HOME/.npm/bin:"* ]] && export PATH="$HOME/.npm/bin:$PATH"
 
+# mise-managed toolchains only activate in interactive shells, so a non-interactive
+# invocation (e.g. `ssh host ./link.sh`) would otherwise fail with "venpm not found".
+for mise_bin in "$HOME/.local/share/mise/shims" "$HOME/.local/share/mise/installs/node/lts/bin"; do
+    if [ -d "$mise_bin" ] && [[ ":$PATH:" != *":$mise_bin:"* ]]; then
+        export PATH="$mise_bin:$PATH"
+    fi
+done
+
 VENCORD_DIR="${VENCORD_DIR:-$HOME/src/extern/Vencord}"
 USERPLUGINS_DIR="$VENCORD_DIR/src/userplugins"
 PLUGINS_DIR="$(cd "$(dirname "$0")/plugins" && pwd)"
@@ -39,12 +47,19 @@ fi
 # Ensure userplugins dir exists
 mkdir -p "$USERPLUGINS_DIR"
 
+# Match on process NAME, not the launcher path. Discord's self-updater re-execs
+# from ~/.config/discord/Discord (Linux) or inside the .app bundle (macOS), so
+# `pgrep -f /usr/bin/discord` matches nothing once Discord has updated itself —
+# the rebuild then deploys without ever restarting, and Discord keeps running
+# the old bundle. `pgrep -x Discord` works on both platforms and also catches
+# the helper processes.
+#
+# Killing and relaunching is left to `venpm rebuild` below: it verifies the
+# process actually came back instead of assuming a spawn succeeded, and it knows
+# how to launch under Wayland/X11/macOS. Only whether to restart is decided here.
 discord_was_running=false
-if pgrep -f '/usr/bin/discord' >/dev/null 2>&1; then
+if pgrep -x Discord >/dev/null 2>&1; then
     discord_was_running=true
-    echo "Closing Discord..."
-    pkill -f '/usr/bin/discord'
-    while pgrep -f '/usr/bin/discord' >/dev/null 2>&1; do sleep 0.2; done
 fi
 
 # Install each plugin via venpm --local (per-plugin symlinks)
@@ -83,32 +98,14 @@ for plugin_dir in "$PLUGINS_DIR"/*/; do
     echo "  $plugin_name: installed via venpm"
 done
 
-echo "Building Vencord..."
-(cd "$VENCORD_DIR" && pnpm build)
-
-# Copy build output to deployed Vencord location
-if [ "$(uname -s)" = "Darwin" ]; then
-    DEPLOYED_DIR="$HOME/Library/Application Support/Vencord/dist"
-else
-    DEPLOYED_DIR="$HOME/.config/Vencord/dist"
-fi
-
-if [ -d "$DEPLOYED_DIR" ]; then
-    echo "Deploying to $DEPLOYED_DIR..."
-    cp "$VENCORD_DIR/dist/renderer.js" "$DEPLOYED_DIR/renderer.js"
-    cp "$VENCORD_DIR/dist/renderer.css" "$DEPLOYED_DIR/renderer.css"
-    cp "$VENCORD_DIR/dist/renderer.js.map" "$DEPLOYED_DIR/renderer.js.map"
-    cp "$VENCORD_DIR/dist/renderer.css.map" "$DEPLOYED_DIR/renderer.css.map"
-    cp "$VENCORD_DIR/dist/patcher.js" "$DEPLOYED_DIR/patcher.js"
-    cp "$VENCORD_DIR/dist/patcher.js.map" "$DEPLOYED_DIR/patcher.js.map"
-else
-    echo "Deploy target not found: $DEPLOYED_DIR"
-fi
-
+# Build, deploy, and (if Discord was up) restart — all through venpm, which
+# verifies the restart instead of assuming it. A failed restart exits non-zero.
 if [ "$discord_was_running" = true ]; then
-    echo "Reopening Discord..."
-    nohup /usr/bin/discord --enable-blink-features=MiddleClickAutoscroll >/dev/null 2>&1 &
-    disown
+    echo "Building, deploying, and restarting Discord..."
+    venpm rebuild --restart --yes
+else
+    echo "Building and deploying (Discord was not running)..."
+    venpm rebuild --no-restart --yes
 fi
 
 echo "Done."

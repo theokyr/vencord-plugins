@@ -10,6 +10,7 @@ import { FluxDispatcher, React, UserStore, useStateFromStores } from "@webpack/c
 import { settings } from "../index";
 import { CallTooltip } from "./CallTooltip";
 import { ControlButton } from "./ControlButton";
+import { openHiddenUsersContextMenu, openVoiceUserContextMenu } from "./UserContextMenu";
 
 const VoiceStateStore = findStoreLazy("VoiceStateStore") as {
     getVoiceStatesForChannel: (channelId: string) => Record<string, { userId: string; selfMute: boolean; selfDeaf: boolean; mute: boolean; deaf: boolean; selfVideo: boolean; selfStream: boolean; }>;
@@ -43,19 +44,37 @@ const MediaEngineStore = findStoreLazy("MediaEngineStore") as {
     isScreenSharing: () => boolean;
 };
 
+/** Layout constants — keep in sync with style.css. */
+const BAR_PADDING = 12;      // .vc-minimalCallBar-strip padding-right
+const GAP = 8;               // flex gap between bar children
+const AVATAR_SIZE = 24;      // 20px avatar + 2px border on each side
+const AVATAR_STEP = 16;      // AVATAR_SIZE + .avatarWrap + .avatarWrap margin-left (-8px)
+const COUNT_LABEL = 30;      // room for the "+N" overflow label
+/** Grace period so the pointer can cross the gap between bar and tooltip. */
+const TOOLTIP_GRACE = 200;
+
+/** How many avatars fit in `px` pixels of horizontal space. */
+function fitCount(px: number) {
+    if (px < AVATAR_SIZE) return 0;
+    return 1 + Math.floor((px - AVATAR_SIZE) / AVATAR_STEP);
+}
+
 export interface CompactBarProps {
     channelId: string;
     channelName: string;
+    /** Set when the session is a server voice channel. */
+    guildName?: string;
     callStartedAt: number;
     mode: "strip" | "bottom";
     isConnected: boolean;
+    connection?: "connected" | "connecting" | "disconnected";
     ping: number;
     onToggleOverlay: () => void;
     onRejoin: () => void;
     onBarClick: () => void;
 }
 
-export function CompactBar({ channelId, channelName, callStartedAt, mode, isConnected, ping, onToggleOverlay, onRejoin, onBarClick }: CompactBarProps) {
+export function CompactBar({ channelId, channelName, guildName, callStartedAt, mode, isConnected, connection, ping, onToggleOverlay, onRejoin, onBarClick }: CompactBarProps) {
     const [now, setNow] = React.useState(Date.now());
     const [showTooltip, setShowTooltip] = React.useState(false);
     const [showOverflow, setShowOverflow] = React.useState(false);
@@ -63,7 +82,12 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
     const [isDeafened, setIsDeafened] = React.useState(false);
     const [isSelfStreaming, setIsSelfStreaming] = React.useState(false);
     const barRef = React.useRef<HTMLDivElement>(null);
+    const stackRef = React.useRef<HTMLDivElement>(null);
+    const controlsRef = React.useRef<HTMLDivElement>(null);
     const hoverTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const hideTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [avatarSpace, setAvatarSpace] = React.useState(0);
+    const [menuOpen, setMenuOpen] = React.useState(false);
 
     // Timer tick
     React.useEffect(() => {
@@ -123,19 +147,97 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
         };
     }, []);
 
-    // Hover handlers
-    const onMouseEnter = React.useCallback(() => {
-        hoverTimeout.current = setTimeout(() => setShowTooltip(true), settings.store.hoverDelay);
+    // Measure how much room the avatar stack has between the meta text and the
+    // control buttons. Derived from the bar / stack-left / controls rects only, so it
+    // does not depend on how many avatars are currently rendered (no feedback loop).
+    const measure = React.useCallback(() => {
+        const bar = barRef.current;
+        const stack = stackRef.current;
+        const controls = controlsRef.current;
+        if (!bar || !stack || !controls) return;
+        const barRect = bar.getBoundingClientRect();
+        const stackRect = stack.getBoundingClientRect();
+        const controlsRect = controls.getBoundingClientRect();
+        // bar right edge - right padding - controls - gap before the controls
+        const available = barRect.right - BAR_PADDING - controlsRect.width - GAP - stackRect.left;
+        setAvatarSpace(Math.max(0, Math.round(available)));
     }, []);
+
+    // Re-measure after every render (timer digits, channel name and ping all shift
+    // the stack's left edge) and whenever the bar or controls resize.
+    React.useLayoutEffect(measure);
+    React.useEffect(() => {
+        const bar = barRef.current;
+        const controls = controlsRef.current;
+        if (!bar || !controls) return;
+        const ro = new ResizeObserver(measure);
+        ro.observe(bar);
+        ro.observe(controls);
+        return () => ro.disconnect();
+    }, [measure]);
+
+    // Hover handlers. The tooltip is a child of the bar, so moving the pointer into it
+    // does not fire mouseleave — but the 4px gap between them does, hence the grace delay.
+    // A context menu opened from the tooltip keeps it pinned until the menu closes.
+    const onMouseEnter = React.useCallback(() => {
+        if (hideTimeout.current) { clearTimeout(hideTimeout.current); hideTimeout.current = null; }
+        if (showTooltip) return;
+        hoverTimeout.current = setTimeout(() => setShowTooltip(true), settings.store.hoverDelay);
+    }, [showTooltip]);
     const onMouseLeave = React.useCallback(() => {
         if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
-        setShowTooltip(false);
+        if (menuOpen) return;
+        hideTimeout.current = setTimeout(() => setShowTooltip(false), TOOLTIP_GRACE);
+    }, [menuOpen]);
+
+    const releasePin = React.useCallback(() => {
+        setMenuOpen(false);
+        if (!barRef.current?.matches(":hover")) setShowTooltip(false);
     }, []);
+
+    const onMenuOpenChange = React.useCallback((open: boolean) => {
+        if (open) setMenuOpen(true);
+        else releasePin();
+    }, [releasePin]);
+
+    // Menu.onClose does not fire on every close path (clicking an item, pressing Escape,
+    // clicking away), so the Flux event is what actually releases the tooltip pin.
+    React.useEffect(() => {
+        if (!menuOpen) return;
+        FluxDispatcher.subscribe("CONTEXT_MENU_CLOSE", releasePin);
+        return () => { FluxDispatcher.unsubscribe("CONTEXT_MENU_CLOSE", releasePin); };
+    }, [menuOpen, releasePin]);
+
+    React.useEffect(() => () => {
+        if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+        if (hideTimeout.current) clearTimeout(hideTimeout.current);
+    }, []);
+
+    // Backstop: if the pointer ends up anywhere outside the bar with no menu open,
+    // drop the tooltip even if mouseleave never fired (modals, focus changes, ...).
+    React.useEffect(() => {
+        if (!showTooltip) return;
+        const onMove = (e: MouseEvent) => {
+            if (menuOpen) return;
+            const bar = barRef.current;
+            if (bar && !bar.contains(e.target as Node)) setShowTooltip(false);
+        };
+        document.addEventListener("mousemove", onMove);
+        return () => document.removeEventListener("mousemove", onMove);
+    }, [showTooltip, menuOpen]);
 
     // Avatar stack
     const voiceStates = VoiceStateStore?.getVoiceStatesForChannel?.(channelId) ?? {};
     const participants = Object.values(voiceStates);
-    const maxAvatars = settings.store.maxVisibleAvatars;
+    let maxAvatars: number;
+    if (settings.store.responsiveAvatars) {
+        // Fit everyone if possible; otherwise reserve room for the "+N" label.
+        maxAvatars = fitCount(avatarSpace) >= participants.length
+            ? participants.length
+            : Math.max(1, fitCount(avatarSpace - COUNT_LABEL));
+    } else {
+        maxAvatars = settings.store.maxVisibleAvatars;
+    }
     const visibleParticipants = participants.slice(0, maxAvatars);
     const overflowCount = Math.max(0, participants.length - maxAvatars);
 
@@ -155,9 +257,17 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
 
     const tooltipPosition = mode === "bottom" ? "above" : "below";
 
-    const dotClass = isConnected
+    const state = connection ?? (isConnected ? "connected" : "disconnected");
+    const dotClass = state === "connected"
         ? "vc-minimalCallBar-statusDot"
-        : "vc-minimalCallBar-statusDot vc-minimalCallBar-disconnected";
+        : state === "connecting"
+            ? "vc-minimalCallBar-statusDot vc-minimalCallBar-connecting"
+            : "vc-minimalCallBar-statusDot vc-minimalCallBar-disconnected";
+    const statusText = state === "connected"
+        ? (guildName ? "In Voice" : "In Call")
+        : state === "connecting"
+            ? "Connecting"
+            : "Call Active";
 
     return (
         <div
@@ -168,15 +278,18 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
             onMouseLeave={onMouseLeave}
         >
             <div className={dotClass} />
-            <span className="vc-minimalCallBar-statusText" style={isConnected ? undefined : { color: "#949ba4" }}>
-                {isConnected ? "In Call" : "Call Active"}
+            <span className="vc-minimalCallBar-statusText" style={state === "connected" ? undefined : { color: "#949ba4" }}>
+                {statusText}
             </span>
             <span className="vc-minimalCallBar-separator">&bull;</span>
             <span className="vc-minimalCallBar-timer">{duration}</span>
 
-            {/* Channel name */}
+            {/* Channel name (prefixed with the server name for guild voice channels) */}
             <span className="vc-minimalCallBar-separator">&bull;</span>
-            <span className="vc-minimalCallBar-channelName">{channelName}</span>
+            <span className="vc-minimalCallBar-channelName">
+                {guildName && <span className="vc-minimalCallBar-guildName">{guildName} / </span>}
+                {channelName}
+            </span>
 
             {/* Ping (connected only, non-zero) */}
             {isConnected && ping > 0 && (
@@ -187,8 +300,8 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
             )}
 
             {/* Avatar stack */}
-            <div className="vc-minimalCallBar-avatarStack">
-                {visibleParticipants.map(vs => {
+            <div className="vc-minimalCallBar-avatarStack" ref={stackRef}>
+                {visibleParticipants.map((vs, i) => {
                     let user: any;
                     try { user = UserStore.getUser(vs.userId); } catch { return null; }
                     if (!user) return null;
@@ -201,7 +314,13 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
                         ? "vc-minimalCallBar-avatar vc-minimalCallBar-speaking"
                         : "vc-minimalCallBar-avatar";
                     return (
-                        <div key={vs.userId} className="vc-minimalCallBar-avatarWrap">
+                        <div
+                            key={vs.userId}
+                            className="vc-minimalCallBar-avatarWrap"
+                            style={{ zIndex: visibleParticipants.length - i }}
+                            title={user.globalName ?? user.username}
+                            onContextMenu={e => openVoiceUserContextMenu(e, vs.userId)}
+                        >
                             <img
                                 className={avatarClass}
                                 src={user.getAvatarURL(undefined, 32)}
@@ -236,13 +355,18 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
                     );
                 })}
                 {overflowCount > 0 && (
-                    <span className="vc-minimalCallBar-avatarCount">+{overflowCount}</span>
+                    <span
+                        className="vc-minimalCallBar-avatarCount"
+                        onContextMenu={e => openHiddenUsersContextMenu(e, participants.slice(maxAvatars).map(vs => vs.userId))}
+                    >
+                        +{overflowCount}
+                    </span>
                 )}
             </div>
 
             {/* Controls */}
-            <div className="vc-minimalCallBar-controls">
-                {isConnected ? (
+            <div className="vc-minimalCallBar-controls" ref={controlsRef}>
+                {state !== "disconnected" ? (
                     <>
                         {settings.store.showMic && (
                             <ControlButton type="mic" muted={isMuted} onClick={() => MediaEngineActions.toggleSelfMute()} title={isMuted ? "Unmute" : "Mute"} />
@@ -297,10 +421,12 @@ export function CompactBar({ channelId, channelName, callStartedAt, mode, isConn
             {showTooltip && barRef.current && (
                 <CallTooltip
                     channelId={channelId}
-                    channelName={channelName}
+                    channelName={guildName ? `${guildName} / ${channelName}` : channelName}
                     callStartedAt={callStartedAt}
                     position={tooltipPosition}
                     anchorRect={barRef.current.getBoundingClientRect()}
+                    onMenuOpenChange={onMenuOpenChange}
+                    onDismiss={() => { setMenuOpen(false); setShowTooltip(false); }}
                 />
             )}
         </div>

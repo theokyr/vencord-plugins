@@ -35,14 +35,19 @@ export function createEmbedFixSchema(settings: DefinedSettings): SettingsSchema 
                             },
                             {
                                 key: "rewriteIncoming",
-                                label: "Rewrite Incoming Links",
-                                description: "Visually replace supported social links in messages from other users.",
+                                label: "Fix Incoming Links",
+                                description: "Add a working embed to supported links posted by other users.",
+                            },
+                            {
+                                key: "replaceOnlyWhenBetter",
+                                label: "Only Replace Worse Embeds",
+                                description: "Leave Discord's embed alone when it is already as rich as the provider's.",
                             },
                             {
                                 key: "cacheTTLHours",
                                 control: "slider",
                                 label: "Cache Lifetime",
-                                description: "How long provider probe results stay cached.",
+                                description: "How long a successful per-link lookup stays cached.",
                                 slider: { min: 1, max: 168, step: 1, unit: "h", markers: [1, 12, 24, 72, 168] },
                             },
                         ],
@@ -93,13 +98,23 @@ export function createEmbedFixSchema(settings: DefinedSettings): SettingsSchema 
                         ],
                     },
                     {
-                        label: "Cache",
+                        label: "Checking",
                         settings: [
+                            {
+                                key: "parallelProbes",
+                                label: "Check Providers In Parallel",
+                                description: "Ask every provider at once and keep the richest answer. Faster, but more requests.",
+                            },
+                            {
+                                key: "debugLogging",
+                                label: "Debug Logging",
+                                description: "Log each per-link provider check to the console.",
+                            },
                             {
                                 key: "recheckProviders",
                                 control: "component",
-                                label: "Re-check Providers",
-                                description: "Flush the probe cache and check every enabled provider again.",
+                                label: "Re-check All Links",
+                                description: "Forget every cached per-link result and provider cooldown.",
                             },
                         ],
                     },
