@@ -5,15 +5,11 @@
  */
 
 import { openUserProfile } from "@utils/discord";
-import { findStoreLazy } from "@webpack";
 import { React, UserStore } from "@webpack/common";
 
 import { settings } from "../index";
+import { getSortedVoiceStates } from "../voiceParticipants";
 import { openVoiceUserContextMenu } from "./UserContextMenu";
-
-const VoiceStateStore = findStoreLazy("VoiceStateStore") as {
-    getVoiceStatesForChannel: (channelId: string) => Record<string, { userId: string; selfMute: boolean; selfDeaf: boolean; mute: boolean; deaf: boolean; selfVideo: boolean; selfStream: boolean; }>;
-};
 
 function formatDuration(ms: number): string {
     const s = Math.floor(ms / 1000) % 60;
@@ -43,8 +39,7 @@ export function CallTooltip({ channelId, channelName, callStartedAt, position, a
         return () => clearInterval(interval);
     }, []);
 
-    const voiceStates = VoiceStateStore?.getVoiceStatesForChannel?.(channelId) ?? {};
-    const participants = Object.values(voiceStates);
+    const participants = getSortedVoiceStates(channelId);
 
     const style: React.CSSProperties = {
         position: "fixed",

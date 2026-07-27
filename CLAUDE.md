@@ -518,12 +518,19 @@ cd ~/src/vencord-plugins && npm test
 | `plugins/embedFix/embedSuppressor.ts` | Matching is pure; DOM helpers run under happy-dom |
 | `plugins/embedFix/mediaProbe.ts` | Loaders are injected — no DOM needed |
 | `plugins/embedFix/mediaProxy.ts` | Fetcher and object-URL factory are injected |
+| `plugins/minimalCallBar/voiceParticipants.ts` | Source selection is pure; store lookups run against the `@webpack` mock |
 
 Plugin UI code, patches, and DOM injection are **not** unit-testable (they require the Discord renderer).
 
 ### Current Coverage
 
-759 tests across 62 test files. DOM-dependent tests (dispatcher, embedSuppressor, enrichedHeader) use `happy-dom` via a `// @vitest-environment happy-dom` pragma.
+772 tests across 63 test files. DOM-dependent tests (dispatcher, embedSuppressor, enrichedHeader) use `happy-dom` via a `// @vitest-environment happy-dom` pragma.
+
+A module that resolves stores at import time (module-scope `findStoreLazy`) cannot be
+reconfigured per test after import. Use `vi.resetModules()` plus a dynamic `import()`, and
+register stubs through the **re-imported** `tests/__mocks__/webpack.ts` — the reset gives that
+mock a fresh registry too, so a file-scope binding writes to a stale instance and the stubs
+silently never apply.
 
 ## Git
 

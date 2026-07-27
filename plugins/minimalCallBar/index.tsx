@@ -20,6 +20,7 @@ import { ChannelRouter } from "@webpack/common";
 import { CompactBar } from "./components/CompactBar";
 import { ControlButton } from "./components/ControlButton";
 import { createMinimalCallBarSchema } from "./settingsSchema";
+import { getSortedVoiceStates } from "./voiceParticipants";
 
 // ─── Lazy stores and actions ─────────────────────────────────────────────────
 
@@ -868,9 +869,7 @@ function exposeTabAPI() {
         getCallInfo: () => {
             if (!activeCallChannelId) return null;
             const channel = ChannelStore.getChannel(activeCallChannelId);
-            const voiceStates = Object.values(
-                VoiceStateStore?.getVoiceStatesForChannel?.(activeCallChannelId) ?? {}
-            );
+            const voiceStates = getSortedVoiceStates(activeCallChannelId, activeGuildId);
             let ping = 0;
             try { ping = RTCConnectionStore.getAveragePing(); } catch { /* not ready */ }
             return {

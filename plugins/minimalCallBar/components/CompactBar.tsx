@@ -8,6 +8,7 @@ import { findByPropsLazy, findStoreLazy } from "@webpack";
 import { FluxDispatcher, React, UserStore, useStateFromStores } from "@webpack/common";
 
 import { settings } from "../index";
+import { getSortedVoiceStates } from "../voiceParticipants";
 import { CallTooltip } from "./CallTooltip";
 import { ControlButton } from "./ControlButton";
 import { openHiddenUsersContextMenu, openVoiceUserContextMenu } from "./UserContextMenu";
@@ -226,9 +227,8 @@ export function CompactBar({ channelId, channelName, guildName, callStartedAt, m
         return () => document.removeEventListener("mousemove", onMove);
     }, [showTooltip, menuOpen]);
 
-    // Avatar stack
-    const voiceStates = VoiceStateStore?.getVoiceStatesForChannel?.(channelId) ?? {};
-    const participants = Object.values(voiceStates);
+    // Avatar stack, in the same order as the native voice channel member list.
+    const participants = getSortedVoiceStates(channelId);
     let maxAvatars: number;
     if (settings.store.responsiveAvatars) {
         // Fit everyone if possible; otherwise reserve room for the "+N" label.
