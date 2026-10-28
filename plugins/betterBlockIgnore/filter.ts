@@ -43,6 +43,19 @@ export interface ReactionEventLike {
     user_id?: string | null;
 }
 
+export interface ReactionLike {
+    count: number;
+    burst_count: number;
+    count_details?: {
+        burst: number;
+        normal: number;
+    };
+}
+
+export interface MemberListRowLike {
+    user?: UserLike | null;
+}
+
 export type ResolveMessage = (channelId: string, messageId: string) => MessageLike | undefined | null;
 
 function getUserId(user: string | UserLike | null | undefined): string | undefined {
@@ -78,6 +91,19 @@ export function isFilteredRelationshipUser(
     if (!userId) return false;
     if (relationshipChecks.isBlocked(userId)) return true;
     return applyToIgnoredUsers && relationshipChecks.isIgnored(userId);
+}
+
+export function shouldHideMemberListRow(
+    row: MemberListRowLike | null | undefined,
+    enabled: boolean,
+    relationshipChecks: RelationshipChecks,
+    applyToIgnoredUsers: boolean
+): boolean {
+    return enabled && isFilteredRelationshipUser(
+        getUserId(row?.user),
+        relationshipChecks,
+        applyToIgnoredUsers
+    );
 }
 
 export function shouldHideMessageByRelationship(
@@ -127,4 +153,37 @@ export function shouldHideReactionByRelationship(
         relationshipChecks,
         options.applyToIgnoredUsers
     );
+}
+
+export function filterReactionCountsByRelationship<T extends ReactionLike>(
+    reaction: T,
+    normalReactorIds: Iterable<string>,
+    burstReactorIds: Iterable<string>,
+    options: BetterBlockIgnoreOptions,
+    relationshipChecks: RelationshipChecks
+): T | null {
+    if (!options.hideReactionsFromBlockedUsers) return reaction;
+
+    const hiddenNormalCount = Array.from(normalReactorIds).filter(userId =>
+        isFilteredRelationshipUser(userId, relationshipChecks, options.applyToIgnoredUsers)
+    ).length;
+    const hiddenBurstCount = Array.from(burstReactorIds).filter(userId =>
+        isFilteredRelationshipUser(userId, relationshipChecks, options.applyToIgnoredUsers)
+    ).length;
+    const count = Math.max(0, reaction.count - hiddenNormalCount);
+    const burstCount = Math.max(0, reaction.burst_count - hiddenBurstCount);
+
+    if (count === reaction.count && burstCount === reaction.burst_count) return reaction;
+    if (count === 0 && burstCount === 0) return null;
+
+    return {
+        ...reaction,
+        count,
+        burst_count: burstCount,
+        count_details: reaction.count_details && {
+            ...reaction.count_details,
+            normal: count,
+            burst: burstCount,
+        },
+    };
 }

@@ -14,6 +14,7 @@ import { GroupDropdown } from "./groupDropdown";
 import { GroupNamePrompt } from "./groupNamePrompt";
 import { animationsOn, clearDrag, getDrag, setDrag, setDragGhost } from "./dragState";
 import { absorbTargetAt, autoScrollDirection, AUTOSCROLL_SPEED, computeInsertIndex, slotToMoveTarget, topLevelItems } from "./dragGeometry";
+import { getVoiceParticipantIds, getVoiceTabPresence } from "./voicePresence";
 
 
 const PresenceStore = findStoreLazy("PresenceStore") as {
@@ -30,7 +31,17 @@ const CallStore = findStoreLazy("CallStore") as {
 };
 
 const VoiceStateStore = findStoreLazy("VoiceStateStore") as {
-    getVoiceStatesForChannel: (channelId: string) => Record<string, unknown>;
+    getVoiceStatesForChannel: (channelId: string) => Record<string, { userId?: string; user_id?: string; }>;
+};
+
+const UserStore = findStoreLazy("UserStore") as {
+    getCurrentUser: () => { id: string; } | undefined;
+    getUser: (userId: string) => {
+        id: string;
+        username: string;
+        globalName?: string | null;
+        getAvatarURL: (guildId?: string, size?: number) => string;
+    } | undefined;
 };
 
 const UserGuildSettingsStore = findStoreLazy("UserGuildSettingsStore") as {
@@ -56,11 +67,51 @@ function openBarSettingsContextMenu(event: React.MouseEvent, onOpenSettings: () 
 
 // ─── Phone SVG icon ───────────────────────────────────────────────────────
 
-function PhoneIcon() {
+function PhoneIcon({ connected }: { connected: boolean; }) {
     return (
-        <svg className="vc-channelTabs-callIcon" viewBox="0 0 24 24" fill="white">
+        <svg
+            className={`vc-channelTabs-callIcon${connected ? "" : " vc-channelTabs-callIcon-pending"}`}
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+        >
             <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
         </svg>
+    );
+}
+
+function VoiceOccupantStack({ userIds, guildId }: { userIds: string[]; guildId: string | null; }) {
+    const users = userIds.flatMap(userId => {
+        try {
+            const user = UserStore?.getUser?.(userId);
+            return user ? [user] : [];
+        } catch {
+            return [];
+        }
+    });
+    const maxAvatars = users.length > 3 ? 2 : 3;
+    const visibleUsers = users.slice(0, maxAvatars);
+    const overflowCount = Math.max(0, userIds.length - visibleUsers.length);
+    const names = users.map(user => user.globalName ?? user.username);
+    const label = userIds.length === 1
+        ? `${names[0] ?? "1 user"} is in voice`
+        : `${userIds.length} users are in voice${names.length ? `: ${names.join(", ")}` : ""}`;
+
+    return (
+        <div className="vc-channelTabs-voiceOccupants" title={label} aria-label={label}>
+            {visibleUsers.map((user, index) => (
+                <img
+                    key={user.id}
+                    className="vc-channelTabs-voiceOccupantAvatar"
+                    src={user.getAvatarURL(guildId ?? undefined, 32)}
+                    alt=""
+                    style={{ zIndex: visibleUsers.length - index }}
+                />
+            ))}
+            {overflowCount > 0 && (
+                <span className="vc-channelTabs-voiceOccupantOverflow" aria-hidden="true">+{overflowCount}</span>
+            )}
+        </div>
     );
 }
 
@@ -134,10 +185,17 @@ function TabItem({ tab, index, isActive, showIcon, onActivate, onClose, onPin, o
 
     const isTyping = isChannel ? Object.keys(TypingStore?.getTypingUsers?.(tab.channelId) ?? {}).length > 0 : false;
 
-    const isCallActive = isChannel ? (
-        (CallStore?.isCallActive?.(tab.channelId) ?? false)
-        || Object.keys(VoiceStateStore?.getVoiceStatesForChannel?.(tab.channelId) ?? {}).length > 0
-    ) : false;
+    let participantUserIds: string[] = [];
+    let currentUserId: string | null = null;
+    let callStoreActive = false;
+    if (isChannel) {
+        try {
+            participantUserIds = getVoiceParticipantIds(VoiceStateStore?.getVoiceStatesForChannel?.(tab.channelId));
+            currentUserId = UserStore?.getCurrentUser?.()?.id ?? null;
+            callStoreActive = CallStore?.isCallActive?.(tab.channelId) ?? false;
+        } catch { /* stores may still be hydrating */ }
+    }
+    const voicePresence = getVoiceTabPresence(participantUserIds, currentUserId, callStoreActive);
 
     const dmStatus = isChannel && meta.isDm && meta.dmUserId ? (PresenceStore?.getStatus?.(meta.dmUserId) ?? null) : null;
 
@@ -169,7 +227,8 @@ function TabItem({ tab, index, isActive, showIcon, onActivate, onClose, onPin, o
     if (isActive) className += " vc-channelTabs-tab-active";
     if (tab.pinned) className += " vc-channelTabs-tab-pinned";
     if (isMuted) className += " vc-channelTabs-tab-muted";
-    if (isCallActive && !isMuted) className += " vc-channelTabs-tab-call";
+    if (voicePresence === "connected" && !isMuted) className += " vc-channelTabs-tab-call";
+    if (voicePresence === "occupied" && !isMuted) className += " vc-channelTabs-tab-occupied";
     if (isSelected) className += " vc-channelTabs-tab-selected";
     if (isDragging) className += " vc-channelTabs-tab-dragging";
     if (isSettling) className += " vc-channelTabs-tab-settling";
@@ -227,8 +286,13 @@ function TabItem({ tab, index, isActive, showIcon, onActivate, onClose, onPin, o
 
             <span>{meta.name}</span>
 
-            {/* Call phone icon */}
-            {isCallActive && !isMuted && <PhoneIcon />}
+            {/* Connected calls keep the phone; other occupied VCs show who's there. */}
+            {(voicePresence === "connected" || voicePresence === "calling") && !isMuted && (
+                <PhoneIcon connected={voicePresence === "connected"} />
+            )}
+            {voicePresence === "occupied" && !isMuted && (
+                <VoiceOccupantStack userIds={participantUserIds} guildId={tab.type === "channel" ? tab.guildId : null} />
+            )}
 
             {/* Mention badge (inline) */}
             {unreadCount > 0 && <span className="vc-channelTabs-tab-mention">{unreadCount}</span>}

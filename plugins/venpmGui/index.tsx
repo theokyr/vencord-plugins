@@ -1,6 +1,6 @@
 import "./style.css";
 import definePlugin from "@utils/types";
-import { showToast, Toasts } from "@webpack/common";
+import { showToast } from "@webpack/common";
 import { settings } from "./settings";
 import { venpmGuiSchema } from "./settingsSchema";
 import { Native } from "./nativeApi";
@@ -37,10 +37,10 @@ async function checkForUpdates() {
     }
 
     if (updateCount > 0 && settings.store.showUpdateToast) {
-        showToast(
-            `${updateCount} plugin update${updateCount > 1 ? "s" : ""} available`,
-            Toasts.Type.MESSAGE
-        );
+        showToast({
+            text: `${updateCount} plugin update${updateCount > 1 ? "s" : ""} available`,
+            variant: "default"
+        });
     }
 }
 
@@ -67,10 +67,10 @@ export default definePlugin({
         const detection = await Native.detectVenpm();
 
         if (!detection.found && !settings.store.setupComplete) {
-            showToast(
-                "venpm needs setup to manage your plugins. Open VenpmGui settings to get started.",
-                Toasts.Type.MESSAGE
-            );
+            showToast({
+                text: "venpm needs setup to manage your plugins. Open VenpmGui settings to get started.",
+                variant: "default"
+            });
         }
 
         // Check for updates on launch

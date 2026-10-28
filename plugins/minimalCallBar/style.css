@@ -516,3 +516,8 @@
 body.vc-anim-expressive .vc-minimalCallBar-controlBtn-stateChange {
     animation: vc-pop var(--vc-anim-speed-fast, 100ms) var(--vc-anim-ease-spring, ease-out);
 }
+
+/* Discord made page_ a row flexbox; the bar stacks above the chat, so force a column. */
+[class*="page_"]:has(> #vc-minimalCallBar-root) {
+    flex-direction: column;
+}

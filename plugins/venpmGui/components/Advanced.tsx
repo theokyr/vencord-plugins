@@ -1,5 +1,5 @@
 import { useState, useEffect } from "@webpack/common";
-import { showToast, Toasts } from "@webpack/common";
+import { showToast } from "@webpack/common";
 import type { RepoInfo } from "../types";
 import { Native } from "../nativeApi";
 
@@ -41,23 +41,23 @@ export function Advanced() {
         }
         const result = await Native.runVenpm(args);
         if (result.success) {
-            showToast("Repository added", Toasts.Type.SUCCESS);
+            showToast({ text: "Repository added", variant: "success" });
             setNewRepoUrl("");
             setNewRepoName("");
             setShowAddRepo(false);
             await loadConfig();
         } else {
-            showToast(result.error ?? "Failed to add repo", Toasts.Type.FAILURE);
+            showToast({ text: result.error ?? "Failed to add repo", variant: "critical" });
         }
     };
 
     const handleRemoveRepo = async (name: string) => {
         const result = await Native.runVenpm(["repo", "remove", name]);
         if (result.success) {
-            showToast(`Repository "${name}" removed`, Toasts.Type.SUCCESS);
+            showToast({ text: `Repository "${name}" removed`, variant: "success" });
             await loadConfig();
         } else {
-            showToast(result.error ?? "Failed to remove repo", Toasts.Type.FAILURE);
+            showToast({ text: result.error ?? "Failed to remove repo", variant: "critical" });
         }
     };
 
@@ -66,19 +66,19 @@ export function Advanced() {
         // `search ""` triggers a full index re-fetch as a side effect.
         const result = await Native.runVenpm(["search", ""]);
         if (result.success) {
-            showToast("Indexes refreshed", Toasts.Type.SUCCESS);
+            showToast({ text: "Indexes refreshed", variant: "success" });
         } else {
-            showToast(result.error ?? "Refresh failed", Toasts.Type.FAILURE);
+            showToast({ text: result.error ?? "Refresh failed", variant: "critical" });
         }
     };
 
     const handleConfigChange = async (key: string, value: string) => {
         const result = await Native.runVenpm(["config", "set", key, value]);
         if (result.success) {
-            showToast("Configuration updated", Toasts.Type.SUCCESS);
+            showToast({ text: "Configuration updated", variant: "success" });
             await loadConfig();
         } else {
-            showToast(result.error ?? "Failed to update config", Toasts.Type.FAILURE);
+            showToast({ text: result.error ?? "Failed to update config", variant: "critical" });
         }
     };
 

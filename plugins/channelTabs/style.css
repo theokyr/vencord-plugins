@@ -256,6 +256,7 @@
 
 /* ─── Active call tab ─────────────────────────────────────────────── */
 
+/* Green is reserved for the call this client is actually connected to. */
 .vc-channelTabs-tab-call {
     box-shadow: inset 0 0 0 1px rgba(35, 165, 90, 0.33);
     background: rgba(35, 165, 90, 0.12);
@@ -271,6 +272,61 @@
     flex-shrink: 0;
     color: #23a55a;
     animation: vc-channelTabs-callPulse 2s ease-in-out infinite;
+}
+
+.vc-channelTabs-callIcon-pending {
+    color: var(--text-muted, #949ba4);
+    animation: none;
+}
+
+/* An occupied VC elsewhere is informative, not an active-connection state. */
+.vc-channelTabs-tab-occupied {
+    box-shadow: inset 0 0 0 1px rgba(88, 101, 242, 0.24);
+    background: rgba(88, 101, 242, 0.08);
+}
+
+.vc-channelTabs-tab-occupied.vc-channelTabs-tab-active {
+    background: rgba(88, 101, 242, 0.15);
+}
+
+.vc-channelTabs-voiceOccupants {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    min-width: 14px;
+}
+
+.vc-channelTabs-voiceOccupantAvatar,
+.vc-channelTabs-voiceOccupantOverflow {
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--background-base-lowest, #111214);
+    border-radius: 50%;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+.vc-channelTabs-voiceOccupantAvatar {
+    object-fit: cover;
+    background: var(--background-surface-high, #313338);
+}
+
+.vc-channelTabs-voiceOccupantAvatar + .vc-channelTabs-voiceOccupantAvatar,
+.vc-channelTabs-voiceOccupantOverflow {
+    margin-left: -5px;
+}
+
+.vc-channelTabs-voiceOccupantOverflow {
+    position: relative;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--brand-500, #5865f2);
+    color: #fff;
+    font-size: 7px;
+    font-weight: 700;
+    line-height: 1;
 }
 
 @keyframes vc-channelTabs-callPulse {
@@ -713,4 +769,9 @@ body.vc-channelTabs-dragging-child .vc-channelTabs-group-chip {
 
 .vc-channelTabs-group-nameInput:focus {
     border-color: var(--brand-experiment, #5865f2);
+}
+
+/* Discord made page_ a row flexbox; the tab bar stacks via `order`, so force a column. */
+[class*="page_"]:has(> #vc-channelTabs-container) {
+    flex-direction: column;
 }

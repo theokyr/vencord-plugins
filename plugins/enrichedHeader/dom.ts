@@ -71,6 +71,7 @@ function mutationTouchesHeader(records: MutationRecord[]): boolean {
 export function createHeaderDomController(options: HeaderDomControllerOptions = {}): HeaderDomController {
     let active = false;
     let observer: MutationObserver | null = null;
+    let pendingObserver: MutationObserver | null = null;
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     let titleBar: HTMLElement | null = null;
     let originalTitleBarPosition: string | null = null;
@@ -123,8 +124,21 @@ export function createHeaderDomController(options: HeaderDomControllerOptions = 
         observer.observe(page, { childList: true, subtree: true });
     }
 
+    function waitForTitleBar() {
+        if (pendingObserver) return;
+        pendingObserver = new MutationObserver(() => {
+            if (!findVisibleTitleBar()) return;
+            pendingObserver?.disconnect();
+            pendingObserver = null;
+            relocate();
+        });
+        pendingObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
     function teardownObserver() {
         clearRefreshTimer();
+        pendingObserver?.disconnect();
+        pendingObserver = null;
         if (!observer) return;
         observer.disconnect();
         observer = null;
@@ -168,7 +182,10 @@ export function createHeaderDomController(options: HeaderDomControllerOptions = 
         resetRelocation({ restoreChannelElements: relocateOptions.restoreChannelElements ?? true });
 
         const nextTitleBar = findVisibleTitleBar();
-        if (!nextTitleBar) return;
+        if (!nextTitleBar) {
+            waitForTitleBar();
+            return;
+        }
 
         titleBar = nextTitleBar;
         originalTitleBarPosition = titleBar.style.position;

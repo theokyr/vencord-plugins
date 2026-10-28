@@ -49,4 +49,14 @@ describe("ChannelTabs styles", () => {
         }
         expect(css).not.toContain("vc-channelTabs-enrichedHeader");
     });
+
+    it("distinguishes a remote occupied VC from the connected call", () => {
+        const connected = blockFor(".vc-channelTabs-tab-call");
+        const occupied = blockFor(".vc-channelTabs-tab-occupied");
+
+        expect(connected).toContain("35, 165, 90");
+        expect(occupied).toContain("88, 101, 242");
+        expect(tabBarSource).toContain("vc-channelTabs-voiceOccupants");
+        expect(tabBarSource).toContain('voicePresence === "occupied"');
+    });
 });

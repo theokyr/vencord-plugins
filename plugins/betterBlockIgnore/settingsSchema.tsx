@@ -52,6 +52,11 @@ export function createBetterBlockIgnoreSchema(settings: DefinedSettings): Settin
                                 label: "Hide Mentions",
                                 description: "Hide messages that mention blocked or ignored users.",
                             },
+                            {
+                                key: "hideSidebarMembers",
+                                label: "Hide Sidebar Members",
+                                description: "Remove blocked or ignored users from the right-hand channel member list without leaving virtual-list gaps.",
+                            },
                         ],
                     },
                 ],

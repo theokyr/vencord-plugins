@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    filterReactionCountsByRelationship,
     isFilteredRelationshipUser,
     shouldHideMessageByRelationship,
+    shouldHideMemberListRow,
     shouldHideReactionByRelationship,
     type BetterBlockIgnoreOptions,
     type RelationshipChecks,
@@ -49,6 +51,13 @@ describe("BetterBlockIgnore filters", () => {
             { ...baseOptions, applyToIgnoredUsers: false },
             checks([], ["ignored"])
         )).toBe(false);
+    });
+
+    it("hides blocked member-list rows only when the sidebar filter is enabled", () => {
+        expect(shouldHideMemberListRow({ user: { id: "blocked" } }, true, checks(["blocked"]), true)).toBe(true);
+        expect(shouldHideMemberListRow({ user: { id: "blocked" } }, false, checks(["blocked"]), true)).toBe(false);
+        expect(shouldHideMemberListRow({ user: { id: "ignored" } }, true, checks([], ["ignored"]), false)).toBe(false);
+        expect(shouldHideMemberListRow(undefined, true, checks(["blocked"]), true)).toBe(false);
     });
 
     it("hides direct replies to blocked users when enabled", () => {
@@ -124,5 +133,25 @@ describe("BetterBlockIgnore filters", () => {
             { ...baseOptions, hideReactionsFromBlockedUsers: false },
             checks(["blocked"])
         )).toBe(false);
+    });
+
+    it("removes a reaction when its only reactor is blocked", () => {
+        expect(filterReactionCountsByRelationship(
+            { count: 1, burst_count: 0, count_details: { normal: 1, burst: 0 } },
+            ["blocked"],
+            [],
+            baseOptions,
+            checks(["blocked"])
+        )).toBeNull();
+    });
+
+    it("subtracts blocked reactors while preserving visible reactors", () => {
+        expect(filterReactionCountsByRelationship(
+            { count: 2, burst_count: 1, count_details: { normal: 2, burst: 1 } },
+            ["blocked", "visible"],
+            ["ignored"],
+            baseOptions,
+            checks(["blocked"], ["ignored"])
+        )).toEqual({ count: 1, burst_count: 0, count_details: { normal: 1, burst: 0 } });
     });
 });

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "@webpack/common";
-import { showToast, Toasts } from "@webpack/common";
+import { showToast } from "@webpack/common";
 import { settings } from "../settings";
 import type { TabId, InstalledPluginInfo } from "../types";
 import { TabNav } from "./TabNav";
@@ -89,9 +89,9 @@ export function Dashboard() {
         setUpdating(true);
         const result = await Native.runVenpm(["update"]);
         if (result.success) {
-            showToast("All plugins updated", Toasts.Type.SUCCESS);
+            showToast({ text: "All plugins updated", variant: "success" });
         } else {
-            showToast(result.error ?? "Update failed", Toasts.Type.FAILURE);
+            showToast({ text: result.error ?? "Update failed", variant: "critical" });
         }
         await loadData();
         setUpdating(false);
@@ -101,9 +101,9 @@ export function Dashboard() {
         setBusyPlugin(name);
         const result = await Native.runVenpm(["update", name]);
         if (result.success) {
-            showToast(`${name} updated`, Toasts.Type.SUCCESS);
+            showToast({ text: `${name} updated`, variant: "success" });
         } else {
-            showToast(result.error ?? "Update failed", Toasts.Type.FAILURE);
+            showToast({ text: result.error ?? "Update failed", variant: "critical" });
         }
         await loadData();
         setBusyPlugin(null);
@@ -137,9 +137,9 @@ export function Dashboard() {
         setBusyPlugin(name);
         const result = await Native.runVenpm(["uninstall", name]);
         if (result.success) {
-            showToast(`${name} uninstalled`, Toasts.Type.SUCCESS);
+            showToast({ text: `${name} uninstalled`, variant: "success" });
         } else {
-            showToast(result.error ?? "Uninstall failed", Toasts.Type.FAILURE);
+            showToast({ text: result.error ?? "Uninstall failed", variant: "critical" });
         }
         await loadData();
         setBusyPlugin(null);

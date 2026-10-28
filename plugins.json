@@ -24,8 +24,8 @@
       }
     },
     "betterBlockIgnore": {
-      "version": "0.1.2",
-      "description": "Fork of Vencord NoBlockedMessages that hides blocked and ignored users more completely: messages, replies, mentions, and reactions",
+      "version": "0.1.4",
+      "description": "Fork of Vencord NoBlockedMessages that hides blocked and ignored users more completely: messages, replies, mentions, reactions, and member list entries",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "GPL-3.0-or-later",
       "optionalDependencies": ["settingsHub"],
@@ -58,7 +58,7 @@
       }
     },
     "channelTabs": {
-      "version": "0.6.0",
+      "version": "0.6.1",
       "description": "Quick-access tab bar for channels and DMs",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "GPL-3.0-or-later",
@@ -70,7 +70,7 @@
       }
     },
     "enrichedHeader": {
-      "version": "0.1.1",
+      "version": "0.1.2",
       "description": "Moves Discord channel header controls into the title bar and exposes a typed header layout API",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "GPL-3.0-or-later",
@@ -129,7 +129,7 @@
       }
     },
     "minimalCallBar": {
-      "version": "0.8.2",
+      "version": "0.8.3",
       "description": "Replaces the large call overlay with a compact 32px bar, for DM calls and server voice channels",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "GPL-3.0-or-later",
@@ -153,7 +153,7 @@
       }
     },
     "venpmGui": {
-      "version": "0.2.3",
+      "version": "0.2.4",
       "description": "Manage Vencord plugins from inside Discord — browse, install, update, and configure without the terminal",
       "authors": [{ "name": "kamaras", "id": "132106519264100352" }],
       "license": "GPL-3.0-or-later",

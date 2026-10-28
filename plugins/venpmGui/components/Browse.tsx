@@ -1,5 +1,5 @@
 import { useState, useEffect } from "@webpack/common";
-import { showToast, Toasts } from "@webpack/common";
+import { showToast } from "@webpack/common";
 import type { AvailablePlugin } from "../types";
 import { PluginList } from "./PluginList";
 import { Native } from "../nativeApi";
@@ -90,7 +90,7 @@ export function Browse() {
         setInstalling(name);
         const result = await Native.runVenpm(["install", name]);
         if (result.success) {
-            showToast(`${name} installed successfully`, Toasts.Type.SUCCESS);
+            showToast({ text: `${name} installed successfully`, variant: "success" });
 
             // Tip: optional deps that aren't installed yet
             if (plugin?.optionalDependencies?.length) {
@@ -99,10 +99,10 @@ export function Browse() {
                 const nowInstalled = lockfile?.installed ?? {};
                 const missing = plugin.optionalDependencies.filter(d => !(d in nowInstalled));
                 if (missing.length) {
-                    showToast(
-                        `Tip: optional plugin${missing.length > 1 ? "s" : ""} available — ${missing.join(", ")}`,
-                        Toasts.Type.MESSAGE
-                    );
+                    showToast({
+                        text: `Tip: optional plugin${missing.length > 1 ? "s" : ""} available — ${missing.join(", ")}`,
+                        variant: "default"
+                    });
                 }
             }
 
@@ -111,7 +111,7 @@ export function Browse() {
                 Native.runVenpm(["rebuild"]);
             }
         } else {
-            showToast(result.error ?? "Install failed", Toasts.Type.FAILURE);
+            showToast({ text: result.error ?? "Install failed", variant: "critical" });
         }
         await loadData();
         setInstalling(null);

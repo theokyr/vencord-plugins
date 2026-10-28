@@ -94,6 +94,31 @@ describe("createHeaderDomController", () => {
         expect(upperContainer.contains(toolbar)).toBe(true);
     });
 
+    it("relocates after Discord mounts the title bar late", async () => {
+        const controller = createHeaderDomController();
+
+        controller.relocate();
+        expect(controller.isActive()).toBe(false);
+
+        setupHeaderDom();
+        await Promise.resolve();
+
+        expect(controller.isActive()).toBe(true);
+        expect(document.querySelector(".bar__test")?.contains(document.querySelector(".children__test"))).toBe(true);
+    });
+
+    it("stops waiting for a late title bar after undo", async () => {
+        const controller = createHeaderDomController();
+
+        controller.relocate();
+        controller.undo();
+        setupHeaderDom();
+        await Promise.resolve();
+
+        expect(controller.isActive()).toBe(false);
+        expect(document.querySelector(".upperContainer__test")?.contains(document.querySelector(".children__test"))).toBe(true);
+    });
+
     it("relocates Discord channel headers when hash classes use single underscores", () => {
         setupHeaderDomWithSingleUnderscoreClasses();
         const controller = createHeaderDomController();

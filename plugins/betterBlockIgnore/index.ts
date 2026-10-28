@@ -14,13 +14,17 @@ import { runtimeHashMessageKey } from "@utils/intlHash";
 import { Logger } from "@utils/Logger";
 import definePlugin, { OptionType } from "@utils/types";
 import type { Message } from "@vencord/discord-types";
-import { i18n, MessageStore, RelationshipStore } from "@webpack/common";
+import { findStoreLazy } from "@webpack";
+import { i18n, MessageStore, RelationshipStore, useStateFromStores } from "@webpack/common";
 
 import {
+    filterReactionCountsByRelationship,
     shouldHideMessageByRelationship,
+    shouldHideMemberListRow,
     shouldHideReactionByRelationship,
     type BetterBlockIgnoreOptions,
     type MessageLike,
+    type MemberListRowLike,
     type ReactionEventLike,
     type RelationshipChecks,
 } from "./filter";
@@ -30,11 +34,8 @@ interface MessageDeleteProps {
     collapsedReason: () => unknown;
 }
 
-interface ReactionUsersEvent {
-    users?: Array<{ id?: string; user_id?: string; }>;
-}
-
 const logger = new Logger("BetterBlockIgnore");
+const MessageReactionsStore = findStoreLazy("MessageReactionsStore");
 
 const settings = definePluginSettings({
     hideBlockedMessages: {
@@ -64,6 +65,11 @@ const settings = definePluginSettings({
     },
     hideMentionsOfBlockedUsers: {
         description: "Hide messages that mention blocked or ignored users",
+        type: OptionType.BOOLEAN,
+        default: true,
+    },
+    hideSidebarMembers: {
+        description: "Remove blocked or ignored users from the channel member list",
         type: OptionType.BOOLEAN,
         default: true,
     },
@@ -154,16 +160,17 @@ export default definePlugin({
         },
         {
             find: '"MessageReactionsStore"',
-            replacement: [
-                {
-                    match: /(?<=MESSAGE_REACTION_ADD:function\((\i)\){)/,
-                    replace: (_, props) => `if($self.shouldDropReaction(${props}))return;`
-                },
-                {
-                    match: /(?<=MESSAGE_REACTION_ADD_USERS:function\((\i)\){)/,
-                    replace: (_, props) => `if($self.filterReactionUsers(${props}))return;`
-                }
-            ]
+            replacement: {
+                match: /(?<=MESSAGE_REACTION_ADD:function\((\i)\){)/,
+                replace: (_, props) => `if($self.shouldDropReaction(${props}))return;`
+            }
+        },
+        {
+            find: "hoistReaction:",
+            replacement: {
+                match: /function\((\i)\)\{let\{message:(\i),maxReactions:(\i),hoistReaction:(\i)\}=\1,/,
+                replace: "function($1){let{message:$2,maxReactions:$3,hoistReaction:$4}=$1;$2=$self.useFilteredReactions($2);let "
+            }
         },
         {
             find: "Message must not be a thread starter message",
@@ -171,6 +178,20 @@ export default definePlugin({
                 match: /\)\("li",\{(.+?),className:/,
                 replace: ")(\"li\",{$1,className:($self.shouldHideRenderedMessage(arguments[0]?.message)?\"vc-better-block-ignore-hidden \":\"\")+"
             }
+        },
+        {
+            find: "content-inventory-hidden-entry",
+            group: true,
+            replacement: [
+                {
+                    match: /((\i)=this\.getRowProps\(\i\);)(?=if\(null!=\2\))/,
+                    replace: "$1if($self.shouldHideMemberListRow($2))return null;"
+                },
+                {
+                    match: /rowHeight:this\.getRowHeightComputer\(\)/,
+                    replace: "rowHeight:$self.wrapMemberListRowHeight(this,this.getRowHeightComputer())"
+                }
+            ]
         }
     ],
 
@@ -239,20 +260,54 @@ export default definePlugin({
         }
     },
 
-    filterReactionUsers(event: ReactionUsersEvent): boolean {
-        if (!settings.store.hideReactionsFromBlockedUsers || !Array.isArray(event.users)) return false;
-
+    shouldHideMemberListRow(row: MemberListRowLike | null | undefined): boolean {
         try {
-            event.users = event.users.filter(user => !shouldHideReactionByRelationship(
-                { user },
-                currentOptions(),
-                relationshipChecks()
-            ));
-
-            return event.users.length === 0;
+            return shouldHideMemberListRow(
+                row,
+                settings.store.hideSidebarMembers,
+                relationshipChecks(),
+                settings.store.applyToIgnoredUsers
+            );
         } catch (e) {
-            logger.error("Failed to filter reaction users:", e);
+            logger.error("Failed to check member-list row:", e);
             return false;
         }
+    },
+
+    wrapMemberListRowHeight(
+        list: { getRowProps(props: { section: number; row: number; type: string; }): MemberListRowLike | null; },
+        rowHeight: number | ((section: number, row: number, ...args: unknown[]) => number)
+    ) {
+        return (section: number, row: number, ...args: unknown[]) => {
+            const member = list.getRowProps({ section, row, type: "row" });
+            if (this.shouldHideMemberListRow(member)) return 0;
+            return typeof rowHeight === "function"
+                ? rowHeight(section, row, ...args)
+                : rowHeight;
+        };
+    },
+
+    useFilteredReactions(message: Message): Message {
+        return useStateFromStores([MessageReactionsStore], () => {
+            if (!settings.store.hideReactionsFromBlockedUsers) return message;
+
+            let changed = false;
+            const reactions = message.reactions.flatMap(reaction => {
+                const getReactorIds = (type: number) => MessageReactionsStore
+                    .getReactions(message.channel_id, message.id, reaction.emoji, 100, type)
+                    ?.keys() ?? [];
+                const filtered = filterReactionCountsByRelationship(
+                    reaction,
+                    getReactorIds(0),
+                    getReactorIds(1),
+                    currentOptions(),
+                    relationshipChecks()
+                );
+                changed ||= filtered !== reaction;
+                return filtered ? [filtered] : [];
+            });
+
+            return changed ? message.set("reactions", reactions) : message;
+        });
     },
 });
